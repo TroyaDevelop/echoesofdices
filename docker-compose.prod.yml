@@ -1,0 +1,49 @@
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    environment:
+      PORT: "5017"
+      NODE_ENV: "production"
+      JWT_SECRET: "${JWT_SECRET}"
+      REGISTER_EDITOR_KEY: "${REGISTER_EDITOR_KEY}"
+      ADMIN_LOGIN: "${ADMIN_LOGIN}"
+      ADMIN_PASSWORD: "${ADMIN_PASSWORD}"
+      DB_HOST: "mariadb"
+      DB_PORT: "3306"
+      DB_NAME: "eotd20_wiki"
+      DB_USER: "echoes"
+      DB_PASSWORD: "echoes_password"
+    depends_on:
+      - mariadb
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+      args:
+        API_URL: "/api"
+    environment:
+      NODE_ENV: "production"
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  mariadb:
+    image: mariadb:11.4
+    environment:
+      MARIADB_ROOT_PASSWORD: "${MARIADB_ROOT_PASSWORD}"
+      MARIADB_DATABASE: "eotd20_wiki"
+      MARIADB_USER: "echoes"
+      MARIADB_PASSWORD: "echoes_password"
+    volumes:
+      - mariadb_data:/var/lib/mysql
+      - ./backend/database/schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
+    restart: unless-stopped
+
+volumes:
+  mariadb_data:

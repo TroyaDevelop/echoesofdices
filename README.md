@@ -84,6 +84,28 @@ make echoes-log
 make echoes-down
 ```
 
+### Деплой на VPS (по IP, порт 80)
+
+На сервере понадобится Docker + Docker Compose.
+
+1) Создайте файл `.env` рядом с `docker-compose.prod.yml`:
+
+```env
+JWT_SECRET=change-me
+REGISTER_EDITOR_KEY=change-me
+ADMIN_LOGIN=admin
+ADMIN_PASSWORD=admin123
+MARIADB_ROOT_PASSWORD=change-me
+```
+
+2) Запуск:
+
+```bash
+docker compose -f docker-compose.prod.yml --env-file .env up -d --build
+```
+
+После этого сайт будет доступен на `http://<IP>/`, а API проксируется как `http://<IP>/api`.
+
 ## Структура проекта
 
 ```
