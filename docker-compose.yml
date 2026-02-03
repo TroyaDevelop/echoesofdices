@@ -7,7 +7,6 @@ services:
       PORT: "5017"
       NODE_ENV: "production"
       JWT_SECRET: "change-me-in-prod"
-      REGISTER_EDITOR_KEY: "${REGISTER_EDITOR_KEY}"
       DB_HOST: "mariadb"
       DB_PORT: "3306"
       DB_NAME: "eotd20_wiki"

@@ -10,7 +10,6 @@ const { query } = require('./db');
 const app = express();
 const PORT = process.env.PORT || 5017;
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
-const REGISTER_EDITOR_KEY = process.env.REGISTER_EDITOR_KEY || '';
 
 app.use(cors());
 app.use(express.json());
@@ -171,22 +170,13 @@ async function ensureRuntimeSchema() {
   }
 }
 
-app.post('/api/auth/register-editor', async (req, res) => {
+app.post('/api/auth/register-editor', authenticateToken, requireAdmin, async (req, res) => {
   try {
-    const { login, password, nickname, key } = req.body || {};
+    const { login, password, nickname } = req.body || {};
 
     const loginValue = String(login || '').trim();
     const passwordValue = String(password || '');
     const nicknameValue = String(nickname || '').trim();
-    const keyValue = String(key || '').trim();
-
-    if (!REGISTER_EDITOR_KEY) {
-      return res.status(503).json({ error: 'Регистрация редактора не настроена (нет ключа на сервере)' });
-    }
-
-    if (!keyValue || keyValue !== REGISTER_EDITOR_KEY) {
-      return res.status(403).json({ error: 'Неверный ключ регистрации' });
-    }
 
     if (!loginValue || !passwordValue || !nicknameValue) {
       return res.status(400).json({ error: 'Заполните логин, пароль и никнейм' });

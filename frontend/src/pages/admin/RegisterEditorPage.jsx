@@ -8,7 +8,6 @@ export default function RegisterEditorPage() {
     login: '',
     password: '',
     nickname: '',
-    key: '',
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -24,14 +23,25 @@ export default function RegisterEditorPage() {
     setLoading(true);
 
     try {
+      const token = (() => {
+        try {
+          return localStorage.getItem('token');
+        } catch {
+          return null;
+        }
+      })();
+
+      if (!token) {
+        throw new Error('Нужно войти под админом, чтобы создать редактора');
+      }
+
       const res = await fetch(`${API_URL}/auth/register-editor`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({
           login: String(formData.login || '').trim(),
           password: String(formData.password || ''),
           nickname: String(formData.nickname || '').trim(),
-          key: String(formData.key || '').trim(),
         }),
       });
 
@@ -125,21 +135,8 @@ export default function RegisterEditorPage() {
             <div className="mt-1 text-xs text-gray-400">Минимум 6 символов.</div>
           </div>
 
-          <div>
-            <label htmlFor="key" className="block text-sm font-medium text-gray-300 mb-2">
-              Ключ регистрации
-            </label>
-            <input
-              type="password"
-              id="key"
-              name="key"
-              value={formData.key}
-              onChange={onChange('key')}
-              required
-              className="w-full px-4 py-3 bg-white/10 border border-purple-500/30 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-              placeholder="введите ключ"
-              autoComplete="off"
-            />
+          <div className="text-xs text-gray-400">
+            Создание редактора доступно только после входа администратором.
           </div>
 
           <button
