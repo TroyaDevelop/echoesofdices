@@ -1,0 +1,258 @@
+import { useEffect, useMemo, useState } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+
+import { authAPI } from '../../lib/api.js';
+
+export default function AdminLayout({ children }) {
+  const [user, setUser] = useState(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  useEffect(() => {
+    const logoutAndRedirect = () => {
+      try {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+      } catch {
+      }
+      navigate('/admin/login', { replace: true });
+    };
+
+    const token = localStorage.getItem('token');
+    const userData = localStorage.getItem('user');
+
+    if (!token || !userData) {
+      logoutAndRedirect();
+      return () => {};
+    }
+
+    try {
+      const parsedUser = JSON.parse(userData);
+      setUser(parsedUser);
+    } catch (error) {
+      console.error('Error parsing user data:', error);
+      logoutAndRedirect();
+      return () => {};
+    }
+
+    let isActive = true;
+    authAPI.verify().catch((e) => {
+      if (!isActive) return;
+      console.error(e);
+      logoutAndRedirect();
+    });
+
+    const onAuthLogout = () => logoutAndRedirect();
+    window.addEventListener('auth:logout', onAuthLogout);
+
+    return () => {
+      isActive = false;
+      window.removeEventListener('auth:logout', onAuthLogout);
+    };
+  }, [navigate]);
+
+  const navigation = useMemo(
+    () => [
+      {
+        name: 'Панель управления',
+        href: '/admin',
+        icon: (
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="2"
+              d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2H5a2 2 0 00-2-2z"
+            ></path>
+          </svg>
+        ),
+      },
+      {
+        name: 'Новости',
+        href: '/admin/news',
+        icon: (
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="2"
+              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4h4m-4 4h4M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3"
+            ></path>
+          </svg>
+        ),
+      },
+      {
+        name: 'Заклинания',
+        href: '/admin/spells',
+        icon: (
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="2"
+              d="M12 2l1.09 3.09L16 6l-2.91 1.09L12 10l-1.09-2.91L8 6l2.91-.91L12 2zm7 9l.73 2.07L22 14l-2.27.93L19 17l-.73-2.07L16 14l2.27-.93L19 11zM4 13l.73 2.07L7 16l-2.27.93L4 19l-.73-2.07L1 16l2.27-.93L4 13z"
+            ></path>
+          </svg>
+        ),
+      },
+    ],
+    []
+  );
+
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    navigate('/admin/login', { replace: true });
+  };
+
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center">
+        <div className="text-white text-xl">Загрузка...</div>
+      </div>
+    );
+  }
+
+  const pathname = location.pathname;
+
+  return (
+    <div className="min-h-screen bg-gray-100">
+      <div className={`fixed inset-0 flex z-40 md:hidden ${sidebarOpen ? '' : 'hidden'}`}>
+        <div
+          className="fixed inset-0 bg-gray-600 bg-opacity-75"
+          onClick={() => setSidebarOpen(false)}
+        ></div>
+        <div className="relative flex-1 flex flex-col max-w-xs w-full bg-white">
+          <div className="absolute top-0 right-0 -mr-12 pt-2">
+            <button
+              type="button"
+              className="ml-1 flex items-center justify-center h-10 w-10 rounded-full focus:outline-none focus:ring-2 focus:ring-inset focus:ring-white"
+              onClick={() => setSidebarOpen(false)}
+            >
+              <span className="sr-only">Close sidebar</span>
+              <svg
+                className="h-6 w-6 text-white"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </button>
+          </div>
+          <div className="flex-1 h-0 pt-5 pb-4 overflow-y-auto">
+            <div className="flex-shrink-0 flex items-center px-4">
+              <Link to="/" className="text-xl font-bold text-gray-900">
+                <span className="text-purple-600">EOTD20</span> Wiki
+              </Link>
+            </div>
+            <nav className="mt-5 px-2 space-y-1">
+              {navigation.map((item) => {
+                const isActive = pathname === item.href;
+                return (
+                  <Link
+                    key={item.name}
+                    to={item.href}
+                    className={`${
+                      isActive
+                        ? 'bg-purple-100 text-purple-900'
+                        : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                    } group flex items-center px-2 py-2 text-sm font-medium rounded-md`}
+                  >
+                    <span
+                      className={`${isActive ? 'text-purple-500' : 'text-gray-400 group-hover:text-gray-500'} mr-3 flex-shrink-0`}
+                    >
+                      {item.icon}
+                    </span>
+                    {item.name}
+                  </Link>
+                );
+              })}
+            </nav>
+          </div>
+        </div>
+      </div>
+
+      <div className="hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0">
+        <div className="flex-1 flex flex-col min-h-0 border-r border-gray-200 bg-white">
+          <div className="flex-1 flex flex-col pt-5 pb-4 overflow-y-auto">
+            <div className="flex items-center flex-shrink-0 px-4">
+              <Link to="/" className="text-xl font-bold text-gray-900">
+                <span className="text-purple-600">EOTD20</span> Wiki
+              </Link>
+            </div>
+            <nav className="mt-5 flex-1 px-2 bg-white space-y-1">
+              {navigation.map((item) => {
+                const isActive = pathname === item.href;
+                return (
+                  <Link
+                    key={item.name}
+                    to={item.href}
+                    className={`${
+                      isActive
+                        ? 'bg-purple-100 text-purple-900'
+                        : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                    } group flex items-center px-2 py-2 text-sm font-medium rounded-md`}
+                  >
+                    <span
+                      className={`${isActive ? 'text-purple-500' : 'text-gray-400 group-hover:text-gray-500'} mr-3 flex-shrink-0`}
+                    >
+                      {item.icon}
+                    </span>
+                    {item.name}
+                  </Link>
+                );
+              })}
+            </nav>
+          </div>
+          <div className="flex-shrink-0 flex border-t border-gray-200 p-4">
+            <div className="flex-shrink-0 w-full group block">
+              <div className="flex items-center">
+                <div>
+                  <div className="w-9 h-9 bg-purple-600 rounded-full flex items-center justify-center">
+                    <span className="text-white text-sm font-medium">{String(user.login || '?').charAt(0).toUpperCase()}</span>
+                  </div>
+                </div>
+                <div className="ml-3 flex-1">
+                  <p className="text-sm font-medium text-gray-700 group-hover:text-gray-900">{user.login}</p>
+                  <button
+                    onClick={handleLogout}
+                    className="text-xs font-medium text-gray-500 group-hover:text-gray-700"
+                  >
+                    Выйти
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="md:pl-64 flex flex-col flex-1">
+        <div className="sticky top-0 z-10 md:hidden pl-1 pt-1 sm:pl-3 sm:pt-3 bg-gray-100">
+          <button
+            type="button"
+            className="-ml-0.5 -mt-0.5 h-12 w-12 inline-flex items-center justify-center rounded-md text-gray-500 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-purple-500"
+            onClick={() => setSidebarOpen(true)}
+          >
+            <span className="sr-only">Open sidebar</span>
+            <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </button>
+        </div>
+        <main className="flex-1">
+          <div className="py-6">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 md:px-8">{children}</div>
+          </div>
+        </main>
+      </div>
+    </div>
+  );
+}

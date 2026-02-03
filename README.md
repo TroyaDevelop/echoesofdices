@@ -1,36 +1,143 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
+# EOTD20
 
-## Getting Started
+Минималистичный сайт мира EOTD20: публично доступны только «Новости» и «Заклинания». Добавление/удаление контента — только через админку.
 
-First, run the development server:
+## Описание
 
+Публичная часть — read-only.
+
+Админка — управление новостями и заклинаниями (создание/удаление).
+
+## Функциональность
+
+### Публичная часть
+- 📰 Просмотр новостей
+- ✨ Просмотр списка заклинаний (поиск)
+- 📱 Адаптивный дизайн
+- ⚡ Быстрая навигация
+
+### Административная панель
+- 🔐 Система аутентификации (только вход)
+- ✏️ Создание/удаление новостей
+- ✨ Создание/удаление заклинаний
+
+## Технологический стек
+
+### Frontend
+- **React 19** - SPA (React Router)
+- **esbuild** - сборка/дев-сервер
+- **Tailwind CSS 4 (через PostCSS)** - стили
+
+### Backend
+- **Node.js** - серверная среда выполнения
+- **Express.js** - веб-фреймворк
+- **JWT** - аутентификация
+- **bcryptjs** - хеширование паролей
+- **MariaDB** - база данных (в docker-compose)
+
+## Установка и запуск
+
+### Предварительные требования
+- Node.js 18+
+- npm или yarn
+- Docker + Docker Compose (для запуска через `make echoes-*`)
+
+### Шаги установки
+
+1. **Клонирование репозитория**
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+git clone <repository-url>
+cd eotd20site
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+2. **Установка зависимостей**
+```bash
+npm install
+npm --prefix frontend install
+npm --prefix backend install
+```
 
-You can start editing the page by modifying `app/page.js`. The page auto-updates as you edit the file.
+3. **Настройка окружения (опционально)**
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Frontend использует переменную `API_URL` (подхватывается в сборке/esbuild).
 
-## Learn More
+```env
+# пример
+API_URL=http://localhost:5017/api
+```
 
-To learn more about Next.js, take a look at the following resources:
+4. **Запуск проекта (локально, без Docker)**
+```bash
+npm run dev
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Запустит одновременно:
+- Frontend на http://localhost:3017
+- Backend API на http://localhost:5017
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### Запуск через Docker (рекомендуется)
 
-## Deploy on Vercel
+```bash
+make echoes-build
+make echoes-up
+make echoes-log
+make echoes-down
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Структура проекта
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```
+eotd20site/
+├── frontend/
+│   ├── src/                   # SPA страницы/компоненты
+│   └── Dockerfile             # nginx runtime
+├── backend/
+│   ├── database/              # Схемы БД
+│   └── server.js              # Основной сервер
+├── public/                     # общие статические файлы (карта и т.п.)
+└── package.json
+```
+
+## API
+
+### Публичные эндпоинты
+- `GET /api/news` - список опубликованных новостей
+- `GET /api/spells` - список заклинаний
+
+### Административные эндпоинты
+- `POST /api/auth/login` - вход в систему
+
+Новости:
+- `GET /api/news/admin` - список всех новостей (админ)
+- `POST /api/news` - создание новости (админ)
+- `DELETE /api/news/:id` - удаление новости (админ)
+
+Заклинания:
+- `GET /api/spells/admin` - список всех заклинаний (админ)
+- `POST /api/spells` - создание заклинания (админ)
+- `DELETE /api/spells/:id` - удаление заклинания (админ)
+
+### Дефолтный админ
+
+**Админ-аккаунт:**
+- Логин: admin
+- Пароль: admin123
+
+## Разработка
+
+### Добавление новых страниц
+Создайте новые файлы в `frontend/src/pages` и добавьте роут в `frontend/src/App.jsx`.
+
+### Добавление API эндпоинтов
+Добавьте новые роуты в `backend/routes/` и подключите в `server.js`.
+
+### Стилизация
+Проект использует Tailwind CSS. Классы можно добавлять напрямую в JSX.
+
+## Лицензия
+
+MIT License
+
+## Автор
+
+Miyuki - создано для эпических RPG приключений ⚔️
