@@ -5,6 +5,13 @@ import { spellsAPI } from '../lib/api.js';
 
 const normalize = (v) => String(v || '').trim();
 
+const levelBadge = (level) => {
+  const lvl = Number(level);
+  if (!Number.isFinite(lvl)) return 'Ур. ?';
+  if (lvl === 0) return 'Заговор';
+  return `Ур. ${lvl}`;
+};
+
 export default function SpellsPage() {
   const [spells, setSpells] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -42,16 +49,6 @@ export default function SpellsPage() {
     return filtered.sort((a, b) => normalize(a.name).localeCompare(normalize(b.name), 'ru', { sensitivity: 'base' }));
   }, [spells, query]);
 
-  const grouped = useMemo(() => {
-    const map = new Map();
-    for (const s of filteredSorted) {
-      const letter = normalize(s.name).charAt(0).toUpperCase() || '#';
-      if (!map.has(letter)) map.set(letter, []);
-      map.get(letter).push(s);
-    }
-    return Array.from(map.entries());
-  }, [filteredSorted]);
-
   return (
     <PublicLayout>
       <div className="space-y-8">
@@ -75,44 +72,31 @@ export default function SpellsPage() {
 
         {loading ? (
           <div className="text-slate-300">Загрузка…</div>
-        ) : grouped.length === 0 ? (
+        ) : filteredSorted.length === 0 ? (
           <div className="text-slate-300">Ничего не найдено.</div>
         ) : (
-          <div className="space-y-10">
-            {grouped.map(([letter, list]) => (
-              <section key={letter} className="space-y-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-lg font-bold text-purple-200">
-                    {letter}
-                  </div>
-                  <div className="h-px flex-1 bg-white/10" />
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {filteredSorted.map((s) => (
+              <Link
+                key={s.id}
+                to={`/spells/${s.id}`}
+                className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 flex items-start justify-between gap-3 hover:bg-white/10 transition-colors"
+              >
+                <div className="min-w-0">
+                  <div className="font-medium text-slate-100 truncate">{s.name}</div>
+                  {(s.school || s.components) && (
+                    <div className="mt-0.5 text-xs text-slate-400 truncate">
+                      {[s.school, s.components].filter(Boolean).join(' • ')}
+                    </div>
+                  )}
                 </div>
 
-                <div className="rounded-2xl border border-white/10 bg-white/5 overflow-hidden">
-                  {list.map((s) => (
-                    <Link
-                      key={s.id}
-                      to={`/spells/${s.id}`}
-                      className="px-4 sm:px-6 py-3 flex items-center justify-between gap-4 border-b border-white/10 last:border-b-0"
-                    >
-                      <div className="min-w-0">
-                        <div className="font-medium text-slate-100 truncate">{s.name}</div>
-                        {(s.school || s.components) && (
-                          <div className="mt-0.5 text-xs text-slate-400 truncate">
-                            {[s.school, s.components].filter(Boolean).join(' • ')}
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="flex items-center gap-2 flex-shrink-0">
-                        <span className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-purple-500/20 border border-purple-500/30 text-purple-200">
-                          {Number.isFinite(Number(s.level)) ? `Ур. ${s.level}` : 'Ур. ?'}
-                        </span>
-                      </div>
-                    </Link>
-                  ))}
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <span className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-purple-500/20 border border-purple-500/30 text-purple-200">
+                    {levelBadge(s.level)}
+                  </span>
                 </div>
-              </section>
+              </Link>
             ))}
           </div>
         )}

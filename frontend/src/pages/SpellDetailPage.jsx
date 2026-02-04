@@ -11,7 +11,7 @@ const field = (v) => {
 const levelLine = (level, school) => {
   const lvl = Number(level);
   const parts = [];
-  if (Number.isFinite(lvl)) parts.push(`${lvl} уровень`);
+  if (Number.isFinite(lvl)) parts.push(lvl === 0 ? 'Заговор' : `${lvl} уровень`);
   if (school) parts.push(String(school));
   return parts.join(', ');
 };

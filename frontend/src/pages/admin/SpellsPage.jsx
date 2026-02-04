@@ -385,7 +385,11 @@ export default function AdminSpellsPage() {
                     <div className="flex items-center gap-3 flex-wrap">
                       <div className="font-semibold text-gray-900 truncate">{s.name}</div>
                       <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                        Ур. {Number.isFinite(Number(s.level)) ? s.level : '?'}
+                        {Number.isFinite(Number(s.level))
+                          ? Number(s.level) === 0
+                            ? 'Заговор'
+                            : `Ур. ${s.level}`
+                          : 'Ур. ?'}
                       </span>
                     </div>
                     {(s.school || s.components) && (
