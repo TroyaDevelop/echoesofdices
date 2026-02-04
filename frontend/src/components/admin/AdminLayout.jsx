@@ -138,7 +138,7 @@ export default function AdminLayout({ children }) {
   const pathname = location.pathname;
 
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className="min-h-screen bg-gray-100 text-gray-900">
       <div className={`fixed inset-0 flex z-40 md:hidden ${sidebarOpen ? '' : 'hidden'}`}>
         <div
           className="fixed inset-0 bg-gray-600 bg-opacity-75"
