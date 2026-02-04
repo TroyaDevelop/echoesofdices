@@ -47,3 +47,4 @@ echoes-restore:
 	  *) cat "$$FILE" ;; \
 	esac | $(COMPOSE) -f "$$CF" exec -T mariadb sh -lc 'mariadb -u"$$MARIADB_USER" -p"$$MARIADB_PASSWORD" "$$MARIADB_DATABASE"'; \
 	echo "OK: restore completed"
+

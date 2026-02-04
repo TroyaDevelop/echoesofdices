@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 
 import { spellsAPI } from '../lib/api.js';
 
@@ -18,10 +18,18 @@ const levelLine = (level, school) => {
 
 export default function SpellDetailPage() {
   const { id } = useParams();
+  const navigate = useNavigate();
 
   const [spell, setSpell] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [likes, setLikes] = useState({ count: 0, liked: false });
+  const [likeBusy, setLikeBusy] = useState(false);
+
+  const [comments, setComments] = useState([]);
+  const [commentText, setCommentText] = useState('');
+  const [commentBusy, setCommentBusy] = useState(false);
+  const [commentsLoading, setCommentsLoading] = useState(true);
 
   useEffect(() => {
     let isActive = true;
@@ -30,9 +38,21 @@ export default function SpellDetailPage() {
       setLoading(true);
       setError('');
       try {
-        const data = await spellsAPI.getById(id);
+        const [data, likesData, commentsData] = await Promise.all([
+          spellsAPI.getById(id),
+          spellsAPI.getLikes(id),
+          spellsAPI.listComments(id),
+        ]);
         if (!isActive) return;
         setSpell(data);
+        if (likesData && typeof likesData === 'object') {
+          setLikes({
+            count: Number(likesData.count || 0),
+            liked: Boolean(likesData.liked),
+          });
+        }
+
+        setComments(Array.isArray(commentsData) ? commentsData : []);
       } catch (e) {
         if (!isActive) return;
         console.error(e);
@@ -40,6 +60,7 @@ export default function SpellDetailPage() {
       } finally {
         if (!isActive) return;
         setLoading(false);
+        setCommentsLoading(false);
       }
     };
 
@@ -74,6 +95,93 @@ export default function SpellDetailPage() {
     ]);
     return allowed.has(raw) ? raw : 'none';
   }, [spell]);
+
+  const canLike = useMemo(() => {
+    try {
+      return Boolean(localStorage.getItem('token'));
+    } catch {
+      return false;
+    }
+  }, []);
+
+  const toggleLike = async () => {
+    if (!spell) return;
+    if (!canLike) {
+      setError('Нужно войти, чтобы поставить лайк');
+      navigate('/login');
+      return;
+    }
+    if (likeBusy) return;
+    setLikeBusy(true);
+    setError('');
+    try {
+      const next = likes.liked ? await spellsAPI.unlike(spell.id) : await spellsAPI.like(spell.id);
+      setLikes({
+        count: Number(next?.count || 0),
+        liked: Boolean(next?.liked),
+      });
+    } catch (e) {
+      console.error(e);
+      setError(e.message || 'Ошибка лайка');
+    } finally {
+      setLikeBusy(false);
+    }
+  };
+
+  const canComment = useMemo(() => {
+    try {
+      return Boolean(localStorage.getItem('token'));
+    } catch {
+      return false;
+    }
+  }, []);
+
+  const submitComment = async (e) => {
+    e.preventDefault();
+    if (!spell) return;
+    if (!canComment) {
+      setError('Нужно войти, чтобы комментировать');
+      navigate('/login');
+      return;
+    }
+
+    const content = String(commentText || '').trim();
+    if (!content) return;
+    if (commentBusy) return;
+
+    setCommentBusy(true);
+    setError('');
+    try {
+      const created = await spellsAPI.addComment(spell.id, content);
+      setComments((prev) => [...prev, created].filter(Boolean));
+      setCommentText('');
+    } catch (e2) {
+      console.error(e2);
+      setError(e2.message || 'Ошибка отправки комментария');
+    } finally {
+      setCommentBusy(false);
+    }
+  };
+
+  const formatCommentDate = (value) => {
+    try {
+      return new Date(value).toLocaleString('ru-RU', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+    } catch {
+      return String(value || '');
+    }
+  };
+
+  const commentAuthor = (c) => {
+    const nickname = String(c?.author_nickname || '').trim();
+    const login = String(c?.author_login || '').trim();
+    return nickname || login || '—';
+  };
 
   return (
     <div className={`min-h-screen spell-page spell-page--${theme} px-3 py-3 sm:px-6 sm:py-6`}>
@@ -152,6 +260,69 @@ export default function SpellDetailPage() {
               <div className="h-px bg-black/10 mb-3" />
               <div className="whitespace-pre-wrap leading-relaxed">
                 {spell.description ? String(spell.description) : '—'}
+              </div>
+
+              <div className="h-px bg-black/10 my-4" />
+
+              <div className="flex items-center justify-end mb-3">
+                <button
+                  type="button"
+                  onClick={toggleLike}
+                  disabled={likeBusy}
+                  className={`px-3 py-1.5 rounded-md border text-sm transition-colors shadow-sm ${
+                    likes.liked
+                      ? 'bg-pink-600/15 border-pink-700/30 text-pink-900'
+                      : 'bg-white/60 border-black/20 text-slate-900'
+                  }`}
+                  title={canLike ? 'Поставить/снять лайк' : 'Войдите, чтобы лайкнуть'}
+                >
+                  {likes.liked ? '♥' : '♡'} {Number.isFinite(Number(likes.count)) ? likes.count : 0}
+                </button>
+              </div>
+
+              <div className="space-y-3">
+                <div className="flex items-end justify-between gap-3">
+                  <h2 className="text-lg font-semibold">Комментарии</h2>
+                  <div className="text-xs text-slate-700">{comments.length}</div>
+                </div>
+
+                <form onSubmit={submitComment} className="space-y-2">
+                  <textarea
+                    value={commentText}
+                    onChange={(e) => setCommentText(e.target.value)}
+                    placeholder={canComment ? 'Написать комментарий…' : 'Войдите, чтобы комментировать'}
+                    disabled={!canComment || commentBusy}
+                    rows={3}
+                    className="w-full rounded-md border border-black/20 bg-white/50 px-3 py-2 text-slate-900 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  />
+                  <div className="flex items-center justify-between gap-3">
+                    <button
+                      type="submit"
+                      disabled={!canComment || commentBusy || !String(commentText || '').trim()}
+                      className="px-4 py-2 rounded-md bg-purple-700 text-white disabled:bg-purple-300"
+                    >
+                      {commentBusy ? 'Отправляю…' : 'Отправить'}
+                    </button>
+                  </div>
+                </form>
+
+                {commentsLoading ? (
+                  <div className="text-slate-700">Загрузка комментариев…</div>
+                ) : comments.length === 0 ? (
+                  <div className="text-slate-700">Пока нет комментариев.</div>
+                ) : (
+                  <div className="space-y-3">
+                    {comments.map((c) => (
+                      <div key={c.id} className="rounded-md border border-black/10 bg-white/40 p-3">
+                        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs text-slate-700">
+                          <div className="font-semibold">{commentAuthor(c)}</div>
+                          <div>{formatCommentDate(c.created_at)}</div>
+                        </div>
+                        <div className="mt-2 whitespace-pre-wrap text-slate-900">{String(c.content || '')}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           </div>

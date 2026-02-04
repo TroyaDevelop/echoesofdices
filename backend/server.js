@@ -2,8 +2,12 @@ const express = require('express');
 const cors = require('cors');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
+
+const path = require('path');
 
 require('dotenv').config();
+require('dotenv').config({ path: path.resolve(__dirname, '..', '.env'), override: false });
 
 const { query } = require('./db');
 
@@ -31,19 +35,33 @@ const authenticateToken = (req, res, next) => {
   });
 };
 
+const authenticateOptional = (req, res, next) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+
+  if (!token) {
+    req.user = null;
+    return next();
+  }
+
+  jwt.verify(token, JWT_SECRET, (err, user) => {
+    if (err) {
+      req.user = null;
+      return next();
+    }
+    req.user = user;
+    next();
+  });
+};
+
 const requireAdmin = (req, res, next) => {
-  if (req.user.role !== 'admin') {
-    return res.status(403).json({ error: 'Требуются права администратора' });
+  if (req.user.role !== 'editor') {
+    return res.status(403).json({ error: 'Требуются права редактора' });
   }
   next();
 };
 
-const requireStaff = (req, res, next) => {
-  if (req.user.role !== 'admin' && req.user.role !== 'editor') {
-    return res.status(403).json({ error: 'Требуются права редактора или администратора' });
-  }
-  next();
-};
+const requireStaff = requireAdmin;
 
 app.post('/api/auth/login', async (req, res) => {
   try {
@@ -102,15 +120,33 @@ async function safeQuery(sql, params = []) {
 
 async function ensureRuntimeSchema() {
   await query(
-    "CREATE TABLE IF NOT EXISTS users (id INT PRIMARY KEY AUTO_INCREMENT, login VARCHAR(255) UNIQUE NOT NULL, password VARCHAR(255) NOT NULL, role ENUM('admin','editor') DEFAULT 'admin', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP)",
+    "CREATE TABLE IF NOT EXISTS users (id INT PRIMARY KEY AUTO_INCREMENT, login VARCHAR(255) UNIQUE NOT NULL, password VARCHAR(255) NOT NULL, role ENUM('editor','user') DEFAULT 'user', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP)",
     []
   );
+
+  await safeQuery("UPDATE users SET role = 'editor' WHERE role = 'admin'", []);
+  await safeQuery("ALTER TABLE users MODIFY COLUMN role ENUM('editor','user') DEFAULT 'user'", []);
 
   await safeQuery('ALTER TABLE users CHANGE COLUMN email login VARCHAR(255) NOT NULL', []);
   await safeQuery('ALTER TABLE users ADD COLUMN IF NOT EXISTS login VARCHAR(255)', []);
   await safeQuery('ALTER TABLE users ADD UNIQUE INDEX uniq_users_login (login)', []);
 
   await query('ALTER TABLE users ADD COLUMN IF NOT EXISTS nickname VARCHAR(100)', []);
+
+  await query(
+    'CREATE TABLE IF NOT EXISTS registration_keys (id INT PRIMARY KEY AUTO_INCREMENT, reg_key VARCHAR(80) UNIQUE NOT NULL, is_active TINYINT(1) NOT NULL DEFAULT 1, created_by INT NULL, used_by INT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, used_at TIMESTAMP NULL, INDEX idx_reg_keys_active_used (is_active, used_at), INDEX idx_reg_keys_created_at (created_at))',
+    []
+  );
+
+  await query(
+    'CREATE TABLE IF NOT EXISTS spell_likes (id INT PRIMARY KEY AUTO_INCREMENT, spell_id INT NOT NULL, user_id INT NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, UNIQUE KEY uniq_spell_user (spell_id, user_id), INDEX idx_spell_likes_spell (spell_id), FOREIGN KEY (spell_id) REFERENCES spells(id) ON DELETE CASCADE, FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE)',
+    []
+  );
+
+  await query(
+    'CREATE TABLE IF NOT EXISTS spell_comments (id INT PRIMARY KEY AUTO_INCREMENT, spell_id INT NOT NULL, user_id INT NOT NULL, content TEXT NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, INDEX idx_spell_comments_spell_created (spell_id, created_at), FOREIGN KEY (spell_id) REFERENCES spells(id) ON DELETE CASCADE, FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE)',
+    []
+  );
 
   await query(
     "CREATE TABLE IF NOT EXISTS news_posts (id INT PRIMARY KEY AUTO_INCREMENT, title VARCHAR(255) NOT NULL, slug VARCHAR(255) UNIQUE NOT NULL, content LONGTEXT NOT NULL, excerpt TEXT, author_id INT, status ENUM('draft','published') DEFAULT 'draft', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, FOREIGN KEY (author_id) REFERENCES users(id) ON DELETE SET NULL, INDEX idx_news_status_created (status, created_at))",
@@ -132,54 +168,47 @@ async function ensureRuntimeSchema() {
   await query('ALTER TABLE spells ADD COLUMN IF NOT EXISTS source_pages VARCHAR(50)', []);
   await query("ALTER TABLE spells ADD COLUMN IF NOT EXISTS theme VARCHAR(32) DEFAULT 'none'", []);
 
-  const adminLogin = process.env.ADMIN_LOGIN || 'admin';
-  const adminPassword = process.env.ADMIN_PASSWORD || 'admin123';
-
-  let adminRows = await query('SELECT id, login, password, role FROM users WHERE login = ? LIMIT 1', [adminLogin]);
-  let admin = adminRows && adminRows[0];
-
-  if (!admin) {
-    const anyAdminRows = await query("SELECT id, login, password, role FROM users WHERE role = 'admin' ORDER BY id ASC LIMIT 1", []);
-    const anyAdmin = anyAdminRows && anyAdminRows[0];
-    if (anyAdmin) {
-      admin = anyAdmin;
-      if (String(admin.login) !== String(adminLogin)) {
-        const occupied = await query('SELECT id FROM users WHERE login = ? LIMIT 1', [adminLogin]);
-        if (!occupied || !occupied[0]) {
-          await query('UPDATE users SET login = ? WHERE id = ?', [adminLogin, admin.id]);
-          admin.login = adminLogin;
-        }
-      }
+  const anyEditor = await query("SELECT id FROM users WHERE role = 'editor' LIMIT 1", []);
+  if (!anyEditor || !anyEditor[0]) {
+    const anyUser = await query('SELECT id FROM users ORDER BY id ASC LIMIT 1', []);
+    if (anyUser && anyUser[0]) {
+      await query("UPDATE users SET role = 'editor' WHERE id = ?", [anyUser[0].id]);
     }
   }
 
-  if (!admin) {
-    const hashed = await bcrypt.hash(String(adminPassword), 10);
-    await query('INSERT INTO users (login, password, role) VALUES (?, ?, ?)', [adminLogin, hashed, 'admin']);
-    return;
-  }
+  const defaultEditorLoginRaw = process.env.ECHOESROOT_LOGIN;
+  const defaultEditorPasswordRaw = process.env.ECHOESROOT_PASSWORD;
+  const defaultEditorLogin = String(defaultEditorLoginRaw || 'echoesroot').trim() || 'echoesroot';
+  const defaultEditorPassword = String(defaultEditorPasswordRaw || 'echoesoftimespunguinandpigeon');
 
-  const passOk = await bcrypt.compare(String(adminPassword), String(admin.password));
-  if (!passOk) {
-    const hashed = await bcrypt.hash(String(adminPassword), 10);
-    await query('UPDATE users SET password = ? WHERE id = ?', [hashed, admin.id]);
-  }
-
-  if (admin.role !== 'admin') {
-    await query("UPDATE users SET role = 'admin' WHERE id = ?", [admin.id]);
+  const existing = await query('SELECT id, login, password, role FROM users WHERE login = ? LIMIT 1', [defaultEditorLogin]);
+  const user = existing && existing[0];
+  if (!user) {
+    const hashed = await bcrypt.hash(defaultEditorPassword, 10);
+    await query('INSERT INTO users (login, password, role, nickname) VALUES (?, ?, ?, ?)', [defaultEditorLogin, hashed, 'editor', defaultEditorLogin]);
+  } else {
+    const passOk = await bcrypt.compare(defaultEditorPassword, String(user.password));
+    if (!passOk) {
+      const hashed = await bcrypt.hash(defaultEditorPassword, 10);
+      await query('UPDATE users SET password = ? WHERE id = ?', [hashed, user.id]);
+    }
+    if (String(user.role) !== 'editor') {
+      await query("UPDATE users SET role = 'editor' WHERE id = ?", [user.id]);
+    }
   }
 }
 
-app.post('/api/auth/register-editor', authenticateToken, requireAdmin, async (req, res) => {
+app.post('/api/auth/register', async (req, res) => {
   try {
-    const { login, password, nickname } = req.body || {};
+    const { login, password, nickname, key } = req.body || {};
 
     const loginValue = String(login || '').trim();
     const passwordValue = String(password || '');
     const nicknameValue = String(nickname || '').trim();
+    const keyValue = String(key || '').trim();
 
-    if (!loginValue || !passwordValue || !nicknameValue) {
-      return res.status(400).json({ error: 'Заполните логин, пароль и никнейм' });
+    if (!loginValue || !passwordValue || !nicknameValue || !keyValue) {
+      return res.status(400).json({ error: 'Заполните логин, пароль, никнейм и ключ регистрации' });
     }
 
     if (passwordValue.length < 6) {
@@ -191,23 +220,119 @@ app.post('/api/auth/register-editor', authenticateToken, requireAdmin, async (re
       return res.status(409).json({ error: 'Пользователь с таким логином уже существует' });
     }
 
+    const claim = await query(
+      'UPDATE registration_keys SET is_active = 0, used_at = NOW() WHERE reg_key = ? AND is_active = 1 AND used_at IS NULL',
+      [keyValue]
+    );
+
+    const affected = Number(claim?.affectedRows || 0);
+    if (affected < 1) {
+      return res.status(403).json({ error: 'Неверный или уже использованный ключ регистрации' });
+    }
+
     const hashed = await bcrypt.hash(passwordValue, 10);
     const result = await query(
       'INSERT INTO users (login, password, role, nickname) VALUES (?, ?, ?, ?)',
-      [loginValue, hashed, 'editor', nicknameValue]
+      [loginValue, hashed, 'user', nicknameValue]
     );
-
     const insertedId = typeof result.insertId === 'bigint' ? Number(result.insertId) : result.insertId;
+
+    await safeQuery('UPDATE registration_keys SET used_by = ? WHERE reg_key = ? AND used_by IS NULL', [insertedId, keyValue]);
 
     res.status(201).json({
       id: insertedId,
       login: loginValue,
       nickname: nicknameValue,
-      role: 'editor',
+      role: 'user',
     });
   } catch (error) {
-    console.error('Register editor error:', error);
-    res.status(500).json({ error: 'Ошибка при регистрации редактора' });
+    console.error('Register user error:', error);
+    res.status(500).json({ error: 'Ошибка при регистрации' });
+  }
+});
+
+app.get('/api/admin/users', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const rows = await query(
+      'SELECT id, login, nickname, role, created_at, updated_at FROM users ORDER BY created_at DESC',
+      []
+    );
+    res.json(rows);
+  } catch (error) {
+    console.error('List users error:', error);
+    res.status(503).json({ error: 'База данных недоступна' });
+  }
+});
+
+app.delete('/api/admin/users/:id(\\d+)', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) return res.status(400).json({ error: 'Некорректный id' });
+
+    const currentUserId = Number(req.user?.userId);
+    if (Number.isFinite(currentUserId) && id === currentUserId) {
+      return res.status(403).json({ error: 'Нельзя удалить самого себя' });
+    }
+
+    const rows = await query('SELECT id FROM users WHERE id = ? LIMIT 1', [id]);
+    const user = rows && rows[0];
+    if (!user) return res.status(404).json({ error: 'Пользователь не найден' });
+
+    await query('DELETE FROM users WHERE id = ?', [id]);
+    res.json({ ok: true });
+  } catch (error) {
+    console.error('Delete user error:', error);
+    res.status(500).json({ error: 'Ошибка при удалении пользователя' });
+  }
+});
+
+app.patch('/api/admin/users/:id(\\d+)/role', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) return res.status(400).json({ error: 'Некорректный id' });
+
+    const roleValue = String(req.body?.role || '').trim().toLowerCase();
+    if (roleValue !== 'user' && roleValue !== 'editor') {
+      return res.status(400).json({ error: 'Роль должна быть user или editor' });
+    }
+
+    const rows = await query('SELECT id, role FROM users WHERE id = ? LIMIT 1', [id]);
+    const user = rows && rows[0];
+    if (!user) return res.status(404).json({ error: 'Пользователь не найден' });
+    await query('UPDATE users SET role = ? WHERE id = ?', [roleValue, id]);
+    res.json({ id, role: roleValue });
+  } catch (error) {
+    console.error('Update user role error:', error);
+    res.status(500).json({ error: 'Ошибка при обновлении роли' });
+  }
+});
+
+app.post('/api/admin/registration-keys', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const regKey = crypto.randomBytes(24).toString('base64url');
+    const result = await query(
+      'INSERT INTO registration_keys (reg_key, is_active, created_by) VALUES (?, 1, ?)',
+      [regKey, req.user.userId]
+    );
+
+    const insertedId = typeof result.insertId === 'bigint' ? Number(result.insertId) : result.insertId;
+    res.status(201).json({ id: insertedId, key: regKey });
+  } catch (error) {
+    console.error('Create registration key error:', error);
+    res.status(500).json({ error: 'Ошибка при создании ключа' });
+  }
+});
+
+app.get('/api/admin/registration-keys', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const rows = await query(
+      'SELECT rk.id, rk.reg_key AS `key`, rk.is_active, rk.created_at, rk.used_at, rk.used_by, u.login AS used_by_login, cu.login AS created_by_login FROM registration_keys rk LEFT JOIN users u ON rk.used_by = u.id LEFT JOIN users cu ON rk.created_by = cu.id ORDER BY rk.created_at DESC',
+      []
+    );
+    res.json(rows);
+  } catch (error) {
+    console.error('List registration keys error:', error);
+    res.status(503).json({ error: 'База данных недоступна' });
   }
 });
 
@@ -283,7 +408,7 @@ async function ensureUniqueNewsSlug(base) {
 app.get('/api/news', async (req, res) => {
   try {
     const rows = await query(
-      "SELECT id, title, slug, excerpt, content, status, created_at, updated_at FROM news_posts WHERE status = 'published' ORDER BY created_at DESC",
+      "SELECT np.id, np.title, np.slug, np.excerpt, np.content, np.status, np.created_at, np.updated_at, u.login AS author_login, u.nickname AS author_nickname FROM news_posts np LEFT JOIN users u ON np.author_id = u.id WHERE np.status = 'published' ORDER BY np.created_at DESC",
       []
     );
     res.json(rows);
@@ -293,7 +418,7 @@ app.get('/api/news', async (req, res) => {
   }
 });
 
-app.get('/api/news/admin', authenticateToken, async (req, res) => {
+app.get('/api/news/admin', authenticateToken, requireStaff, async (req, res) => {
   try {
     const rows = await query(
       'SELECT id, title, slug, excerpt, content, status, created_at, updated_at FROM news_posts ORDER BY created_at DESC',
@@ -430,7 +555,106 @@ app.get('/api/spells/:id(\\d+)', async (req, res) => {
   }
 });
 
-app.get('/api/spells/admin', authenticateToken, async (req, res) => {
+app.get('/api/spells/:id(\\d+)/likes', authenticateOptional, async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) return res.status(400).json({ error: 'Некорректный id' });
+
+    const countRows = await query('SELECT COUNT(*) AS c FROM spell_likes WHERE spell_id = ?', [id]);
+    const count = Number(countRows?.[0]?.c || 0);
+
+    let liked = false;
+    if (req.user && req.user.userId) {
+      const likedRows = await query('SELECT 1 AS ok FROM spell_likes WHERE spell_id = ? AND user_id = ? LIMIT 1', [id, req.user.userId]);
+      liked = Boolean(likedRows && likedRows[0]);
+    }
+
+    res.json({ count, liked });
+  } catch (error) {
+    console.error('Get spell likes error:', error);
+    res.status(503).json({ error: 'База данных недоступна' });
+  }
+});
+
+app.get('/api/spells/:id(\\d+)/comments', async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) return res.status(400).json({ error: 'Некорректный id' });
+
+    const rows = await query(
+      'SELECT c.id, c.content, c.created_at, u.login AS author_login, u.nickname AS author_nickname FROM spell_comments c JOIN users u ON c.user_id = u.id WHERE c.spell_id = ? ORDER BY c.created_at ASC, c.id ASC',
+      [id]
+    );
+
+    res.json(Array.isArray(rows) ? rows : []);
+  } catch (error) {
+    console.error('List spell comments error:', error);
+    res.status(503).json({ error: 'База данных недоступна' });
+  }
+});
+
+app.post('/api/spells/:id(\\d+)/comments', authenticateToken, async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) return res.status(400).json({ error: 'Некорректный id' });
+
+    const raw = String(req.body?.content || '');
+    const content = raw.trim();
+    if (!content) return res.status(400).json({ error: 'Комментарий не может быть пустым' });
+    if (content.length > 2000) return res.status(400).json({ error: 'Комментарий слишком длинный (макс. 2000 символов)' });
+
+    const exists = await query('SELECT id FROM spells WHERE id = ? LIMIT 1', [id]);
+    if (!exists || !exists[0]) return res.status(404).json({ error: 'Заклинание не найдено' });
+
+    const result = await query(
+      'INSERT INTO spell_comments (spell_id, user_id, content) VALUES (?, ?, ?)',
+      [id, req.user.userId, content]
+    );
+    const insertedId = typeof result.insertId === 'bigint' ? Number(result.insertId) : result.insertId;
+
+    const rows = await query(
+      'SELECT c.id, c.content, c.created_at, u.login AS author_login, u.nickname AS author_nickname FROM spell_comments c JOIN users u ON c.user_id = u.id WHERE c.id = ? LIMIT 1',
+      [insertedId]
+    );
+    const created = rows && rows[0];
+    res.status(201).json(created || { id: insertedId, content, created_at: new Date().toISOString() });
+  } catch (error) {
+    console.error('Create spell comment error:', error);
+    res.status(500).json({ error: 'Ошибка при добавлении комментария' });
+  }
+});
+
+app.post('/api/spells/:id(\\d+)/like', authenticateToken, async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) return res.status(400).json({ error: 'Некорректный id' });
+
+    await query('INSERT IGNORE INTO spell_likes (spell_id, user_id) VALUES (?, ?)', [id, req.user.userId]);
+    const countRows = await query('SELECT COUNT(*) AS c FROM spell_likes WHERE spell_id = ?', [id]);
+    const count = Number(countRows?.[0]?.c || 0);
+    res.json({ count, liked: true });
+  } catch (error) {
+    console.error('Like spell error:', error);
+    res.status(500).json({ error: 'Ошибка при лайке' });
+  }
+});
+
+app.delete('/api/spells/:id(\\d+)/like', authenticateToken, async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) return res.status(400).json({ error: 'Некорректный id' });
+
+    await query('DELETE FROM spell_likes WHERE spell_id = ? AND user_id = ?', [id, req.user.userId]);
+    const countRows = await query('SELECT COUNT(*) AS c FROM spell_likes WHERE spell_id = ?', [id]);
+    const count = Number(countRows?.[0]?.c || 0);
+    res.json({ count, liked: false });
+  } catch (error) {
+    console.error('Unlike spell error:', error);
+    res.status(500).json({ error: 'Ошибка при снятии лайка' });
+  }
+});
+
+app.get('/api/spells/admin', authenticateToken, requireStaff, async (req, res) => {
   try {
     const rows = await query(
       'SELECT id, name, name_en, level, school, theme, casting_time, range_text, components, duration, classes, subclasses, source, source_pages, description, created_at, updated_at FROM spells ORDER BY name ASC',

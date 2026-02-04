@@ -56,6 +56,23 @@ export const authAPI = {
       body: JSON.stringify({ login, password }),
     }),
   verify: () => apiClient('/auth/verify'),
+  register: (data) =>
+    apiClient('/auth/register', {
+      method: 'POST',
+      body: JSON.stringify(data || {}),
+    }),
+};
+
+export const adminAPI = {
+  listUsers: () => apiClient('/admin/users', { method: 'GET' }),
+  setUserRole: (id, role) =>
+    apiClient(`/admin/users/${id}/role`, {
+      method: 'PATCH',
+      body: JSON.stringify({ role }),
+    }),
+  deleteUser: (id) => apiClient(`/admin/users/${id}`, { method: 'DELETE' }),
+  createRegistrationKey: () => apiClient('/admin/registration-keys', { method: 'POST' }),
+  listRegistrationKeys: () => apiClient('/admin/registration-keys', { method: 'GET' }),
 };
 
 export const newsAPI = {
@@ -69,6 +86,15 @@ export const newsAPI = {
 export const spellsAPI = {
   list: () => apiClient('/spells', { method: 'GET' }),
   getById: (id) => apiClient(`/spells/${id}`, { method: 'GET' }),
+  getLikes: (id) => apiClient(`/spells/${id}/likes`, { method: 'GET' }),
+  like: (id) => apiClient(`/spells/${id}/like`, { method: 'POST' }),
+  unlike: (id) => apiClient(`/spells/${id}/like`, { method: 'DELETE' }),
+  listComments: (id) => apiClient(`/spells/${id}/comments`, { method: 'GET' }),
+  addComment: (id, content) =>
+    apiClient(`/spells/${id}/comments`, {
+      method: 'POST',
+      body: JSON.stringify({ content }),
+    }),
   listAdmin: () => apiClient('/spells/admin', { method: 'GET' }),
   create: (data) => apiClient('/spells', { method: 'POST', body: JSON.stringify(data) }),
   update: (id, data) => apiClient(`/spells/${id}`, { method: 'PUT', body: JSON.stringify(data) }),

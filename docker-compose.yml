@@ -6,12 +6,13 @@ services:
     environment:
       PORT: "5017"
       NODE_ENV: "production"
-      JWT_SECRET: "change-me-in-prod"
       DB_HOST: "mariadb"
       DB_PORT: "3306"
       DB_NAME: "eotd20_wiki"
       DB_USER: "echoes"
       DB_PASSWORD: "echoes_password"
+      ECHOESROOT_LOGIN: "${ECHOESROOT_LOGIN}"
+      ECHOESROOT_PASSWORD: "${ECHOESROOT_PASSWORD}"
     ports:
       - "5017:5017"
     depends_on:
@@ -33,7 +34,7 @@ services:
     restart: unless-stopped
 
   mariadb:
-    image: mariadb:11.4
+    image: mariadb:10.11
     environment:
       MARIADB_ROOT_PASSWORD: "echoes_root"
       MARIADB_DATABASE: "eotd20_wiki"

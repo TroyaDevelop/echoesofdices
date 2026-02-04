@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
-import { API_URL } from '../../lib/config.js';
+import { authAPI } from '../lib/api.js';
 
-export default function RegisterEditorPage() {
+export default function RegisterPage() {
   const [formData, setFormData] = useState({
     login: '',
-    password: '',
     nickname: '',
+    password: '',
+    key: '',
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -23,35 +24,15 @@ export default function RegisterEditorPage() {
     setLoading(true);
 
     try {
-      const token = (() => {
-        try {
-          return localStorage.getItem('token');
-        } catch {
-          return null;
-        }
-      })();
-
-      if (!token) {
-        throw new Error('Нужно войти под админом, чтобы создать редактора');
-      }
-
-      const res = await fetch(`${API_URL}/auth/register-editor`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({
-          login: String(formData.login || '').trim(),
-          password: String(formData.password || ''),
-          nickname: String(formData.nickname || '').trim(),
-        }),
+      await authAPI.register({
+        login: String(formData.login || '').trim(),
+        nickname: String(formData.nickname || '').trim(),
+        password: String(formData.password || ''),
+        key: String(formData.key || '').trim(),
       });
 
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.error || body.message || 'Ошибка регистрации');
-      }
-
       setOk(true);
-      setTimeout(() => navigate('/admin/login', { replace: true }), 700);
+      setTimeout(() => navigate('/login', { replace: true }), 800);
     } catch (e2) {
       console.error(e2);
       setError(e2.message || 'Ошибка регистрации');
@@ -64,10 +45,10 @@ export default function RegisterEditorPage() {
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center px-4">
       <div className="bg-white/10 backdrop-blur-lg rounded-xl p-8 w-full max-w-md border border-purple-500/30">
         <div className="text-center mb-8">
-          <Link to="/" className="text-3xl font-bold text-white block mb-2">
+          <Link to="/news" className="text-3xl font-bold text-white block mb-2">
             <span className="text-purple-400">EOTD20</span> Wiki
           </Link>
-          <p className="text-gray-300">Регистрация редактора</p>
+          <p className="text-gray-300">Регистрация</p>
         </div>
 
         {error && (
@@ -95,7 +76,7 @@ export default function RegisterEditorPage() {
               onChange={onChange('login')}
               required
               className="w-full px-4 py-3 bg-white/10 border border-purple-500/30 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-              placeholder="editor"
+              placeholder="user"
               autoComplete="username"
             />
           </div>
@@ -135,8 +116,21 @@ export default function RegisterEditorPage() {
             <div className="mt-1 text-xs text-gray-400">Минимум 6 символов.</div>
           </div>
 
-          <div className="text-xs text-gray-400">
-            Создание редактора доступно только после входа администратором.
+          <div>
+            <label htmlFor="key" className="block text-sm font-medium text-gray-300 mb-2">
+              Ключ регистрации
+            </label>
+            <input
+              type="text"
+              id="key"
+              name="key"
+              value={formData.key}
+              onChange={onChange('key')}
+              required
+              className="w-full px-4 py-3 bg-white/10 border border-purple-500/30 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+              placeholder="введите ключ"
+              autoComplete="off"
+            />
           </div>
 
           <button
@@ -144,19 +138,19 @@ export default function RegisterEditorPage() {
             disabled={loading}
             className="w-full bg-purple-600 hover:bg-purple-700 disabled:bg-purple-800 text-white font-medium py-3 px-4 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 focus:ring-offset-transparent"
           >
-            {loading ? 'Создаю…' : 'Создать аккаунт редактора'}
+            {loading ? 'Создаю…' : 'Создать аккаунт'}
           </button>
         </form>
 
         <div className="mt-6 text-center">
-          <Link to="/admin/login" className="text-sm text-gray-300 hover:text-white transition-colors">
+          <Link to="/login" className="text-sm text-gray-300 hover:text-white transition-colors">
             Уже есть аккаунт? Войти
           </Link>
         </div>
 
         <div className="mt-4 text-center">
-          <Link to="/" className="text-sm text-gray-400 hover:text-white transition-colors">
-            ← Вернуться на главную
+          <Link to="/news" className="text-sm text-gray-400 hover:text-white transition-colors">
+            ← Вернуться на сайт
           </Link>
         </div>
       </div>

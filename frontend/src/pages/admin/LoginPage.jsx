@@ -17,7 +17,16 @@ export default function AdminLoginPage() {
       const data = await authAPI.login(formData.login, formData.password);
       localStorage.setItem('token', data.token);
       localStorage.setItem('user', JSON.stringify(data.user));
-      navigate('/admin', { replace: true });
+      try {
+        window.dispatchEvent(new Event('auth:login'));
+      } catch {
+      }
+      const role = String(data?.user?.role || '').toLowerCase();
+      if (role === 'editor') {
+        navigate('/admin', { replace: true });
+      } else {
+        navigate('/news', { replace: true });
+      }
     } catch (e) {
       console.error('Login error:', e);
       setError(e.message || 'Ошибка входа');
@@ -33,7 +42,7 @@ export default function AdminLoginPage() {
           <Link to="/" className="text-3xl font-bold text-white block mb-2">
             <span className="text-purple-400">EOTD20</span> Wiki
           </Link>
-          <p className="text-gray-300">Вход в админ-панель</p>
+          <p className="text-gray-300">Вход</p>
         </div>
 
         {error && (
@@ -55,7 +64,7 @@ export default function AdminLoginPage() {
               onChange={(e) => setFormData((p) => ({ ...p, login: e.target.value }))}
               required
               className="w-full px-4 py-3 bg-white/10 border border-purple-500/30 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-              placeholder="admin"
+                placeholder="логин"
               autoComplete="username"
             />
           </div>
@@ -86,13 +95,9 @@ export default function AdminLoginPage() {
           </button>
         </form>
 
-        <div className="mt-6 pt-6 border-t border-purple-500/30">
-          <p className="text-xs text-gray-500 text-center">Дефолтный админ: admin / admin123</p>
-        </div>
-
         <div className="mt-4 text-center">
-          <Link to="/admin/register" className="text-sm text-gray-300 hover:text-white transition-colors">
-            Регистрация редактора
+          <Link to="/register" className="text-sm text-gray-300 hover:text-white transition-colors">
+            Регистрация (нужен ключ)
           </Link>
         </div>
 

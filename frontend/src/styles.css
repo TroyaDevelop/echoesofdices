@@ -140,24 +140,67 @@ body {
 }
 
 .parchment-card {
-  background-color: #efe8db;
+  position: relative;
+  isolation: isolate;
+  background-color: #efe4cc;
   background-image:
-    radial-gradient(1200px 600px at 10% 10%, rgba(255, 255, 255, 0.55), transparent 55%),
-    radial-gradient(900px 520px at 90% 20%, rgba(0, 0, 0, 0.07), transparent 55%),
-    radial-gradient(700px 520px at 30% 90%, rgba(0, 0, 0, 0.06), transparent 60%),
+    radial-gradient(1000px 650px at 10% 5%, rgba(255, 255, 255, 0.55), transparent 60%),
+    radial-gradient(900px 520px at 90% 12%, rgba(0, 0, 0, 0.08), transparent 58%),
+    radial-gradient(900px 650px at 20% 90%, rgba(0, 0, 0, 0.06), transparent 62%),
+    radial-gradient(320px 220px at 78% 62%, rgba(122, 78, 28, 0.10), transparent 70%),
+    radial-gradient(280px 200px at 30% 70%, rgba(122, 78, 28, 0.08), transparent 72%),
+    radial-gradient(240px 180px at 58% 36%, rgba(92, 56, 18, 0.06), transparent 74%),
+    radial-gradient(140% 120% at 50% 50%, rgba(30, 16, 4, 0.18), transparent 58%),
     repeating-linear-gradient(
-      0deg,
-      rgba(0, 0, 0, 0.018) 0px,
-      rgba(0, 0, 0, 0.018) 1px,
-      rgba(255, 255, 255, 0.0) 4px,
-      rgba(255, 255, 255, 0.0) 7px
+      12deg,
+      rgba(72, 45, 16, 0.020) 0px,
+      rgba(72, 45, 16, 0.020) 1px,
+      rgba(255, 255, 255, 0.0) 7px,
+      rgba(255, 255, 255, 0.0) 15px
     ),
     repeating-linear-gradient(
-      90deg,
-      rgba(0, 0, 0, 0.012) 0px,
-      rgba(0, 0, 0, 0.012) 1px,
-      rgba(255, 255, 255, 0.0) 4px,
-      rgba(255, 255, 255, 0.0) 8px
+      -17deg,
+      rgba(72, 45, 16, 0.014) 0px,
+      rgba(72, 45, 16, 0.014) 1px,
+      rgba(255, 255, 255, 0.0) 9px,
+      rgba(255, 255, 255, 0.0) 18px
     ),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.35), rgba(0, 0, 0, 0.03));
+    linear-gradient(180deg, rgba(255, 248, 235, 0.55), rgba(140, 94, 36, 0.06));
+
+  box-shadow:
+    0 20px 55px rgba(0, 0, 0, 0.35),
+    inset 0 0 0 1px rgba(60, 35, 10, 0.22),
+    inset 0 0 55px rgba(45, 25, 5, 0.18),
+    inset 0 0 120px rgba(0, 0, 0, 0.12);
+}
+
+.parchment-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0.22;
+  mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='260'%20height='260'%3E%3Cfilter%20id='g'%20color-interpolation-filters='sRGB'%3E%3CfeTurbulence%20type='fractalNoise'%20baseFrequency='.9'%20numOctaves='3'%20seed='2'%20stitchTiles='stitch'/%3E%3CfeColorMatrix%20type='saturate'%20values='0'/%3E%3CfeColorMatrix%20type='matrix'%20values='1%200%200%200%200%200%201%200%200%200%200%200%201%200%200%200%200%200%20.35%200'/%3E%3C/filter%3E%3Crect%20width='260'%20height='260'%20filter='url(%23g)'/%3E%3C/svg%3E");
+  background-size: 260px 260px;
+}
+
+.parchment-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0.26;
+  mix-blend-mode: soft-light;
+  background-image: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='900'%20height='900'%3E%3Cfilter%20id='w'%20color-interpolation-filters='sRGB'%3E%3CfeTurbulence%20type='fractalNoise'%20baseFrequency='.018%20.032'%20numOctaves='4'%20seed='8'%20stitchTiles='stitch'/%3E%3CfeColorMatrix%20type='saturate'%20values='0'/%3E%3CfeComponentTransfer%3E%3CfeFuncR%20type='gamma'%20amplitude='1.25'%20exponent='1.6'%20offset='-0.08'/%3E%3CfeFuncG%20type='gamma'%20amplitude='1.25'%20exponent='1.6'%20offset='-0.08'/%3E%3CfeFuncB%20type='gamma'%20amplitude='1.25'%20exponent='1.6'%20offset='-0.08'/%3E%3C/feComponentTransfer%3E%3CfeColorMatrix%20type='matrix'%20values='1%200%200%200%200%200%201%200%200%200%200%200%201%200%200%200%200%200%20.28%200'/%3E%3C/filter%3E%3Crect%20width='900'%20height='900'%20filter='url(%23w)'/%3E%3C/svg%3E");
+  background-size: 900px 900px;
+}
+
+.parchment-card > * {
+  position: relative;
+  z-index: 1;
 }

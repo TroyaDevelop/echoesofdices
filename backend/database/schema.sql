@@ -5,10 +5,22 @@ CREATE TABLE IF NOT EXISTS users (
     id INT PRIMARY KEY AUTO_INCREMENT,
     login VARCHAR(255) UNIQUE NOT NULL,
     password VARCHAR(255) NOT NULL,
-    role ENUM('admin', 'editor') DEFAULT 'admin',
+    role ENUM('editor', 'user') DEFAULT 'user',
     nickname VARCHAR(100),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS registration_keys (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    reg_key VARCHAR(80) UNIQUE NOT NULL,
+    is_active TINYINT(1) NOT NULL DEFAULT 1,
+    created_by INT NULL,
+    used_by INT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    used_at TIMESTAMP NULL,
+    INDEX idx_reg_keys_active_used (is_active, used_at),
+    INDEX idx_reg_keys_created_at (created_at)
 );
 
 CREATE TABLE IF NOT EXISTS news_posts (
@@ -44,4 +56,26 @@ CREATE TABLE IF NOT EXISTS spells (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_spells_name (name)
+);
+
+CREATE TABLE IF NOT EXISTS spell_likes (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    spell_id INT NOT NULL,
+    user_id INT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uniq_spell_user (spell_id, user_id),
+    INDEX idx_spell_likes_spell (spell_id),
+    FOREIGN KEY (spell_id) REFERENCES spells(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS spell_comments (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    spell_id INT NOT NULL,
+    user_id INT NOT NULL,
+    content TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_spell_comments_spell_created (spell_id, created_at),
+    FOREIGN KEY (spell_id) REFERENCES spells(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );

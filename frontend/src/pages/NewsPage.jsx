@@ -16,6 +16,13 @@ const formatDate = (value) => {
   }
 };
 
+const authorLine = (post) => {
+  const nickname = String(post?.author_nickname || '').trim();
+  const login = String(post?.author_login || '').trim();
+  const name = nickname || login;
+  return name ? `Автор: ${name}` : '';
+};
+
 export default function NewsPage() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -62,7 +69,10 @@ export default function NewsPage() {
               >
                 <header className="space-y-1">
                   <h2 className="text-2xl font-semibold">{post.title}</h2>
-                  <div className="text-xs text-slate-400">{formatDate(post.created_at)}</div>
+                  <div className="text-xs text-slate-400 flex flex-wrap gap-x-3 gap-y-1">
+                    <span>{formatDate(post.created_at)}</span>
+                    {authorLine(post) ? <span>{authorLine(post)}</span> : null}
+                  </div>
                 </header>
 
                 <div className="mt-4 text-slate-100 whitespace-pre-wrap leading-relaxed">

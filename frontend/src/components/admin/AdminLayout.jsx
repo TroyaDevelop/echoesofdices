@@ -10,13 +10,13 @@ export default function AdminLayout({ children }) {
   const location = useLocation();
 
   useEffect(() => {
-    const logoutAndRedirect = () => {
+    const logoutAndRedirect = (target = '/login') => {
       try {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
       } catch {
       }
-      navigate('/admin/login', { replace: true });
+      navigate(target, { replace: true });
     };
 
     const token = localStorage.getItem('token');
@@ -29,6 +29,11 @@ export default function AdminLayout({ children }) {
 
     try {
       const parsedUser = JSON.parse(userData);
+      const role = String(parsedUser?.role || '').toLowerCase();
+      if (role !== 'editor') {
+        logoutAndRedirect('/news');
+        return () => {};
+      }
       setUser(parsedUser);
     } catch (error) {
       console.error('Error parsing user data:', error);
@@ -52,8 +57,8 @@ export default function AdminLayout({ children }) {
     };
   }, [navigate]);
 
-  const navigation = useMemo(
-    () => [
+  const navigation = useMemo(() => {
+    const items = [
       {
         name: 'Панель управления',
         href: '/admin',
@@ -96,9 +101,25 @@ export default function AdminLayout({ children }) {
           </svg>
         ),
       },
-    ],
-    []
-  );
+    ];
+
+    items.push({
+      name: 'Пользователи',
+      href: '/admin/users',
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth="2"
+            d="M17 20h5v-2a4 4 0 00-4-4h-1m-4 6H2v-2a4 4 0 014-4h7m4-4a4 4 0 11-8 0 4 4 0 018 0z"
+          ></path>
+        </svg>
+      ),
+    });
+
+    return items;
+  }, [user]);
 
   const handleLogout = () => {
     localStorage.removeItem('token');
@@ -221,6 +242,7 @@ export default function AdminLayout({ children }) {
                 </div>
                 <div className="ml-3 flex-1">
                   <p className="text-sm font-medium text-gray-700 group-hover:text-gray-900">{user.login}</p>
+                  <p className="text-xs text-gray-500">роль: {String(user.role || '—')}</p>
                   <button
                     onClick={handleLogout}
                     className="text-xs font-medium text-gray-500 group-hover:text-gray-700"
