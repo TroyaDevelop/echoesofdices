@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import AdminLayout from '../../components/admin/AdminLayout.jsx';
 import { newsAPI } from '../../lib/api.js';
+import SpellDescriptionEditor from '../../components/admin/SpellDescriptionEditor.jsx';
+import { normalizeSpellDescriptionForSave } from '../../lib/richText.js';
 
 const formatDate = (value) => {
   try {
@@ -55,7 +57,7 @@ export default function AdminNewsPage() {
     setError('');
 
     const t = title.trim();
-    const c = content.trim();
+    const c = normalizeSpellDescriptionForSave(content);
 
     if (!t || !c) {
       setError('Заполните заголовок и текст');
@@ -111,7 +113,7 @@ export default function AdminNewsPage() {
   const saveEdit = async (id) => {
     setError('');
     const t = editTitle.trim();
-    const c = editContent.trim();
+    const c = normalizeSpellDescriptionForSave(editContent);
     if (!t || !c) {
       setError('Заполните заголовок и текст');
       return;
@@ -173,13 +175,7 @@ export default function AdminNewsPage() {
             className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
           />
 
-          <textarea
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-            placeholder="Текст"
-            rows={6}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-          />
+          <SpellDescriptionEditor value={content} onChange={setContent} placeholder="Текст" />
 
           <div>
             <button type="submit" className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-medium">
@@ -245,13 +241,7 @@ export default function AdminNewsPage() {
                           className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
                         />
 
-                        <textarea
-                          value={editContent}
-                          onChange={(e) => setEditContent(e.target.value)}
-                          placeholder="Текст"
-                          rows={6}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                        />
+                        <SpellDescriptionEditor value={editContent} onChange={setEditContent} placeholder="Текст" />
 
                         <div className="flex items-center gap-3">
                           <button

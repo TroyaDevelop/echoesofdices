@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import PublicLayout from '../components/PublicLayout.jsx';
 import { newsAPI } from '../lib/api.js';
+import { isRichHtmlDescription, sanitizeSpellDescriptionHtml } from '../lib/richText.js';
 
 const formatDate = (value) => {
   try {
@@ -75,16 +76,27 @@ export default function NewsPage() {
                   </div>
                 </header>
 
-                <div className="mt-4 text-slate-100 whitespace-pre-wrap leading-relaxed">
-                  {post.excerpt ? (
-                    <>
-                      <div className="text-slate-200">{post.excerpt}</div>
-                      <div className="mt-4 text-slate-300">{post.content}</div>
-                    </>
-                  ) : (
-                    post.content
-                  )}
-                </div>
+                {post.excerpt ? (
+                  <>
+                    <div className="mt-4 text-slate-200 whitespace-pre-wrap leading-relaxed">{post.excerpt}</div>
+
+                    {isRichHtmlDescription(post.content) ? (
+                      <div
+                        className="news-content mt-4 text-slate-300 leading-relaxed"
+                        dangerouslySetInnerHTML={{ __html: sanitizeSpellDescriptionHtml(post.content) }}
+                      />
+                    ) : (
+                      <div className="mt-4 text-slate-300 whitespace-pre-wrap leading-relaxed">{post.content}</div>
+                    )}
+                  </>
+                ) : isRichHtmlDescription(post.content) ? (
+                  <div
+                    className="news-content mt-4 text-slate-100 leading-relaxed"
+                    dangerouslySetInnerHTML={{ __html: sanitizeSpellDescriptionHtml(post.content) }}
+                  />
+                ) : (
+                  <div className="mt-4 text-slate-100 whitespace-pre-wrap leading-relaxed">{post.content}</div>
+                )}
               </article>
             ))}
           </div>

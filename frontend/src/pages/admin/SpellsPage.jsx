@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import AdminLayout from '../../components/admin/AdminLayout.jsx';
+import SpellDescriptionEditor from '../../components/admin/SpellDescriptionEditor.jsx';
 import { spellsAPI } from '../../lib/api.js';
+import { normalizeSpellDescriptionForSave } from '../../lib/richText.js';
 
 const normalize = (v) => String(v || '').trim();
 
@@ -107,7 +109,7 @@ export default function AdminSpellsPage() {
       subclasses: normalize(subclasses) || null,
       source: normalize(source) || null,
       source_pages: normalize(sourcePages) || null,
-      description: normalize(description) || null,
+      description: normalizeSpellDescriptionForSave(description),
     };
 
     if (!payload.name) {
@@ -207,7 +209,7 @@ export default function AdminSpellsPage() {
       subclasses: normalize(editSubclasses) || null,
       source: normalize(editSource) || null,
       source_pages: normalize(editSourcePages) || null,
-      description: normalize(editDescription) || null,
+      description: normalizeSpellDescriptionForSave(editDescription),
     };
 
     if (!payload.name) {
@@ -357,13 +359,7 @@ export default function AdminSpellsPage() {
             />
           </div>
 
-          <textarea
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            placeholder="Описание (опционально)"
-            rows={4}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-          />
+          <SpellDescriptionEditor value={description} onChange={setDescription} />
 
           <div>
             <button type="submit" className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-medium">
@@ -506,12 +502,10 @@ export default function AdminSpellsPage() {
                           />
                         </div>
 
-                        <textarea
+                        <SpellDescriptionEditor
+                          key={editingId}
                           value={editDescription}
-                          onChange={(e) => setEditDescription(e.target.value)}
-                          placeholder="Описание (опционально)"
-                          rows={5}
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                          onChange={setEditDescription}
                         />
 
                         <div className="flex items-center gap-3">

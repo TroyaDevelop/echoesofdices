@@ -204,3 +204,41 @@ body {
   position: relative;
   z-index: 1;
 }
+
+.tiptap-editor {
+  min-height: 9rem;
+  outline: none;
+  line-height: 1.6;
+}
+
+.tiptap-editor p {
+  margin: 0 0 0.75rem 0;
+}
+
+.tiptap-editor p:last-child {
+  margin-bottom: 0;
+}
+
+.tiptap-editor p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: #9ca3af;
+  pointer-events: none;
+  height: 0;
+}
+
+.spell-description p {
+  margin: 0 0 0.75rem 0;
+}
+
+.spell-description p:last-child {
+  margin-bottom: 0;
+}
+
+.news-content p {
+  margin: 0 0 0.75rem 0;
+}
+
+.news-content p:last-child {
+  margin-bottom: 0;
+}

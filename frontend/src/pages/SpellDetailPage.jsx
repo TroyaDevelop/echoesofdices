@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 
 import { spellsAPI } from '../lib/api.js';
+import { isRichHtmlDescription, sanitizeSpellDescriptionHtml } from '../lib/richText.js';
 
 const field = (v) => {
   const s = String(v ?? '').trim();
@@ -258,9 +259,18 @@ export default function SpellDetailPage() {
 
             <div className="px-4 sm:px-6 pb-4">
               <div className="h-px bg-black/10 mb-3" />
-              <div className="whitespace-pre-wrap leading-relaxed">
-                {spell.description ? String(spell.description) : '—'}
-              </div>
+              {spell.description ? (
+                isRichHtmlDescription(spell.description) ? (
+                  <div
+                    className="spell-description leading-relaxed"
+                    dangerouslySetInnerHTML={{ __html: sanitizeSpellDescriptionHtml(spell.description) }}
+                  />
+                ) : (
+                  <div className="whitespace-pre-wrap leading-relaxed">{String(spell.description)}</div>
+                )
+              ) : (
+                <div className="leading-relaxed">—</div>
+              )}
 
               <div className="h-px bg-black/10 my-4" />
 
