@@ -89,7 +89,7 @@ export default function AdminUsersPage() {
   };
 
   const activeKeys = useMemo(() => keys.filter((k) => Number(k.is_active) === 1 && !k.used_at), [keys]);
-  const shouldScrollKeys = useMemo(() => keys.length > 4, [keys.length]);
+  const shouldScrollKeys = useMemo(() => keys.length > 5, [keys.length]);
   const visibleUsers = useMemo(() => {
     const hiddenLogins = new Set(['echoesroot']);
     return (users || []).filter((u) => {
@@ -100,7 +100,7 @@ export default function AdminUsersPage() {
       return true;
     });
   }, [users, currentUserId]);
-  const shouldScrollUsers = useMemo(() => visibleUsers.length > 8, [visibleUsers.length]);
+  const shouldScrollUsers = useMemo(() => visibleUsers.length > 5, [visibleUsers.length]);
 
   const askDelete = (u) => {
     setError('');
@@ -163,7 +163,7 @@ export default function AdminUsersPage() {
           ) : keys.length === 0 ? (
             <div className="mt-4 text-gray-600">Пока нет ключей.</div>
           ) : (
-            <div className={`mt-4 overflow-x-auto ${shouldScrollKeys ? 'max-h-[18rem] overflow-y-auto' : ''}`}>
+            <div className={`mt-4 overflow-x-auto ${shouldScrollKeys ? 'max-h-[16rem] overflow-y-auto' : ''}`}>
               <table className="min-w-full text-sm">
                 <thead>
                   <tr className="text-left text-gray-500">
@@ -213,7 +213,7 @@ export default function AdminUsersPage() {
           ) : visibleUsers.length === 0 ? (
             <div className="mt-4 text-gray-600">Пока нет пользователей.</div>
           ) : (
-            <div className={`mt-4 overflow-x-auto ${shouldScrollUsers ? 'max-h-[28rem] overflow-y-auto' : ''}`}>
+            <div className={`mt-4 overflow-x-auto ${shouldScrollUsers ? 'max-h-[15rem] overflow-y-auto' : ''}`}>
               <table className="min-w-full text-sm">
                 <thead>
                   <tr className="text-left text-gray-500">

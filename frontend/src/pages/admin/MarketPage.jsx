@@ -27,6 +27,15 @@ const MARKET_SEASONS = [
   { value: 'autumn_winter', label: 'Осень-зима' },
 ];
 
+const WEAPON_TYPES = [
+  { value: 'simple_melee', label: 'Простое рукопашное' },
+  { value: 'simple_ranged', label: 'Простое дальнобойное' },
+  { value: 'martial_melee', label: 'Воинское рукопашное' },
+  { value: 'martial_ranged', label: 'Воинское дальнобойное' },
+];
+
+const weaponTypeLabel = (value) => WEAPON_TYPES.find((t) => t.value === value)?.label || '';
+
 const toNonNegInt = (value) => {
   if (value === undefined || value === null || value === '') return 0;
   const n = Number(value);
@@ -76,6 +85,7 @@ export default function AdminMarketPage() {
   const [shortDescription, setShortDescription] = useState('');
   const [damage, setDamage] = useState('');
   const [armorClass, setArmorClass] = useState('');
+  const [weaponType, setWeaponType] = useState('');
   const [priceGp, setPriceGp] = useState('');
   const [priceSp, setPriceSp] = useState('');
   const [priceCp, setPriceCp] = useState('');
@@ -86,6 +96,7 @@ export default function AdminMarketPage() {
   const [editShortDescription, setEditShortDescription] = useState('');
   const [editDamage, setEditDamage] = useState('');
   const [editArmorClass, setEditArmorClass] = useState('');
+  const [editWeaponType, setEditWeaponType] = useState('');
   const [editPriceGp, setEditPriceGp] = useState('');
   const [editPriceSp, setEditPriceSp] = useState('');
   const [editPriceCp, setEditPriceCp] = useState('');
@@ -183,7 +194,7 @@ export default function AdminMarketPage() {
   }, [items, filterCategory]);
 
   const shouldScrollRegions = useMemo(() => regions.length > 4, [regions.length]);
-  const shouldScrollItems = useMemo(() => filteredSorted.length > 8, [filteredSorted.length]);
+  const shouldScrollItems = useMemo(() => filteredSorted.length > 5, [filteredSorted.length]);
   const shouldScrollMarkupCategories = useMemo(() => MARKET_CATEGORIES.length > 4, []);
 
   const resetCreate = () => {
@@ -192,6 +203,7 @@ export default function AdminMarketPage() {
     setShortDescription('');
     setDamage('');
     setArmorClass('');
+    setWeaponType('');
     setPriceGp('');
     setPriceSp('');
     setPriceCp('');
@@ -357,6 +369,9 @@ export default function AdminMarketPage() {
     if (supportsCombatFields(category)) {
       payload.damage = d || null;
       payload.armor_class = ac || null;
+      payload.weapon_type = d ? (String(weaponType || '').trim() || null) : null;
+    } else {
+      payload.weapon_type = null;
     }
 
     try {
@@ -376,6 +391,7 @@ export default function AdminMarketPage() {
     setEditShortDescription(String(it.short_description || ''));
     setEditDamage(String(it.damage || ''));
     setEditArmorClass(String(it.armor_class || ''));
+    setEditWeaponType(String(it.weapon_type || ''));
     setEditPriceGp(String(it.price_gp ?? 0));
     setEditPriceSp(String(it.price_sp ?? 0));
     setEditPriceCp(String(it.price_cp ?? 0));
@@ -388,6 +404,7 @@ export default function AdminMarketPage() {
     setEditShortDescription('');
     setEditDamage('');
     setEditArmorClass('');
+    setEditWeaponType('');
     setEditPriceGp('');
     setEditPriceSp('');
     setEditPriceCp('');
@@ -427,9 +444,11 @@ export default function AdminMarketPage() {
     if (supportsCombatFields(editCategory)) {
       payload.damage = d || null;
       payload.armor_class = ac || null;
+      payload.weapon_type = d ? (String(editWeaponType || '').trim() || null) : null;
     } else {
       payload.damage = null;
       payload.armor_class = null;
+      payload.weapon_type = null;
     }
 
     try {
@@ -628,6 +647,22 @@ export default function AdminMarketPage() {
                   <div className="text-xs text-gray-600 mb-1">Класс доспеха (опционально)</div>
                   <input value={armorClass} onChange={(e) => setArmorClass(e.target.value)} placeholder="например 14 + ЛВК (макс 2)" className={inputClass} />
                 </div>
+                <div className="md:col-span-2">
+                  <div className="text-xs text-gray-600 mb-1">Категория оружия (только если задан урон)</div>
+                  <select
+                    value={weaponType}
+                    onChange={(e) => setWeaponType(e.target.value)}
+                    className={inputClass}
+                    disabled={!String(damage || '').trim()}
+                  >
+                    <option value="">—</option>
+                    {WEAPON_TYPES.map((t) => (
+                      <option key={t.value} value={t.value}>
+                        {t.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
             ) : null}
 
@@ -671,7 +706,7 @@ export default function AdminMarketPage() {
           ) : filteredSorted.length === 0 ? (
             <div className="p-6 text-gray-700">Предметов пока нет.</div>
           ) : (
-            <div className={shouldScrollItems ? 'max-h-[34rem] overflow-y-auto' : ''}>
+            <div className={shouldScrollItems ? 'max-h-[28rem] overflow-y-auto' : ''}>
               <div className="divide-y divide-gray-200">
                 {filteredSorted.map((it) => (
                   <div key={it.id} className="p-4 flex items-start justify-between gap-4">
@@ -715,6 +750,22 @@ export default function AdminMarketPage() {
                               <div>
                                 <div className="text-xs text-gray-600 mb-1">Класс доспеха (опционально)</div>
                                 <input value={editArmorClass} onChange={(e) => setEditArmorClass(e.target.value)} placeholder="например 14 + ЛВК (макс 2)" className={inputClass} />
+                              </div>
+                              <div className="md:col-span-2">
+                                <div className="text-xs text-gray-600 mb-1">Категория оружия (только если задан урон)</div>
+                                <select
+                                  value={editWeaponType}
+                                  onChange={(e) => setEditWeaponType(e.target.value)}
+                                  className={inputClass}
+                                  disabled={!String(editDamage || '').trim()}
+                                >
+                                  <option value="">—</option>
+                                  {WEAPON_TYPES.map((t) => (
+                                    <option key={t.value} value={t.value}>
+                                      {t.label}
+                                    </option>
+                                  ))}
+                                </select>
                               </div>
                             </div>
                           ) : null}

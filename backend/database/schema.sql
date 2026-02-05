@@ -88,6 +88,7 @@ CREATE TABLE IF NOT EXISTS market_items (
     region VARCHAR(255) NULL,
     damage VARCHAR(60) NULL,
     armor_class VARCHAR(60) NULL,
+    weapon_type VARCHAR(24) NULL,
     short_description TEXT NULL,
     price_cp INT UNSIGNED NOT NULL DEFAULT 0,
     price_sp INT UNSIGNED NOT NULL DEFAULT 0,

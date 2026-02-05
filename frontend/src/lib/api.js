@@ -95,6 +95,7 @@ export const spellsAPI = {
       method: 'POST',
       body: JSON.stringify({ content }),
     }),
+  deleteComment: (spellId, commentId) => apiClient(`/spells/${spellId}/comments/${commentId}`, { method: 'DELETE' }),
   listAdmin: () => apiClient('/spells/admin', { method: 'GET' }),
   create: (data) => apiClient('/spells', { method: 'POST', body: JSON.stringify(data) }),
   update: (id, data) => apiClient(`/spells/${id}`, { method: 'PUT', body: JSON.stringify(data) }),

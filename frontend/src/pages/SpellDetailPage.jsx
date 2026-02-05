@@ -31,6 +31,7 @@ export default function SpellDetailPage() {
   const [commentText, setCommentText] = useState('');
   const [commentBusy, setCommentBusy] = useState(false);
   const [commentsLoading, setCommentsLoading] = useState(true);
+  const [deleteModal, setDeleteModal] = useState({ open: false, comment: null, busy: false });
 
   useEffect(() => {
     let isActive = true;
@@ -104,6 +105,43 @@ export default function SpellDetailPage() {
       return false;
     }
   }, []);
+
+  const canModerateComments = useMemo(() => {
+    try {
+      const raw = localStorage.getItem('user');
+      const parsed = raw ? JSON.parse(raw) : null;
+      const role = parsed ? String(parsed?.role || '').toLowerCase() : '';
+      return role === 'editor';
+    } catch {
+      return false;
+    }
+  }, []);
+
+  const askDeleteComment = (comment) => {
+    setError('');
+    setDeleteModal({ open: true, comment, busy: false });
+  };
+
+  const cancelDeleteComment = () => setDeleteModal({ open: false, comment: null, busy: false });
+
+  const confirmDeleteComment = async () => {
+    if (!spell) return;
+    const c = deleteModal.comment;
+    if (!c?.id) return;
+    if (deleteModal.busy) return;
+
+    setDeleteModal((p) => ({ ...p, busy: true }));
+    setError('');
+    try {
+      await spellsAPI.deleteComment(spell.id, c.id);
+      setComments((prev) => (prev || []).filter((x) => x.id !== c.id));
+      setDeleteModal({ open: false, comment: null, busy: false });
+    } catch (e) {
+      console.error(e);
+      setError(e.message || 'Ошибка удаления комментария');
+      setDeleteModal((p) => ({ ...p, busy: false }));
+    }
+  };
 
   const toggleLike = async () => {
     if (!spell) return;
@@ -293,7 +331,6 @@ export default function SpellDetailPage() {
               <div className="space-y-3">
                 <div className="flex items-end justify-between gap-3">
                   <h2 className="text-lg font-semibold">Комментарии</h2>
-                  <div className="text-xs text-slate-700">{comments.length}</div>
                 </div>
 
                 <form onSubmit={submitComment} className="space-y-2">
@@ -326,7 +363,18 @@ export default function SpellDetailPage() {
                       <div key={c.id} className="rounded-md border border-black/10 bg-white/40 p-3">
                         <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs text-slate-700">
                           <div className="font-semibold">{commentAuthor(c)}</div>
-                          <div>{formatCommentDate(c.created_at)}</div>
+                          <div className="flex items-center gap-2">
+                            <div>{formatCommentDate(c.created_at)}</div>
+                            {canModerateComments ? (
+                              <button
+                                type="button"
+                                onClick={() => askDeleteComment(c)}
+                                className="px-2 py-1 rounded border border-red-300/60 bg-white/40 text-red-800 hover:bg-red-500/10"
+                              >
+                                Удалить
+                              </button>
+                            ) : null}
+                          </div>
                         </div>
                         <div className="mt-2 whitespace-pre-wrap text-slate-900">{String(c.content || '')}</div>
                       </div>
@@ -334,6 +382,35 @@ export default function SpellDetailPage() {
                   </div>
                 )}
               </div>
+
+              {deleteModal.open ? (
+                <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+                  <div className="absolute inset-0 bg-black/40" onClick={cancelDeleteComment} />
+                  <div className="relative w-full max-w-sm rounded-xl bg-white shadow-xl border border-gray-200 p-5">
+                    <div className="text-lg font-semibold text-gray-900">Вы уверены?</div>
+                    <div className="mt-2 text-sm text-gray-600">Удалить комментарий?</div>
+
+                    <div className="mt-5 flex items-center justify-end gap-2">
+                      <button
+                        type="button"
+                        onClick={cancelDeleteComment}
+                        disabled={deleteModal.busy}
+                        className="px-4 py-2 rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-60"
+                      >
+                        Нет
+                      </button>
+                      <button
+                        type="button"
+                        onClick={confirmDeleteComment}
+                        disabled={deleteModal.busy}
+                        className="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700 disabled:opacity-60"
+                      >
+                        {deleteModal.busy ? 'Удаляю…' : 'Да'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
             </div>
           </div>
         )}

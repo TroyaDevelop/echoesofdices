@@ -162,7 +162,7 @@ async function ensureRuntimeSchema() {
   await safeQuery('ALTER TABLE spells MODIFY COLUMN components TEXT', []);
 
   await query(
-    'CREATE TABLE IF NOT EXISTS market_items (id INT PRIMARY KEY AUTO_INCREMENT, name VARCHAR(255) NOT NULL, region VARCHAR(255) NULL, category VARCHAR(40) NOT NULL DEFAULT \'food_plant\', region_id INT NULL, damage VARCHAR(60) NULL, armor_class VARCHAR(60) NULL, short_description TEXT NULL, price_cp INT UNSIGNED NOT NULL DEFAULT 0, price_sp INT UNSIGNED NOT NULL DEFAULT 0, price_gp INT UNSIGNED NOT NULL DEFAULT 0, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, INDEX idx_market_name (name), INDEX idx_market_region (region), INDEX idx_market_region_id (region_id))',
+    'CREATE TABLE IF NOT EXISTS market_items (id INT PRIMARY KEY AUTO_INCREMENT, name VARCHAR(255) NOT NULL, region VARCHAR(255) NULL, category VARCHAR(40) NOT NULL DEFAULT \'food_plant\', region_id INT NULL, damage VARCHAR(60) NULL, armor_class VARCHAR(60) NULL, weapon_type VARCHAR(24) NULL, short_description TEXT NULL, price_cp INT UNSIGNED NOT NULL DEFAULT 0, price_sp INT UNSIGNED NOT NULL DEFAULT 0, price_gp INT UNSIGNED NOT NULL DEFAULT 0, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, INDEX idx_market_name (name), INDEX idx_market_region (region), INDEX idx_market_region_id (region_id))',
     []
   );
 
@@ -179,6 +179,7 @@ async function ensureRuntimeSchema() {
 
   await safeQuery('ALTER TABLE market_items ADD COLUMN damage VARCHAR(60) NULL', []);
   await safeQuery('ALTER TABLE market_items ADD COLUMN armor_class VARCHAR(60) NULL', []);
+  await safeQuery('ALTER TABLE market_items ADD COLUMN weapon_type VARCHAR(24) NULL', []);
   await safeQuery('ALTER TABLE market_items ADD COLUMN short_description TEXT NULL', []);
 
   await query(
@@ -599,7 +600,7 @@ app.delete('/api/news/:id(\\d+)', authenticateToken, requireStaff, async (req, r
 app.get('/api/market', async (req, res) => {
   try {
     const rows = await query(
-      'SELECT id, name, category, damage, armor_class, short_description, price_cp, price_sp, price_gp, created_at, updated_at FROM market_items ORDER BY name ASC, id ASC',
+      'SELECT id, name, category, damage, armor_class, weapon_type, short_description, price_cp, price_sp, price_gp, created_at, updated_at FROM market_items ORDER BY name ASC, id ASC',
       []
     );
     res.json(Array.isArray(rows) ? rows : []);
@@ -612,7 +613,7 @@ app.get('/api/market', async (req, res) => {
 app.get('/api/market/admin', authenticateToken, requireStaff, async (req, res) => {
   try {
     const rows = await query(
-      'SELECT id, name, category, damage, armor_class, short_description, price_cp, price_sp, price_gp, created_at, updated_at FROM market_items ORDER BY name ASC, id ASC',
+      'SELECT id, name, category, damage, armor_class, weapon_type, short_description, price_cp, price_sp, price_gp, created_at, updated_at FROM market_items ORDER BY name ASC, id ASC',
       []
     );
     res.json(Array.isArray(rows) ? rows : []);
@@ -665,6 +666,13 @@ const MARKET_SEASONS = {
   autumn_winter: 'Осень-зима',
 };
 
+const WEAPON_TYPES = {
+  simple_melee: 'Простое рукопашное',
+  simple_ranged: 'Простое дальнобойное',
+  martial_melee: 'Воинское рукопашное',
+  martial_ranged: 'Воинское дальнобойное',
+};
+
 const normalizeMarketCategory = (value) => {
   if (value === undefined || value === null || value === '') return undefined;
   const s = String(value).trim();
@@ -677,6 +685,13 @@ const normalizeMarketSeason = (value) => {
   const s = String(value).trim();
   if (!s) return 'spring_summer';
   return MARKET_SEASONS[s] ? s : null;
+};
+
+const normalizeWeaponType = (value) => {
+  if (value === undefined || value === null || value === '') return undefined;
+  const s = String(value).trim();
+  if (!s) return undefined;
+  return WEAPON_TYPES[s] ? s : null;
 };
 
 const normOpt = (value) => {
@@ -850,6 +865,7 @@ app.post('/api/market', authenticateToken, requireStaff, async (req, res) => {
     const short_description = normOpt(req.body?.short_description);
     const damageRaw = normOpt(req.body?.damage);
     const armorClassRaw = normOpt(req.body?.armor_class);
+    const weaponTypeRaw = normalizeWeaponType(req.body?.weapon_type);
     const price_gp = toNonNegInt(req.body?.price_gp, 0);
     const price_sp = toNonNegInt(req.body?.price_sp, 0);
     const price_cp = toNonNegInt(req.body?.price_cp, 0);
@@ -866,10 +882,15 @@ app.post('/api/market', authenticateToken, requireStaff, async (req, res) => {
       return res.status(400).json({ error: 'Цена должна быть неотрицательным числом' });
     }
 
+    if (weaponTypeRaw === null) {
+      return res.status(400).json({ error: 'Некорректная категория оружия' });
+    }
+
     const finalCategory = category || 'food_plant';
     const combatOk = marketSupportsCombatFields(finalCategory);
     const damage = combatOk ? damageRaw : null;
     const armor_class = combatOk ? armorClassRaw : null;
+    const weapon_type = combatOk && damage ? (weaponTypeRaw ?? null) : null;
 
     if (damage !== null && damage !== undefined && String(damage).length > 60) {
       return res.status(400).json({ error: 'Поле "Урон" слишком длинное (макс. 60 символов)' });
@@ -882,8 +903,8 @@ app.post('/api/market', authenticateToken, requireStaff, async (req, res) => {
     }
 
     const result = await query(
-      'INSERT INTO market_items (name, category, damage, armor_class, short_description, region_id, region, price_gp, price_sp, price_cp) VALUES (?, ?, ?, ?, ?, NULL, NULL, ?, ?, ?)',
-      [name, finalCategory, damage ?? null, armor_class ?? null, short_description ?? null, price_gp, price_sp, price_cp]
+      'INSERT INTO market_items (name, category, damage, armor_class, weapon_type, short_description, region_id, region, price_gp, price_sp, price_cp) VALUES (?, ?, ?, ?, ?, ?, NULL, NULL, ?, ?, ?)',
+      [name, finalCategory, damage ?? null, armor_class ?? null, weapon_type ?? null, short_description ?? null, price_gp, price_sp, price_cp]
     );
 
     const insertedId = typeof result.insertId === 'bigint' ? Number(result.insertId) : result.insertId;
@@ -894,6 +915,7 @@ app.post('/api/market', authenticateToken, requireStaff, async (req, res) => {
       category: finalCategory,
       damage: damage ?? null,
       armor_class: armor_class ?? null,
+      weapon_type: weapon_type ?? null,
       short_description: short_description ?? null,
       price_gp,
       price_sp,
@@ -911,7 +933,7 @@ app.put('/api/market/:id(\\d+)', authenticateToken, requireStaff, async (req, re
     if (!Number.isFinite(id)) return res.status(400).json({ error: 'Некорректный id' });
 
     const rows = await query(
-      'SELECT id, name, category, damage, armor_class, short_description, price_gp, price_sp, price_cp FROM market_items WHERE id = ? LIMIT 1',
+      'SELECT id, name, category, damage, armor_class, weapon_type, short_description, price_gp, price_sp, price_cp FROM market_items WHERE id = ? LIMIT 1',
       [id]
     );
     const existing = rows && rows[0];
@@ -925,6 +947,8 @@ app.put('/api/market/:id(\\d+)', authenticateToken, requireStaff, async (req, re
     const nextShortDescription = req.body?.short_description !== undefined ? normOpt(req.body.short_description) : normOpt(existing.short_description);
     const nextDamage = req.body?.damage !== undefined ? normOpt(req.body.damage) : normOpt(existing.damage);
     const nextArmorClass = req.body?.armor_class !== undefined ? normOpt(req.body.armor_class) : normOpt(existing.armor_class);
+    const nextWeaponTypeRaw =
+      req.body?.weapon_type !== undefined ? normalizeWeaponType(req.body.weapon_type) : normalizeWeaponType(existing.weapon_type);
 
     const nextPriceGp = req.body?.price_gp !== undefined ? toNonNegInt(req.body.price_gp, 0) : Number(existing.price_gp || 0);
     const nextPriceSp = req.body?.price_sp !== undefined ? toNonNegInt(req.body.price_sp, 0) : Number(existing.price_sp || 0);
@@ -942,10 +966,15 @@ app.put('/api/market/:id(\\d+)', authenticateToken, requireStaff, async (req, re
       return res.status(400).json({ error: 'Цена должна быть неотрицательным числом' });
     }
 
+    if (nextWeaponTypeRaw === null) {
+      return res.status(400).json({ error: 'Некорректная категория оружия' });
+    }
+
     const finalCategory = nextCategory || 'food_plant';
     const combatOk = marketSupportsCombatFields(finalCategory);
     const finalDamage = combatOk ? nextDamage : null;
     const finalArmorClass = combatOk ? nextArmorClass : null;
+    const finalWeaponType = combatOk && finalDamage ? (nextWeaponTypeRaw ?? null) : null;
 
     if (finalDamage !== null && finalDamage !== undefined && String(finalDamage).length > 60) {
       return res.status(400).json({ error: 'Поле "Урон" слишком длинное (макс. 60 символов)' });
@@ -958,8 +987,19 @@ app.put('/api/market/:id(\\d+)', authenticateToken, requireStaff, async (req, re
     }
 
     await query(
-      'UPDATE market_items SET name = ?, category = ?, damage = ?, armor_class = ?, short_description = ?, region_id = NULL, region = NULL, price_gp = ?, price_sp = ?, price_cp = ? WHERE id = ?',
-      [nextName, finalCategory, finalDamage ?? null, finalArmorClass ?? null, nextShortDescription ?? null, nextPriceGp, nextPriceSp, nextPriceCp, id]
+      'UPDATE market_items SET name = ?, category = ?, damage = ?, armor_class = ?, weapon_type = ?, short_description = ?, region_id = NULL, region = NULL, price_gp = ?, price_sp = ?, price_cp = ? WHERE id = ?',
+      [
+        nextName,
+        finalCategory,
+        finalDamage ?? null,
+        finalArmorClass ?? null,
+        finalWeaponType ?? null,
+        nextShortDescription ?? null,
+        nextPriceGp,
+        nextPriceSp,
+        nextPriceCp,
+        id,
+      ]
     );
 
     res.json({
@@ -968,6 +1008,7 @@ app.put('/api/market/:id(\\d+)', authenticateToken, requireStaff, async (req, re
       category: finalCategory,
       damage: finalDamage ?? null,
       armor_class: finalArmorClass ?? null,
+      weapon_type: finalWeaponType ?? null,
       short_description: nextShortDescription ?? null,
       price_gp: nextPriceGp,
       price_sp: nextPriceSp,
@@ -1091,6 +1132,24 @@ app.post('/api/spells/:id(\\d+)/comments', authenticateToken, async (req, res) =
   } catch (error) {
     console.error('Create spell comment error:', error);
     res.status(500).json({ error: 'Ошибка при добавлении комментария' });
+  }
+});
+
+app.delete('/api/spells/:id(\\d+)/comments/:commentId(\\d+)', authenticateToken, requireStaff, async (req, res) => {
+  try {
+    const spellId = Number(req.params.id);
+    const commentId = Number(req.params.commentId);
+    if (!Number.isFinite(spellId) || spellId <= 0) return res.status(400).json({ error: 'Некорректный id' });
+    if (!Number.isFinite(commentId) || commentId <= 0) return res.status(400).json({ error: 'Некорректный id комментария' });
+
+    const exists = await query('SELECT id FROM spell_comments WHERE id = ? AND spell_id = ? LIMIT 1', [commentId, spellId]);
+    if (!exists || !exists[0]) return res.status(404).json({ error: 'Комментарий не найден' });
+
+    await query('DELETE FROM spell_comments WHERE id = ? AND spell_id = ? LIMIT 1', [commentId, spellId]);
+    res.json({ ok: true });
+  } catch (error) {
+    console.error('Delete spell comment error:', error);
+    res.status(500).json({ error: 'Ошибка при удалении комментария' });
   }
 });
 
