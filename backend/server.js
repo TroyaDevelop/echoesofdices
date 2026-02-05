@@ -154,7 +154,7 @@ async function ensureRuntimeSchema() {
   );
 
   await query(
-    "CREATE TABLE IF NOT EXISTS spells (id INT PRIMARY KEY AUTO_INCREMENT, name VARCHAR(255) NOT NULL, name_en VARCHAR(255), level TINYINT UNSIGNED NOT NULL DEFAULT 0, school VARCHAR(100), theme VARCHAR(32) DEFAULT 'none', casting_time VARCHAR(255), range_text VARCHAR(255), components TEXT, duration VARCHAR(255), classes VARCHAR(255), subclasses VARCHAR(255), source VARCHAR(100), source_pages VARCHAR(50), description LONGTEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, INDEX idx_spells_name (name))",
+    "CREATE TABLE IF NOT EXISTS spells (id INT PRIMARY KEY AUTO_INCREMENT, name VARCHAR(255) NOT NULL, name_en VARCHAR(255), level TINYINT UNSIGNED NOT NULL DEFAULT 0, school VARCHAR(100), theme VARCHAR(32) DEFAULT 'none', casting_time VARCHAR(255), range_text VARCHAR(255), components TEXT, duration VARCHAR(255), classes VARCHAR(255), subclasses VARCHAR(255), source VARCHAR(100), source_pages VARCHAR(50), description LONGTEXT, description_eot LONGTEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, INDEX idx_spells_name (name))",
     []
   );
 
@@ -242,6 +242,7 @@ async function ensureRuntimeSchema() {
   await query('ALTER TABLE spells ADD COLUMN IF NOT EXISTS source VARCHAR(100)', []);
   await query('ALTER TABLE spells ADD COLUMN IF NOT EXISTS source_pages VARCHAR(50)', []);
   await query("ALTER TABLE spells ADD COLUMN IF NOT EXISTS theme VARCHAR(32) DEFAULT 'none'", []);
+  await query('ALTER TABLE spells ADD COLUMN IF NOT EXISTS description_eot LONGTEXT', []);
 
   const anyEditor = await query("SELECT id FROM users WHERE role = 'editor' LIMIT 1", []);
   if (!anyEditor || !anyEditor[0]) {
@@ -1036,7 +1037,7 @@ app.delete('/api/market/:id(\\d+)', authenticateToken, requireStaff, async (req,
 app.get('/api/spells', async (req, res) => {
   try {
     const rows = await query(
-      'SELECT id, name, level, school, components, description, created_at, updated_at FROM spells ORDER BY name ASC',
+      'SELECT id, name, level, school, components, description, description_eot, created_at, updated_at FROM spells ORDER BY name ASC',
       []
     );
     res.json(rows);
@@ -1052,7 +1053,7 @@ app.get('/api/spells/:id(\\d+)', async (req, res) => {
     if (!Number.isFinite(id)) return res.status(400).json({ error: 'Некорректный id' });
 
     const rows = await query(
-      'SELECT id, name, name_en, level, school, theme, casting_time, range_text, components, duration, classes, subclasses, source, source_pages, description, created_at, updated_at FROM spells WHERE id = ? LIMIT 1',
+      'SELECT id, name, name_en, level, school, theme, casting_time, range_text, components, duration, classes, subclasses, source, source_pages, description, description_eot, created_at, updated_at FROM spells WHERE id = ? LIMIT 1',
       [id]
     );
 
@@ -1186,7 +1187,7 @@ app.delete('/api/spells/:id(\\d+)/like', authenticateToken, async (req, res) => 
 app.get('/api/spells/admin', authenticateToken, requireStaff, async (req, res) => {
   try {
     const rows = await query(
-      'SELECT id, name, name_en, level, school, theme, casting_time, range_text, components, duration, classes, subclasses, source, source_pages, description, created_at, updated_at FROM spells ORDER BY name ASC',
+      'SELECT id, name, name_en, level, school, theme, casting_time, range_text, components, duration, classes, subclasses, source, source_pages, description, description_eot, created_at, updated_at FROM spells ORDER BY name ASC',
       []
     );
     res.json(rows);
@@ -1213,6 +1214,7 @@ app.post('/api/spells', authenticateToken, requireStaff, async (req, res) => {
       source,
       source_pages,
       description,
+      description_eot,
     } = req.body;
 
     if (!name) {
@@ -1227,7 +1229,7 @@ app.post('/api/spells', authenticateToken, requireStaff, async (req, res) => {
     const themeValue = normalizeSpellTheme(theme) ?? 'none';
 
     const result = await query(
-      'INSERT INTO spells (name, name_en, level, school, theme, casting_time, range_text, components, duration, classes, subclasses, source, source_pages, description) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      'INSERT INTO spells (name, name_en, level, school, theme, casting_time, range_text, components, duration, classes, subclasses, source, source_pages, description, description_eot) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
       [
         String(name).trim(),
         name_en ? String(name_en).trim() : null,
@@ -1243,6 +1245,7 @@ app.post('/api/spells', authenticateToken, requireStaff, async (req, res) => {
         source ? String(source).trim() : null,
         source_pages ? String(source_pages).trim() : null,
         description ? String(description) : null,
+        description_eot ? String(description_eot) : null,
       ]
     );
 
@@ -1264,6 +1267,7 @@ app.post('/api/spells', authenticateToken, requireStaff, async (req, res) => {
       source: source ? String(source).trim() : null,
       source_pages: source_pages ? String(source_pages).trim() : null,
       description: description ? String(description) : null,
+      description_eot: description_eot ? String(description_eot) : null,
     });
   } catch (error) {
     console.error('Create spell error:', error);
@@ -1277,7 +1281,7 @@ app.put('/api/spells/:id(\\d+)', authenticateToken, requireStaff, async (req, re
     if (!Number.isFinite(id)) return res.status(400).json({ error: 'Некорректный id' });
 
     const rows = await query(
-      'SELECT id, name, name_en, level, school, theme, casting_time, range_text, components, duration, classes, subclasses, source, source_pages, description FROM spells WHERE id = ? LIMIT 1',
+      'SELECT id, name, name_en, level, school, theme, casting_time, range_text, components, duration, classes, subclasses, source, source_pages, description, description_eot FROM spells WHERE id = ? LIMIT 1',
       [id]
     );
     const existing = rows && rows[0];
@@ -1322,10 +1326,16 @@ app.put('/api/spells/:id(\\d+)', authenticateToken, requireStaff, async (req, re
           : req.body.description === null
             ? null
             : String(req.body.description),
+      description_eot:
+        req.body.description_eot === undefined
+          ? existing.description_eot
+          : req.body.description_eot === null
+            ? null
+            : String(req.body.description_eot),
     };
 
     await query(
-      'UPDATE spells SET name = ?, name_en = ?, level = ?, school = ?, theme = ?, casting_time = ?, range_text = ?, components = ?, duration = ?, classes = ?, subclasses = ?, source = ?, source_pages = ?, description = ? WHERE id = ?',
+      'UPDATE spells SET name = ?, name_en = ?, level = ?, school = ?, theme = ?, casting_time = ?, range_text = ?, components = ?, duration = ?, classes = ?, subclasses = ?, source = ?, source_pages = ?, description = ?, description_eot = ? WHERE id = ?',
       [
         merged.name,
         merged.name_en,
@@ -1341,6 +1351,7 @@ app.put('/api/spells/:id(\\d+)', authenticateToken, requireStaff, async (req, re
         merged.source,
         merged.source_pages,
         merged.description,
+        merged.description_eot,
         id,
       ]
     );

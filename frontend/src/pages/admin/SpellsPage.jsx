@@ -46,6 +46,8 @@ export default function AdminSpellsPage() {
   const [source, setSource] = useState('');
   const [sourcePages, setSourcePages] = useState('');
   const [description, setDescription] = useState('');
+  const [hasEotVariant, setHasEotVariant] = useState(false);
+  const [descriptionEot, setDescriptionEot] = useState('');
 
   const [editingId, setEditingId] = useState(null);
   const [editName, setEditName] = useState('');
@@ -62,6 +64,8 @@ export default function AdminSpellsPage() {
   const [editSource, setEditSource] = useState('');
   const [editSourcePages, setEditSourcePages] = useState('');
   const [editDescription, setEditDescription] = useState('');
+  const [editHasEotVariant, setEditHasEotVariant] = useState(false);
+  const [editDescriptionEot, setEditDescriptionEot] = useState('');
 
   const load = async () => {
     setError('');
@@ -112,6 +116,7 @@ export default function AdminSpellsPage() {
       source: normalize(source) || null,
       source_pages: normalize(sourcePages) || null,
       description: normalizeSpellDescriptionForSave(description),
+      description_eot: hasEotVariant ? normalizeSpellDescriptionForSave(descriptionEot) : null,
     };
 
     if (!payload.name) {
@@ -140,6 +145,8 @@ export default function AdminSpellsPage() {
       setSource('');
       setSourcePages('');
       setDescription('');
+      setHasEotVariant(false);
+      setDescriptionEot('');
       await load();
     } catch (e2) {
       console.error(e2);
@@ -175,6 +182,9 @@ export default function AdminSpellsPage() {
     setEditSource(String(s.source || ''));
     setEditSourcePages(String(s.source_pages || ''));
     setEditDescription(String(s.description || ''));
+    const eot = String(s.description_eot || '').trim();
+    setEditHasEotVariant(Boolean(eot));
+    setEditDescriptionEot(String(s.description_eot || ''));
   };
 
   const cancelEdit = () => {
@@ -193,6 +203,8 @@ export default function AdminSpellsPage() {
     setEditSource('');
     setEditSourcePages('');
     setEditDescription('');
+    setEditHasEotVariant(false);
+    setEditDescriptionEot('');
   };
 
   const saveEdit = async (id) => {
@@ -212,6 +224,7 @@ export default function AdminSpellsPage() {
       source: normalize(editSource) || null,
       source_pages: normalize(editSourcePages) || null,
       description: normalizeSpellDescriptionForSave(editDescription),
+      description_eot: editHasEotVariant ? normalizeSpellDescriptionForSave(editDescriptionEot) : null,
     };
 
     if (!payload.name) {
@@ -361,7 +374,42 @@ export default function AdminSpellsPage() {
             />
           </div>
 
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <div className="text-sm font-semibold text-gray-900">Описание</div>
+            <div className="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-1">
+              <button
+                type="button"
+                onClick={() => setHasEotVariant(false)}
+                className={
+                  hasEotVariant
+                    ? 'px-3 py-1.5 rounded-md text-sm text-gray-700 hover:bg-white'
+                    : 'px-3 py-1.5 rounded-md text-sm font-semibold bg-white text-gray-900 shadow-sm'
+                }
+              >
+                Оригинал
+              </button>
+              <button
+                type="button"
+                onClick={() => setHasEotVariant(true)}
+                className={
+                  hasEotVariant
+                    ? 'px-3 py-1.5 rounded-md text-sm font-semibold bg-white text-gray-900 shadow-sm'
+                    : 'px-3 py-1.5 rounded-md text-sm text-gray-700 hover:bg-white'
+                }
+              >
+                EoT
+              </button>
+            </div>
+          </div>
+
           <SpellDescriptionEditor value={description} onChange={setDescription} />
+
+          {hasEotVariant ? (
+            <div className="space-y-2">
+              <div className="text-sm font-semibold text-gray-900">Описание (EoT) (опционально)</div>
+              <SpellDescriptionEditor value={descriptionEot} onChange={setDescriptionEot} />
+            </div>
+          ) : null}
 
           <div>
             <button type="submit" className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-medium">
@@ -504,11 +552,42 @@ export default function AdminSpellsPage() {
                           />
                         </div>
 
-                        <SpellDescriptionEditor
-                          key={editingId}
-                          value={editDescription}
-                          onChange={setEditDescription}
-                        />
+                        <div className="flex items-center justify-between gap-3 flex-wrap">
+                          <div className="text-sm font-semibold text-gray-900">Описание</div>
+                          <div className="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-1">
+                            <button
+                              type="button"
+                              onClick={() => setEditHasEotVariant(false)}
+                              className={
+                                editHasEotVariant
+                                  ? 'px-3 py-1.5 rounded-md text-sm text-gray-700 hover:bg-white'
+                                  : 'px-3 py-1.5 rounded-md text-sm font-semibold bg-white text-gray-900 shadow-sm'
+                              }
+                            >
+                              Оригинал
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setEditHasEotVariant(true)}
+                              className={
+                                editHasEotVariant
+                                  ? 'px-3 py-1.5 rounded-md text-sm font-semibold bg-white text-gray-900 shadow-sm'
+                                  : 'px-3 py-1.5 rounded-md text-sm text-gray-700 hover:bg-white'
+                              }
+                            >
+                              EoT
+                            </button>
+                          </div>
+                        </div>
+
+                        <SpellDescriptionEditor key={editingId} value={editDescription} onChange={setEditDescription} />
+
+                        {editHasEotVariant ? (
+                          <div className="space-y-2">
+                            <div className="text-sm font-semibold text-gray-900">Описание (EoT) (опционально)</div>
+                            <SpellDescriptionEditor value={editDescriptionEot} onChange={setEditDescriptionEot} />
+                          </div>
+                        ) : null}
 
                         <div className="flex items-center gap-3">
                           <button

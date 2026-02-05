@@ -27,7 +27,6 @@ export default function SpellsPage() {
 
   const [groupMode, setGroupMode] = useState('alpha');
 
-
   const load = async () => {
     setError('');
     setLoading(true);

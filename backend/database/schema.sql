@@ -53,6 +53,7 @@ CREATE TABLE IF NOT EXISTS spells (
     source VARCHAR(100),
     source_pages VARCHAR(50),
     description LONGTEXT,
+    description_eot LONGTEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     INDEX idx_spells_name (name)
