@@ -46,7 +46,7 @@ export default function RegisterPage() {
       <div className="bg-white/10 backdrop-blur-lg rounded-xl p-8 w-full max-w-md border border-purple-500/30">
         <div className="text-center mb-8">
           <Link to="/news" className="text-3xl font-bold text-white block mb-2">
-            <span className="text-purple-400">EOTD20</span> Wiki
+            <span className="text-purple-400">Echoes</span> of Dices
           </Link>
           <p className="text-gray-300">Регистрация</p>
         </div>

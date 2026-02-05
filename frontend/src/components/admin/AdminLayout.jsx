@@ -101,6 +101,20 @@ export default function AdminLayout({ children }) {
           </svg>
         ),
       },
+      {
+        name: 'Рынок',
+        href: '/admin/market',
+        icon: (
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="2"
+              d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13l-1.5 7H19M7 13h0m10 0h0M9 21a1 1 0 100-2 1 1 0 000 2zm8 0a1 1 0 100-2 1 1 0 000 2z"
+            ></path>
+          </svg>
+        ),
+      },
     ];
 
     items.push({
@@ -170,7 +184,7 @@ export default function AdminLayout({ children }) {
           <div className="flex-1 h-0 pt-5 pb-4 overflow-y-auto">
             <div className="flex-shrink-0 flex items-center px-4">
               <Link to="/" className="text-xl font-bold text-gray-900">
-                <span className="text-purple-600">EOTD20</span> Wiki
+                <span className="text-purple-600">Echoes</span> of Dices
               </Link>
             </div>
             <nav className="mt-5 px-2 space-y-1">
@@ -205,7 +219,7 @@ export default function AdminLayout({ children }) {
           <div className="flex-1 flex flex-col pt-5 pb-4 overflow-y-auto">
             <div className="flex items-center flex-shrink-0 px-4">
               <Link to="/" className="text-xl font-bold text-gray-900">
-                <span className="text-purple-600">EOTD20</span> Wiki
+                <span className="text-purple-600">Echoes</span> of Dices
               </Link>
             </div>
             <nav className="mt-5 flex-1 px-2 bg-white space-y-1">

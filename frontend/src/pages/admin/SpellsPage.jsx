@@ -91,6 +91,8 @@ export default function AdminSpellsPage() {
     return filtered.sort((a, b) => normalize(a.name).localeCompare(normalize(b.name), 'ru', { sensitivity: 'base' }));
   }, [items, query]);
 
+  const shouldScrollSpells = useMemo(() => filteredSorted.length > 8, [filteredSorted.length]);
+
   const handleCreate = async (e) => {
     e.preventDefault();
     setError('');
@@ -374,7 +376,7 @@ export default function AdminSpellsPage() {
           ) : filteredSorted.length === 0 ? (
             <div className="p-6 text-gray-700">Заклинаний не найдено.</div>
           ) : (
-            <div className="divide-y divide-gray-200">
+            <div className={`divide-y divide-gray-200 ${shouldScrollSpells ? 'max-h-[36rem] overflow-y-auto' : ''}`}>
               {filteredSorted.map((s) => (
                 <div key={s.id} className="p-4 flex items-start justify-between gap-4">
                   <div className="min-w-0 flex-1">

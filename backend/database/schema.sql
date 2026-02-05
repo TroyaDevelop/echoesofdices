@@ -46,7 +46,7 @@ CREATE TABLE IF NOT EXISTS spells (
     theme VARCHAR(32) DEFAULT 'none',
     casting_time VARCHAR(255),
     range_text VARCHAR(255),
-    components VARCHAR(50),
+    components TEXT,
     duration VARCHAR(255),
     classes VARCHAR(255),
     subclasses VARCHAR(255),
@@ -79,3 +79,51 @@ CREATE TABLE IF NOT EXISTS spell_comments (
     FOREIGN KEY (spell_id) REFERENCES spells(id) ON DELETE CASCADE,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
+
+CREATE TABLE IF NOT EXISTS market_items (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    name VARCHAR(255) NOT NULL,
+    category VARCHAR(40) NOT NULL DEFAULT 'food_plant',
+    region_id INT NULL,
+    region VARCHAR(255) NULL,
+    damage VARCHAR(60) NULL,
+    armor_class VARCHAR(60) NULL,
+    short_description TEXT NULL,
+    price_cp INT UNSIGNED NOT NULL DEFAULT 0,
+    price_sp INT UNSIGNED NOT NULL DEFAULT 0,
+    price_gp INT UNSIGNED NOT NULL DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_market_name (name),
+    INDEX idx_market_region (region),
+    INDEX idx_market_region_id (region_id)
+);
+
+CREATE TABLE IF NOT EXISTS market_regions (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    name VARCHAR(255) NOT NULL UNIQUE,
+    markup_percent INT NOT NULL DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_market_regions_name (name)
+);
+
+CREATE TABLE IF NOT EXISTS market_region_category_markups (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    region_id INT NOT NULL,
+    season ENUM('spring_summer','autumn_winter') NOT NULL DEFAULT 'spring_summer',
+    category VARCHAR(40) NOT NULL,
+    markup_percent INT NOT NULL DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uniq_market_region_season_category (region_id, season, category),
+    INDEX idx_market_markups_region (region_id),
+    INDEX idx_market_markups_season (season),
+    INDEX idx_market_markups_category (category),
+    FOREIGN KEY (region_id) REFERENCES market_regions(id) ON DELETE CASCADE
+);
+
+ALTER TABLE market_items
+    ADD CONSTRAINT fk_market_items_region
+    FOREIGN KEY (region_id) REFERENCES market_regions(id)
+    ON DELETE SET NULL;

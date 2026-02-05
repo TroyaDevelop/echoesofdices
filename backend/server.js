@@ -154,9 +154,83 @@ async function ensureRuntimeSchema() {
   );
 
   await query(
-    "CREATE TABLE IF NOT EXISTS spells (id INT PRIMARY KEY AUTO_INCREMENT, name VARCHAR(255) NOT NULL, name_en VARCHAR(255), level TINYINT UNSIGNED NOT NULL DEFAULT 0, school VARCHAR(100), theme VARCHAR(32) DEFAULT 'none', casting_time VARCHAR(255), range_text VARCHAR(255), components VARCHAR(50), duration VARCHAR(255), classes VARCHAR(255), subclasses VARCHAR(255), source VARCHAR(100), source_pages VARCHAR(50), description LONGTEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, INDEX idx_spells_name (name))",
+    "CREATE TABLE IF NOT EXISTS spells (id INT PRIMARY KEY AUTO_INCREMENT, name VARCHAR(255) NOT NULL, name_en VARCHAR(255), level TINYINT UNSIGNED NOT NULL DEFAULT 0, school VARCHAR(100), theme VARCHAR(32) DEFAULT 'none', casting_time VARCHAR(255), range_text VARCHAR(255), components TEXT, duration VARCHAR(255), classes VARCHAR(255), subclasses VARCHAR(255), source VARCHAR(100), source_pages VARCHAR(50), description LONGTEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, INDEX idx_spells_name (name))",
     []
   );
+
+  // components часто длиннее 50 символов; расширяем тип.
+  await safeQuery('ALTER TABLE spells MODIFY COLUMN components TEXT', []);
+
+  await query(
+    'CREATE TABLE IF NOT EXISTS market_items (id INT PRIMARY KEY AUTO_INCREMENT, name VARCHAR(255) NOT NULL, region VARCHAR(255) NULL, category VARCHAR(40) NOT NULL DEFAULT \'food_plant\', region_id INT NULL, damage VARCHAR(60) NULL, armor_class VARCHAR(60) NULL, short_description TEXT NULL, price_cp INT UNSIGNED NOT NULL DEFAULT 0, price_sp INT UNSIGNED NOT NULL DEFAULT 0, price_gp INT UNSIGNED NOT NULL DEFAULT 0, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, INDEX idx_market_name (name), INDEX idx_market_region (region), INDEX idx_market_region_id (region_id))',
+    []
+  );
+
+  await query(
+    'CREATE TABLE IF NOT EXISTS market_regions (id INT PRIMARY KEY AUTO_INCREMENT, name VARCHAR(255) NOT NULL UNIQUE, markup_percent INT NOT NULL DEFAULT 0, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, INDEX idx_market_regions_name (name))',
+    []
+  );
+
+  await safeQuery("ALTER TABLE market_items ADD COLUMN category VARCHAR(40) NOT NULL DEFAULT 'food_plant'", []);
+  await safeQuery('ALTER TABLE market_items ADD COLUMN region_id INT NULL', []);
+  await safeQuery('ALTER TABLE market_items ADD INDEX idx_market_region_id (region_id)', []);
+  await safeQuery('ALTER TABLE market_items ADD CONSTRAINT fk_market_items_region FOREIGN KEY (region_id) REFERENCES market_regions(id) ON DELETE SET NULL', []);
+  await safeQuery('ALTER TABLE market_items MODIFY COLUMN region VARCHAR(255) NULL', []);
+
+  await safeQuery('ALTER TABLE market_items ADD COLUMN damage VARCHAR(60) NULL', []);
+  await safeQuery('ALTER TABLE market_items ADD COLUMN armor_class VARCHAR(60) NULL', []);
+  await safeQuery('ALTER TABLE market_items ADD COLUMN short_description TEXT NULL', []);
+
+  await query(
+    "CREATE TABLE IF NOT EXISTS market_region_category_markups (id INT PRIMARY KEY AUTO_INCREMENT, region_id INT NOT NULL, season ENUM('spring_summer','autumn_winter') NOT NULL DEFAULT 'spring_summer', category VARCHAR(40) NOT NULL, markup_percent INT NOT NULL DEFAULT 0, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, UNIQUE KEY uniq_market_region_season_category (region_id, season, category), INDEX idx_market_markups_region (region_id), INDEX idx_market_markups_season (season), INDEX idx_market_markups_category (category), FOREIGN KEY (region_id) REFERENCES market_regions(id) ON DELETE CASCADE)",
+    []
+  );
+
+  // Миграция к сезонным наценкам.
+  await safeQuery(
+    "ALTER TABLE market_region_category_markups ADD COLUMN season ENUM('spring_summer','autumn_winter') NOT NULL DEFAULT 'spring_summer'",
+    []
+  );
+  await safeQuery('ALTER TABLE market_region_category_markups DROP INDEX uniq_market_region_category', []);
+  await safeQuery(
+    "ALTER TABLE market_region_category_markups ADD UNIQUE KEY uniq_market_region_season_category (region_id, season, category)",
+    []
+  );
+  await safeQuery('ALTER TABLE market_region_category_markups ADD INDEX idx_market_markups_season (season)', []);
+
+  // Миграция старых данных: создаём регионы из строкового поля region и проставляем region_id.
+  try {
+    await query(
+      "INSERT IGNORE INTO market_regions (name) SELECT DISTINCT region FROM market_items WHERE region IS NOT NULL AND TRIM(region) <> ''",
+      []
+    );
+    await query(
+      'UPDATE market_items mi JOIN market_regions mr ON mr.name = mi.region SET mi.region_id = mr.id WHERE mi.region_id IS NULL',
+      []
+    );
+
+    // Заполняем наценки (регион × категория) из старого поля market_regions.markup_percent для совместимости.
+    const regionRows = await query('SELECT id, markup_percent FROM market_regions', []);
+    if (Array.isArray(regionRows)) {
+      for (const r of regionRows) {
+        const baseMarkup = Number(r?.markup_percent || 0);
+        for (const cat of Object.keys(MARKET_CATEGORIES)) {
+          await safeQuery(
+            "INSERT IGNORE INTO market_region_category_markups (region_id, season, category, markup_percent) VALUES (?, 'spring_summer', ?, ?)",
+            [r.id, cat, baseMarkup]
+          );
+        }
+      }
+    }
+
+    // Создаём копию для осень-зима, если её ещё нет.
+    await safeQuery(
+      "INSERT IGNORE INTO market_region_category_markups (region_id, season, category, markup_percent) SELECT region_id, 'autumn_winter', category, markup_percent FROM market_region_category_markups WHERE season = 'spring_summer'",
+      []
+    );
+  } catch {
+    // ignore migration errors
+  }
 
   await query('ALTER TABLE spells ADD COLUMN IF NOT EXISTS name_en VARCHAR(255)', []);
   await query('ALTER TABLE spells ADD COLUMN IF NOT EXISTS casting_time VARCHAR(255)', []);
@@ -519,6 +593,402 @@ app.delete('/api/news/:id(\\d+)', authenticateToken, requireStaff, async (req, r
   } catch (error) {
     console.error('Delete news error:', error);
     res.status(500).json({ error: 'Ошибка при удалении новости' });
+  }
+});
+
+app.get('/api/market', async (req, res) => {
+  try {
+    const rows = await query(
+      'SELECT id, name, category, damage, armor_class, short_description, price_cp, price_sp, price_gp, created_at, updated_at FROM market_items ORDER BY name ASC, id ASC',
+      []
+    );
+    res.json(Array.isArray(rows) ? rows : []);
+  } catch (error) {
+    console.error('List market error:', error);
+    res.status(503).json({ error: 'База данных недоступна' });
+  }
+});
+
+app.get('/api/market/admin', authenticateToken, requireStaff, async (req, res) => {
+  try {
+    const rows = await query(
+      'SELECT id, name, category, damage, armor_class, short_description, price_cp, price_sp, price_gp, created_at, updated_at FROM market_items ORDER BY name ASC, id ASC',
+      []
+    );
+    res.json(Array.isArray(rows) ? rows : []);
+  } catch (error) {
+    console.error('List market admin error:', error);
+    res.status(503).json({ error: 'База данных недоступна' });
+  }
+});
+
+const toNonNegInt = (value, fallback = 0) => {
+  if (value === undefined || value === null || value === '') return fallback;
+  const n = Number(value);
+  if (!Number.isFinite(n) || n < 0) return null;
+  return Math.floor(n);
+};
+
+const toInt = (value, fallback = 0) => {
+  if (value === undefined || value === null || value === '') return fallback;
+  const n = Number(value);
+  if (!Number.isFinite(n)) return null;
+  return Math.trunc(n);
+};
+
+const toMarkupPercent = (value, fallback = 0) => {
+  const n = toInt(value, fallback);
+  if (n === null || n < 0 || n > 1000) return null;
+  return n;
+};
+
+const MARKET_CATEGORIES = {
+  nonmetal_weapon_armor: 'Неметаллическое оружие и броня',
+  food_plant: 'Еда растительная',
+  food_meat: 'Еда мясная',
+  metal_weapon_armor: 'Металлическое оружие и броня',
+  vehicles: 'Транспортные средства',
+  draft_animals: 'Тягловые животные',
+  riding_animals: 'Верховые животные',
+  nonmetal_goods: 'Неметаллические изделия',
+  metal_goods: 'Металлические изделия',
+  textile_goods: 'Текстильные изделия',
+  tools: 'Инструменты',
+  complex_goods: 'Сложные изделия',
+  magic_goods: 'Магические изделия',
+  jewelry_goods: 'Ювелирные изделия',
+  alchemy_goods_ingredients: 'Алхимические изделия и ингредиенты',
+};
+
+const MARKET_SEASONS = {
+  spring_summer: 'Весна-лето',
+  autumn_winter: 'Осень-зима',
+};
+
+const normalizeMarketCategory = (value) => {
+  if (value === undefined || value === null || value === '') return undefined;
+  const s = String(value).trim();
+  if (!s) return undefined;
+  return MARKET_CATEGORIES[s] ? s : null;
+};
+
+const normalizeMarketSeason = (value) => {
+  if (value === undefined || value === null || value === '') return 'spring_summer';
+  const s = String(value).trim();
+  if (!s) return 'spring_summer';
+  return MARKET_SEASONS[s] ? s : null;
+};
+
+const normOpt = (value) => {
+  if (value === undefined) return undefined;
+  if (value === null) return null;
+  const s = String(value).trim();
+  return s ? s : null;
+};
+
+const marketSupportsCombatFields = (category) => {
+  return category === 'nonmetal_weapon_armor' || category === 'metal_weapon_armor';
+};
+
+app.get('/api/market/regions', async (req, res) => {
+  try {
+    const rows = await query('SELECT id, name, markup_percent, created_at, updated_at FROM market_regions ORDER BY name ASC, id ASC', []);
+    res.json(Array.isArray(rows) ? rows : []);
+  } catch (error) {
+    console.error('List market regions error:', error);
+    res.status(503).json({ error: 'База данных недоступна' });
+  }
+});
+
+app.get('/api/market/regions/admin', authenticateToken, requireStaff, async (req, res) => {
+  try {
+    const rows = await query('SELECT id, name, markup_percent, created_at, updated_at FROM market_regions ORDER BY name ASC, id ASC', []);
+    res.json(Array.isArray(rows) ? rows : []);
+  } catch (error) {
+    console.error('List market regions admin error:', error);
+    res.status(503).json({ error: 'База данных недоступна' });
+  }
+});
+
+app.post('/api/market/regions', authenticateToken, requireStaff, async (req, res) => {
+  try {
+    const name = String(req.body?.name || '').trim();
+    if (!name) return res.status(400).json({ error: 'Заполните название региона' });
+
+    // markup_percent оставляем для обратной совместимости, но наценки теперь задаются отдельно по категориям.
+    const result = await query('INSERT INTO market_regions (name, markup_percent) VALUES (?, 0)', [name]);
+    const insertedId = typeof result.insertId === 'bigint' ? Number(result.insertId) : result.insertId;
+
+    for (const cat of Object.keys(MARKET_CATEGORIES)) {
+      await safeQuery(
+        "INSERT IGNORE INTO market_region_category_markups (region_id, season, category, markup_percent) VALUES (?, 'spring_summer', ?, 0)",
+        [insertedId, cat]
+      );
+      await safeQuery(
+        "INSERT IGNORE INTO market_region_category_markups (region_id, season, category, markup_percent) VALUES (?, 'autumn_winter', ?, 0)",
+        [insertedId, cat]
+      );
+    }
+
+    res.status(201).json({ id: insertedId, name, markup_percent: 0 });
+  } catch (error) {
+    if (String(error?.code || '').toUpperCase() === 'ER_DUP_ENTRY') {
+      return res.status(409).json({ error: 'Регион с таким названием уже существует' });
+    }
+    console.error('Create market region error:', error);
+    res.status(500).json({ error: 'Ошибка при добавлении региона' });
+  }
+});
+
+app.put('/api/market/regions/:id(\\d+)', authenticateToken, requireStaff, async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) return res.status(400).json({ error: 'Некорректный id' });
+
+    const rows = await query('SELECT id, name, markup_percent FROM market_regions WHERE id = ? LIMIT 1', [id]);
+    const existing = rows && rows[0];
+    if (!existing) return res.status(404).json({ error: 'Регион не найден' });
+
+    const nextName = req.body?.name !== undefined ? String(req.body.name || '').trim() : String(existing.name || '').trim();
+    if (!nextName) return res.status(400).json({ error: 'Заполните название региона' });
+
+    // markup_percent больше не редактируем здесь: наценки по категориям живут в market_region_category_markups.
+    await query('UPDATE market_regions SET name = ? WHERE id = ?', [nextName, id]);
+    await query('UPDATE market_items SET region = ? WHERE region_id = ?', [nextName, id]);
+
+    res.json({ id, name: nextName, markup_percent: Number(existing.markup_percent || 0) });
+  } catch (error) {
+    if (String(error?.code || '').toUpperCase() === 'ER_DUP_ENTRY') {
+      return res.status(409).json({ error: 'Регион с таким названием уже существует' });
+    }
+    console.error('Update market region error:', error);
+    res.status(500).json({ error: 'Ошибка при обновлении региона' });
+  }
+});
+
+app.delete('/api/market/regions/:id(\\d+)', authenticateToken, requireStaff, async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) return res.status(400).json({ error: 'Некорректный id' });
+
+    await query('DELETE FROM market_regions WHERE id = ?', [id]);
+    res.json({ message: 'Регион удалён' });
+  } catch (error) {
+    console.error('Delete market region error:', error);
+    res.status(500).json({ error: 'Ошибка при удалении региона' });
+  }
+});
+
+app.get('/api/market/markups', async (req, res) => {
+  try {
+    const season = normalizeMarketSeason(req.query?.season);
+    if (season === null) return res.status(400).json({ error: 'Некорректный сезон' });
+
+    const rows = await query(
+      'SELECT m.id, m.region_id, r.name AS region, m.season, m.category, m.markup_percent, m.created_at, m.updated_at FROM market_region_category_markups m JOIN market_regions r ON r.id = m.region_id WHERE m.season = ? ORDER BY r.name ASC, m.category ASC, m.id ASC',
+      [season]
+    );
+    res.json(Array.isArray(rows) ? rows : []);
+  } catch (error) {
+    console.error('List market markups error:', error);
+    res.status(503).json({ error: 'База данных недоступна' });
+  }
+});
+
+app.get('/api/market/markups/admin', authenticateToken, requireStaff, async (req, res) => {
+  try {
+    const season = normalizeMarketSeason(req.query?.season);
+    if (season === null) return res.status(400).json({ error: 'Некорректный сезон' });
+
+    const rows = await query(
+      'SELECT m.id, m.region_id, r.name AS region, m.season, m.category, m.markup_percent, m.created_at, m.updated_at FROM market_region_category_markups m JOIN market_regions r ON r.id = m.region_id WHERE m.season = ? ORDER BY r.name ASC, m.category ASC, m.id ASC',
+      [season]
+    );
+    res.json(Array.isArray(rows) ? rows : []);
+  } catch (error) {
+    console.error('List market markups admin error:', error);
+    res.status(503).json({ error: 'База данных недоступна' });
+  }
+});
+
+app.put('/api/market/markups', authenticateToken, requireStaff, async (req, res) => {
+  try {
+    const regionId = Number(req.body?.region_id);
+    const season = normalizeMarketSeason(req.body?.season);
+    const category = normalizeMarketCategory(req.body?.category);
+    const markup_percent = toMarkupPercent(req.body?.markup_percent, 0);
+
+    if (!Number.isFinite(regionId) || regionId <= 0) return res.status(400).json({ error: 'Выберите регион' });
+    if (season === null) return res.status(400).json({ error: 'Некорректный сезон' });
+    if (category === null || !category) return res.status(400).json({ error: 'Некорректная категория' });
+    if (markup_percent === null) return res.status(400).json({ error: 'Наценка должна быть числом от 0 до 1000' });
+
+    const regionRows = await query('SELECT id, name FROM market_regions WHERE id = ? LIMIT 1', [regionId]);
+    if (!regionRows || !regionRows[0]) return res.status(404).json({ error: 'Регион не найден' });
+
+    await query(
+      'INSERT INTO market_region_category_markups (region_id, season, category, markup_percent) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE markup_percent = VALUES(markup_percent), updated_at = CURRENT_TIMESTAMP',
+      [regionId, season, category, markup_percent]
+    );
+
+    const rows = await query(
+      'SELECT m.id, m.region_id, r.name AS region, m.season, m.category, m.markup_percent, m.created_at, m.updated_at FROM market_region_category_markups m JOIN market_regions r ON r.id = m.region_id WHERE m.region_id = ? AND m.season = ? AND m.category = ? LIMIT 1',
+      [regionId, season, category]
+    );
+
+    res.json(rows?.[0] || { region_id: regionId, region: regionRows[0].name, season, category, markup_percent });
+  } catch (error) {
+    console.error('Upsert market markup error:', error);
+    res.status(500).json({ error: 'Ошибка при сохранении наценки' });
+  }
+});
+
+app.post('/api/market', authenticateToken, requireStaff, async (req, res) => {
+  try {
+    const name = String(req.body?.name || '').trim();
+    const category = normalizeMarketCategory(req.body?.category);
+    const short_description = normOpt(req.body?.short_description);
+    const damageRaw = normOpt(req.body?.damage);
+    const armorClassRaw = normOpt(req.body?.armor_class);
+    const price_gp = toNonNegInt(req.body?.price_gp, 0);
+    const price_sp = toNonNegInt(req.body?.price_sp, 0);
+    const price_cp = toNonNegInt(req.body?.price_cp, 0);
+
+    if (!name) {
+      return res.status(400).json({ error: 'Заполните название' });
+    }
+
+    if (category === null) {
+      return res.status(400).json({ error: 'Некорректная категория' });
+    }
+
+    if (price_gp === null || price_sp === null || price_cp === null) {
+      return res.status(400).json({ error: 'Цена должна быть неотрицательным числом' });
+    }
+
+    const finalCategory = category || 'food_plant';
+    const combatOk = marketSupportsCombatFields(finalCategory);
+    const damage = combatOk ? damageRaw : null;
+    const armor_class = combatOk ? armorClassRaw : null;
+
+    if (damage !== null && damage !== undefined && String(damage).length > 60) {
+      return res.status(400).json({ error: 'Поле "Урон" слишком длинное (макс. 60 символов)' });
+    }
+    if (armor_class !== null && armor_class !== undefined && String(armor_class).length > 60) {
+      return res.status(400).json({ error: 'Поле "Класс доспеха" слишком длинное (макс. 60 символов)' });
+    }
+    if (short_description !== null && short_description !== undefined && String(short_description).length > 2000) {
+      return res.status(400).json({ error: 'Краткое описание слишком длинное (макс. 2000 символов)' });
+    }
+
+    const result = await query(
+      'INSERT INTO market_items (name, category, damage, armor_class, short_description, region_id, region, price_gp, price_sp, price_cp) VALUES (?, ?, ?, ?, ?, NULL, NULL, ?, ?, ?)',
+      [name, finalCategory, damage ?? null, armor_class ?? null, short_description ?? null, price_gp, price_sp, price_cp]
+    );
+
+    const insertedId = typeof result.insertId === 'bigint' ? Number(result.insertId) : result.insertId;
+
+    res.status(201).json({
+      id: insertedId,
+      name,
+      category: finalCategory,
+      damage: damage ?? null,
+      armor_class: armor_class ?? null,
+      short_description: short_description ?? null,
+      price_gp,
+      price_sp,
+      price_cp,
+    });
+  } catch (error) {
+    console.error('Create market item error:', error);
+    res.status(500).json({ error: 'Ошибка при добавлении предмета' });
+  }
+});
+
+app.put('/api/market/:id(\\d+)', authenticateToken, requireStaff, async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) return res.status(400).json({ error: 'Некорректный id' });
+
+    const rows = await query(
+      'SELECT id, name, category, damage, armor_class, short_description, price_gp, price_sp, price_cp FROM market_items WHERE id = ? LIMIT 1',
+      [id]
+    );
+    const existing = rows && rows[0];
+    if (!existing) return res.status(404).json({ error: 'Предмет не найден' });
+
+    const nextName = req.body?.name !== undefined ? String(req.body.name || '').trim() : String(existing.name || '').trim();
+
+    const nextCategory =
+      req.body?.category !== undefined ? normalizeMarketCategory(req.body.category) : normalizeMarketCategory(existing.category);
+
+    const nextShortDescription = req.body?.short_description !== undefined ? normOpt(req.body.short_description) : normOpt(existing.short_description);
+    const nextDamage = req.body?.damage !== undefined ? normOpt(req.body.damage) : normOpt(existing.damage);
+    const nextArmorClass = req.body?.armor_class !== undefined ? normOpt(req.body.armor_class) : normOpt(existing.armor_class);
+
+    const nextPriceGp = req.body?.price_gp !== undefined ? toNonNegInt(req.body.price_gp, 0) : Number(existing.price_gp || 0);
+    const nextPriceSp = req.body?.price_sp !== undefined ? toNonNegInt(req.body.price_sp, 0) : Number(existing.price_sp || 0);
+    const nextPriceCp = req.body?.price_cp !== undefined ? toNonNegInt(req.body.price_cp, 0) : Number(existing.price_cp || 0);
+
+    if (!nextName) {
+      return res.status(400).json({ error: 'Заполните название' });
+    }
+
+    if (nextCategory === null) {
+      return res.status(400).json({ error: 'Некорректная категория' });
+    }
+
+    if (nextPriceGp === null || nextPriceSp === null || nextPriceCp === null) {
+      return res.status(400).json({ error: 'Цена должна быть неотрицательным числом' });
+    }
+
+    const finalCategory = nextCategory || 'food_plant';
+    const combatOk = marketSupportsCombatFields(finalCategory);
+    const finalDamage = combatOk ? nextDamage : null;
+    const finalArmorClass = combatOk ? nextArmorClass : null;
+
+    if (finalDamage !== null && finalDamage !== undefined && String(finalDamage).length > 60) {
+      return res.status(400).json({ error: 'Поле "Урон" слишком длинное (макс. 60 символов)' });
+    }
+    if (finalArmorClass !== null && finalArmorClass !== undefined && String(finalArmorClass).length > 60) {
+      return res.status(400).json({ error: 'Поле "Класс доспеха" слишком длинное (макс. 60 символов)' });
+    }
+    if (nextShortDescription !== null && nextShortDescription !== undefined && String(nextShortDescription).length > 2000) {
+      return res.status(400).json({ error: 'Краткое описание слишком длинное (макс. 2000 символов)' });
+    }
+
+    await query(
+      'UPDATE market_items SET name = ?, category = ?, damage = ?, armor_class = ?, short_description = ?, region_id = NULL, region = NULL, price_gp = ?, price_sp = ?, price_cp = ? WHERE id = ?',
+      [nextName, finalCategory, finalDamage ?? null, finalArmorClass ?? null, nextShortDescription ?? null, nextPriceGp, nextPriceSp, nextPriceCp, id]
+    );
+
+    res.json({
+      id,
+      name: nextName,
+      category: finalCategory,
+      damage: finalDamage ?? null,
+      armor_class: finalArmorClass ?? null,
+      short_description: nextShortDescription ?? null,
+      price_gp: nextPriceGp,
+      price_sp: nextPriceSp,
+      price_cp: nextPriceCp,
+    });
+  } catch (error) {
+    console.error('Update market item error:', error);
+    res.status(500).json({ error: 'Ошибка при обновлении предмета' });
+  }
+});
+
+app.delete('/api/market/:id(\\d+)', authenticateToken, requireStaff, async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) return res.status(400).json({ error: 'Некорректный id' });
+
+    await query('DELETE FROM market_items WHERE id = ?', [id]);
+    res.json({ message: 'Предмет удалён' });
+  } catch (error) {
+    console.error('Delete market item error:', error);
+    res.status(500).json({ error: 'Ошибка при удалении предмета' });
   }
 });
 

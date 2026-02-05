@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import AdminLayout from '../../components/admin/AdminLayout.jsx';
 import { newsAPI } from '../../lib/api.js';
 import SpellDescriptionEditor from '../../components/admin/SpellDescriptionEditor.jsx';
@@ -51,6 +51,8 @@ export default function AdminNewsPage() {
   useEffect(() => {
     load();
   }, []);
+
+  const shouldScrollNews = useMemo(() => items.length > 4, [items.length]);
 
   const handleCreate = async (e) => {
     e.preventDefault();
@@ -190,7 +192,7 @@ export default function AdminNewsPage() {
           ) : items.length === 0 ? (
             <div className="p-6 text-gray-700">Новостей пока нет.</div>
           ) : (
-            <div className="divide-y divide-gray-200">
+            <div className={`divide-y divide-gray-200 ${shouldScrollNews ? 'max-h-[36rem] overflow-y-auto' : ''}`}>
               {items.map((post) => (
                 <div key={post.id} className="p-4 flex items-start justify-between gap-4">
                   <div className="min-w-0 flex-1">

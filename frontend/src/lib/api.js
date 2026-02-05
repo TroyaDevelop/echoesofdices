@@ -100,3 +100,27 @@ export const spellsAPI = {
   update: (id, data) => apiClient(`/spells/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   remove: (id) => apiClient(`/spells/${id}`, { method: 'DELETE' }),
 };
+
+export const marketAPI = {
+  list: () => apiClient('/market', { method: 'GET' }),
+  listAdmin: () => apiClient('/market/admin', { method: 'GET' }),
+  listRegions: () => apiClient('/market/regions', { method: 'GET' }),
+  listRegionsAdmin: () => apiClient('/market/regions/admin', { method: 'GET' }),
+  listMarkups: (season) => {
+    const s = season ? String(season) : '';
+    const qs = s ? `?season=${encodeURIComponent(s)}` : '';
+    return apiClient(`/market/markups${qs}`, { method: 'GET' });
+  },
+  listMarkupsAdmin: (season) => {
+    const s = season ? String(season) : '';
+    const qs = s ? `?season=${encodeURIComponent(s)}` : '';
+    return apiClient(`/market/markups/admin${qs}`, { method: 'GET' });
+  },
+  upsertMarkup: (data) => apiClient('/market/markups', { method: 'PUT', body: JSON.stringify(data) }),
+  createRegion: (data) => apiClient('/market/regions', { method: 'POST', body: JSON.stringify(data) }),
+  updateRegion: (id, data) => apiClient(`/market/regions/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  removeRegion: (id) => apiClient(`/market/regions/${id}`, { method: 'DELETE' }),
+  create: (data) => apiClient('/market', { method: 'POST', body: JSON.stringify(data) }),
+  update: (id, data) => apiClient(`/market/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  remove: (id) => apiClient(`/market/${id}`, { method: 'DELETE' }),
+};
