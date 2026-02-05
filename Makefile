@@ -37,9 +37,14 @@ echoes-backup:
 	CF="$(ACTIVE_COMPOSE_FILE)"; \
 	mkdir -p "$(BACKUP_DIR)"; \
 	OUT="$(BACKUP_DIR)/eotd20_wiki_$$(date +%F_%H%M%S).sql.gz"; \
+	TMP="$$OUT.tmp"; \
 	echo "Using compose file: $$CF"; \
 	echo "Writing backup: $$OUT"; \
-	$(COMPOSE) -f "$$CF" exec -T mariadb sh -lc 'mariadb-dump -u"$$MARIADB_USER" -p"$$MARIADB_PASSWORD" --single-transaction --quick --routines --events --triggers --add-drop-table "$$MARIADB_DATABASE"' | gzip -c > "$$OUT"; \
+	rm -f "$$TMP"; \
+	$(COMPOSE) -f "$$CF" exec -T mariadb sh -lc 'mariadb-dump -u"$$MARIADB_USER" -p"$$MARIADB_PASSWORD" --single-transaction --quick --routines --events --triggers --add-drop-table "$$MARIADB_DATABASE"' | gzip -c > "$$TMP"; \
+	mv "$$TMP" "$$OUT"; \
+	KEEP_NAME="$$(basename "$$OUT")"; \
+	find "$(BACKUP_DIR)" -maxdepth 1 -type f -name 'eotd20_wiki_*.sql.gz' ! -name "$$KEEP_NAME" -print -delete; \
 	echo "OK: $$OUT"
 
 echoes-restore:
