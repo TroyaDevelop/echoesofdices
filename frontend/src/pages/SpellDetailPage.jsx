@@ -1,13 +1,13 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 
 import { spellsAPI } from '../lib/api.js';
-import { isRichHtmlDescription, sanitizeSpellDescriptionHtml } from '../lib/richText.js';
-
-const field = (v) => {
-  const s = String(v ?? '').trim();
-  return s ? s : '—';
-};
+import SpellHeader from '../components/spells/SpellHeader.jsx';
+import SpellMetaGrid from '../components/spells/SpellMetaGrid.jsx';
+import SpellDescription from '../components/spells/SpellDescription.jsx';
+import LikeButton from '../components/spells/LikeButton.jsx';
+import CommentsSection from '../components/spells/CommentsSection.jsx';
+import ConfirmModal from '../components/spells/ConfirmModal.jsx';
 
 const levelLine = (level, school) => {
   const lvl = Number(level);
@@ -217,26 +217,6 @@ export default function SpellDetailPage() {
     }
   };
 
-  const formatCommentDate = (value) => {
-    try {
-      return new Date(value).toLocaleString('ru-RU', {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-      });
-    } catch {
-      return String(value || '');
-    }
-  };
-
-  const commentAuthor = (c) => {
-    const nickname = String(c?.author_nickname || '').trim();
-    const login = String(c?.author_login || '').trim();
-    return nickname || login || '—';
-  };
-
   const hasEotDescription = useMemo(() => {
     return Boolean(String(spell?.description_eot || '').trim());
   }, [spell?.description_eot]);
@@ -249,40 +229,6 @@ export default function SpellDetailPage() {
 
   const sourceText = useMemo(() => String(spell?.source || '').trim(), [spell?.source]);
   const sourcePages = useMemo(() => String(spell?.source_pages || '').trim(), [spell?.source_pages]);
-  const pagesLabel = useMemo(() => (sourcePages ? `стр. ${sourcePages}` : ''), [sourcePages]);
-
-  const [isTouchDevice, setIsTouchDevice] = useState(false);
-  const [pagesTipHover, setPagesTipHover] = useState(false);
-  const [pagesTipPinned, setPagesTipPinned] = useState(false);
-  const pagesTipRef = useRef(null);
-
-  useEffect(() => {
-    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return;
-    const mq = window.matchMedia('(hover: none) and (pointer: coarse)');
-    const update = () => setIsTouchDevice(Boolean(mq.matches));
-    update();
-    if (typeof mq.addEventListener === 'function') {
-      mq.addEventListener('change', update);
-      return () => mq.removeEventListener('change', update);
-    }
-    if (typeof mq.addListener === 'function') {
-      mq.addListener(update);
-      return () => mq.removeListener(update);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!pagesTipPinned) return;
-    const onPointerDown = (e) => {
-      const root = pagesTipRef.current;
-      if (!root) return;
-      if (!root.contains(e.target)) setPagesTipPinned(false);
-    };
-    document.addEventListener('pointerdown', onPointerDown);
-    return () => document.removeEventListener('pointerdown', onPointerDown);
-  }, [pagesTipPinned]);
-
-  const showPagesTip = Boolean(sourcePages) && (pagesTipPinned || pagesTipHover);
 
   return (
     <div className={`min-h-screen spell-page spell-page--${theme} px-3 py-3 sm:px-6 sm:py-6`}>
@@ -314,223 +260,52 @@ export default function SpellDetailPage() {
           <div className="text-slate-300">Заклинание не найдено.</div>
         ) : (
           <div className="parchment-card rounded-lg border border-black/20 text-slate-900 shadow-2xl overflow-hidden">
-            <div className="px-4 sm:px-6 py-3 border-b border-black/10">
-              <div className="flex items-start justify-between gap-4">
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                    <h1 className="text-2xl sm:text-3xl font-semibold leading-tight break-words">
-                      {title || 'Без названия'}
-                    </h1>
-                    {sourceText || sourcePages ? (
-                      <span
-                        ref={pagesTipRef}
-                        className="relative inline-flex items-center rounded-md border border-black/20 bg-white/50 px-2 py-0.5 text-xs font-semibold text-slate-800"
-                        onMouseEnter={() => {
-                          if (!isTouchDevice) setPagesTipHover(true);
-                        }}
-                        onMouseLeave={() => {
-                          if (!isTouchDevice) setPagesTipHover(false);
-                        }}
-                        onClick={() => {
-                          if (!isTouchDevice) return;
-                          if (!sourcePages) return;
-                          setPagesTipPinned((v) => !v);
-                        }}
-                        role={isTouchDevice && sourcePages ? 'button' : undefined}
-                        tabIndex={isTouchDevice && sourcePages ? 0 : undefined}
-                        aria-label={pagesLabel || undefined}
-                      >
-                        {sourceText || 'стр.'}
+            <SpellHeader
+              title={title}
+              subtitle={levelLine(spell.level, spell.school)}
+              sourceText={sourceText}
+              sourcePages={sourcePages}
+              hasEotDescription={hasEotDescription}
+              showEot={showEot}
+              onToggleEot={setShowEot}
+            />
 
-                        {sourcePages ? (
-                          <span
-                            className={`absolute left-full ml-2 top-1/2 -translate-y-1/2 z-20 whitespace-nowrap rounded-md border border-black/20 bg-white px-2 py-1 text-[11px] font-semibold text-slate-800 shadow-lg transition-all duration-150 ease-out ${
-                              showPagesTip
-                                ? 'opacity-100 translate-x-0 pointer-events-none'
-                                : 'opacity-0 translate-x-1 pointer-events-none'
-                            }`}
-                          >
-                            {pagesLabel}
-                          </span>
-                        ) : null}
-                      </span>
-                    ) : null}
-                  </div>
-                  <div className="mt-1 text-sm text-slate-700 italic">
-                    {levelLine(spell.level, spell.school) || '—'}
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  {hasEotDescription ? (
-                    <div className="inline-flex rounded-md border border-black/15 bg-white/40 p-0.5">
-                      <button
-                        type="button"
-                        onClick={() => setShowEot(false)}
-                        className={
-                          showEot
-                            ? 'px-2 py-1 rounded text-xs text-slate-800 hover:bg-white/60'
-                            : 'px-2 py-1 rounded text-xs font-semibold bg-white/70 text-slate-900'
-                        }
-                        title="Показать только оригинал"
-                      >
-                        Оригинал
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setShowEot(true)}
-                        className={
-                          showEot
-                            ? 'px-2 py-1 rounded text-xs font-semibold bg-white/70 text-slate-900'
-                            : 'px-2 py-1 rounded text-xs text-slate-800 hover:bg-white/60'
-                        }
-                        title="Показать версию Echoes of Times"
-                      >
-                        EoT
-                      </button>
-                    </div>
-                  ) : null}
-                </div>
-              </div>
-            </div>
-
-            <div className="px-4 sm:px-6 py-3 space-y-1 text-[15px]">
-              <div>
-                <span className="font-semibold">Время накладывания:</span> {field(spell.casting_time)}
-              </div>
-              <div>
-                <span className="font-semibold">Дистанция:</span> {field(spell.range_text)}
-              </div>
-              <div>
-                <span className="font-semibold">Компоненты:</span> {field(spell.components)}
-              </div>
-              <div>
-                <span className="font-semibold">Длительность:</span> {field(spell.duration)}
-              </div>
-              <div>
-                <span className="font-semibold">Классы:</span> {field(spell.classes)}
-              </div>
-              <div>
-                <span className="font-semibold">Подклассы:</span> {field(spell.subclasses)}
-              </div>
-            </div>
+            <SpellMetaGrid spell={spell} />
 
             <div className="px-4 sm:px-6 pb-4">
               <div className="h-px bg-black/10 mb-3" />
-              {activeDescription ? (
-                isRichHtmlDescription(activeDescription) ? (
-                  <div
-                    className="spell-description leading-relaxed"
-                    dangerouslySetInnerHTML={{ __html: sanitizeSpellDescriptionHtml(activeDescription) }}
-                  />
-                ) : (
-                  <div className="whitespace-pre-wrap leading-relaxed">{String(activeDescription)}</div>
-                )
-              ) : (
-                <div className="leading-relaxed">—</div>
-              )}
+              <SpellDescription description={activeDescription} />
 
               <div className="h-px bg-black/10 my-4" />
 
-              <div className="flex items-center justify-end mb-3">
-                <button
-                  type="button"
-                  onClick={toggleLike}
-                  disabled={likeBusy}
-                  className={`px-3 py-1.5 rounded-md border text-sm transition-colors shadow-sm ${
-                    likes.liked
-                      ? 'bg-pink-600/15 border-pink-700/30 text-pink-900'
-                      : 'bg-white/60 border-black/20 text-slate-900'
-                  }`}
-                  title={canLike ? 'Поставить/снять лайк' : 'Войдите, чтобы лайкнуть'}
-                >
-                  {likes.liked ? '♥' : '♡'} {Number.isFinite(Number(likes.count)) ? likes.count : 0}
-                </button>
-              </div>
+              <LikeButton
+                liked={likes.liked}
+                count={likes.count}
+                busy={likeBusy}
+                canLike={canLike}
+                onToggle={toggleLike}
+              />
 
-              <div className="space-y-3">
-                <div className="flex items-end justify-between gap-3">
-                  <h2 className="text-lg font-semibold">Комментарии</h2>
-                </div>
+              <CommentsSection
+                comments={comments}
+                commentsLoading={commentsLoading}
+                commentText={commentText}
+                onCommentTextChange={setCommentText}
+                onSubmit={submitComment}
+                commentBusy={commentBusy}
+                canComment={canComment}
+                canModerateComments={canModerateComments}
+                onAskDelete={askDeleteComment}
+              />
 
-                <form onSubmit={submitComment} className="space-y-2">
-                  <textarea
-                    value={commentText}
-                    onChange={(e) => setCommentText(e.target.value)}
-                    placeholder={canComment ? 'Написать комментарий…' : 'Войдите, чтобы комментировать'}
-                    disabled={!canComment || commentBusy}
-                    rows={3}
-                    className="w-full rounded-md border border-black/20 bg-white/50 px-3 py-2 text-slate-900 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-500"
-                  />
-                  <div className="flex items-center justify-between gap-3">
-                    <button
-                      type="submit"
-                      disabled={!canComment || commentBusy || !String(commentText || '').trim()}
-                      className="px-4 py-2 rounded-md bg-purple-700 text-white disabled:bg-purple-300"
-                    >
-                      {commentBusy ? 'Отправляю…' : 'Отправить'}
-                    </button>
-                  </div>
-                </form>
-
-                {commentsLoading ? (
-                  <div className="text-slate-700">Загрузка комментариев…</div>
-                ) : comments.length === 0 ? (
-                  <div className="text-slate-700">Пока нет комментариев.</div>
-                ) : (
-                  <div className="space-y-3">
-                    {comments.map((c) => (
-                      <div key={c.id} className="rounded-md border border-black/10 bg-white/40 p-3">
-                        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs text-slate-700">
-                          <div className="font-semibold">{commentAuthor(c)}</div>
-                          <div className="flex items-center gap-2">
-                            <div>{formatCommentDate(c.created_at)}</div>
-                            {canModerateComments ? (
-                              <button
-                                type="button"
-                                onClick={() => askDeleteComment(c)}
-                                className="px-2 py-1 rounded border border-red-300/60 bg-white/40 text-red-800 hover:bg-red-500/10"
-                              >
-                                Удалить
-                              </button>
-                            ) : null}
-                          </div>
-                        </div>
-                        <div className="mt-2 whitespace-pre-wrap text-slate-900">{String(c.content || '')}</div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {deleteModal.open ? (
-                <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
-                  <div className="absolute inset-0 bg-black/40" onClick={cancelDeleteComment} />
-                  <div className="relative w-full max-w-sm rounded-xl bg-white shadow-xl border border-gray-200 p-5">
-                    <div className="text-lg font-semibold text-gray-900">Вы уверены?</div>
-                    <div className="mt-2 text-sm text-gray-600">Удалить комментарий?</div>
-
-                    <div className="mt-5 flex items-center justify-end gap-2">
-                      <button
-                        type="button"
-                        onClick={cancelDeleteComment}
-                        disabled={deleteModal.busy}
-                        className="px-4 py-2 rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50 disabled:opacity-60"
-                      >
-                        Нет
-                      </button>
-                      <button
-                        type="button"
-                        onClick={confirmDeleteComment}
-                        disabled={deleteModal.busy}
-                        className="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700 disabled:opacity-60"
-                      >
-                        {deleteModal.busy ? 'Удаляю…' : 'Да'}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ) : null}
+              <ConfirmModal
+                open={deleteModal.open}
+                title="Вы уверены?"
+                message="Удалить комментарий?"
+                busy={deleteModal.busy}
+                onCancel={cancelDeleteComment}
+                onConfirm={confirmDeleteComment}
+              />
             </div>
           </div>
         )}

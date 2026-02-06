@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import AdminLayout from '../../components/admin/AdminLayout.jsx';
-import SpellDescriptionEditor from '../../components/admin/SpellDescriptionEditor.jsx';
+import SpellCreateForm from '../../components/admin/spells/SpellCreateForm.jsx';
+import SpellRow from '../../components/admin/spells/SpellRow.jsx';
+import SpellsHeader from '../../components/admin/spells/SpellsHeader.jsx';
 import { spellsAPI } from '../../lib/api.js';
 import { normalizeSpellDescriptionForSave } from '../../lib/richText.js';
 
@@ -249,174 +251,48 @@ export default function AdminSpellsPage() {
   return (
     <AdminLayout>
       <div className="space-y-6">
-        <div className="flex items-center justify-between gap-4 flex-wrap">
-          <h1 className="text-2xl font-bold text-gray-900">Заклинания</h1>
-          <div className="w-full sm:w-80">
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Поиск…"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-            />
-          </div>
-        </div>
+        <SpellsHeader query={query} onQueryChange={setQuery} />
 
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">{error}</div>
         )}
 
-        <form onSubmit={handleCreate} className="bg-white rounded-lg shadow-sm border p-4 space-y-4">
-          <div className="text-lg font-semibold text-gray-900">Добавить заклинание</div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Название"
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-            />
-
-            <input
-              value={nameEn}
-              onChange={(e) => setNameEn(e.target.value)}
-              placeholder="Название (EN) (опционально)"
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-            />
-
-            <div className="flex items-center gap-2">
-              <label className="text-sm text-gray-700">Уровень</label>
-              <input
-                type="number"
-                min={0}
-                max={9}
-                value={level}
-                onChange={(e) => setLevel(e.target.value)}
-                className="w-24 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-              />
-            </div>
-
-            <input
-              value={school}
-              onChange={(e) => setSchool(e.target.value)}
-              placeholder="Школа (опционально)"
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-            />
-
-            <div className="flex items-center gap-2">
-              <label className="text-sm text-gray-700">Стихия/фон</label>
-              <select
-                value={theme}
-                onChange={(e) => setTheme(e.target.value)}
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-              >
-                {themeOptions.map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {o.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <input
-              value={castingTime}
-              onChange={(e) => setCastingTime(e.target.value)}
-              placeholder="Время накладывания (опционально)"
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-            />
-
-            <input
-              value={rangeText}
-              onChange={(e) => setRangeText(e.target.value)}
-              placeholder="Дистанция (опционально)"
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-            />
-
-            <input
-              value={components}
-              onChange={(e) => setComponents(e.target.value)}
-              placeholder="Компоненты (например: В, С, М)"
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-            />
-
-            <input
-              value={duration}
-              onChange={(e) => setDuration(e.target.value)}
-              placeholder="Длительность (опционально)"
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-            />
-
-            <input
-              value={classes}
-              onChange={(e) => setClasses(e.target.value)}
-              placeholder="Классы (опционально)"
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-            />
-
-            <input
-              value={subclasses}
-              onChange={(e) => setSubclasses(e.target.value)}
-              placeholder="Подклассы (опционально)"
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-            />
-
-            <input
-              value={source}
-              onChange={(e) => setSource(e.target.value)}
-              placeholder="Источник (например PH) (опционально)"
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-            />
-
-            <input
-              value={sourcePages}
-              onChange={(e) => setSourcePages(e.target.value)}
-              placeholder="Страницы (например PH14) (опционально)"
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-            />
-          </div>
-
-          <div className="flex items-center justify-between gap-3 flex-wrap">
-            <div className="text-sm font-semibold text-gray-900">Описание</div>
-            <div className="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-1">
-              <button
-                type="button"
-                onClick={() => setHasEotVariant(false)}
-                className={
-                  hasEotVariant
-                    ? 'px-3 py-1.5 rounded-md text-sm text-gray-700 hover:bg-white'
-                    : 'px-3 py-1.5 rounded-md text-sm font-semibold bg-white text-gray-900 shadow-sm'
-                }
-              >
-                Оригинал
-              </button>
-              <button
-                type="button"
-                onClick={() => setHasEotVariant(true)}
-                className={
-                  hasEotVariant
-                    ? 'px-3 py-1.5 rounded-md text-sm font-semibold bg-white text-gray-900 shadow-sm'
-                    : 'px-3 py-1.5 rounded-md text-sm text-gray-700 hover:bg-white'
-                }
-              >
-                EoT
-              </button>
-            </div>
-          </div>
-
-          <SpellDescriptionEditor value={description} onChange={setDescription} />
-
-          {hasEotVariant ? (
-            <div className="space-y-2">
-              <div className="text-sm font-semibold text-gray-900">Описание (EoT) (опционально)</div>
-              <SpellDescriptionEditor value={descriptionEot} onChange={setDescriptionEot} />
-            </div>
-          ) : null}
-
-          <div>
-            <button type="submit" className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-medium">
-              Добавить
-            </button>
-          </div>
-        </form>
+        <SpellCreateForm
+          name={name}
+          onNameChange={setName}
+          nameEn={nameEn}
+          onNameEnChange={setNameEn}
+          level={level}
+          onLevelChange={setLevel}
+          school={school}
+          onSchoolChange={setSchool}
+          theme={theme}
+          onThemeChange={setTheme}
+          castingTime={castingTime}
+          onCastingTimeChange={setCastingTime}
+          rangeText={rangeText}
+          onRangeTextChange={setRangeText}
+          components={components}
+          onComponentsChange={setComponents}
+          duration={duration}
+          onDurationChange={setDuration}
+          classes={classes}
+          onClassesChange={setClasses}
+          subclasses={subclasses}
+          onSubclassesChange={setSubclasses}
+          source={source}
+          onSourceChange={setSource}
+          sourcePages={sourcePages}
+          onSourcePagesChange={setSourcePages}
+          description={description}
+          onDescriptionChange={setDescription}
+          hasEotVariant={hasEotVariant}
+          onHasEotVariantChange={setHasEotVariant}
+          descriptionEot={descriptionEot}
+          onDescriptionEotChange={setDescriptionEot}
+          themeOptions={themeOptions}
+          onSubmit={handleCreate}
+        />
 
         <div className="bg-white rounded-lg shadow-sm border">
           {loading ? (
@@ -426,206 +302,51 @@ export default function AdminSpellsPage() {
           ) : (
             <div className={`divide-y divide-gray-200 ${shouldScrollSpells ? 'max-h-[36rem] overflow-y-auto' : ''}`}>
               {filteredSorted.map((s) => (
-                <div key={s.id} className="p-4 flex items-start justify-between gap-4">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-3 flex-wrap">
-                      <div className="font-semibold text-gray-900 truncate">{s.name}</div>
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
-                        {Number.isFinite(Number(s.level))
-                          ? Number(s.level) === 0
-                            ? 'Заговор'
-                            : `Ур. ${s.level}`
-                          : 'Ур. ?'}
-                      </span>
-                    </div>
-                    {(s.school || s.components) && (
-                      <div className="text-sm text-gray-600 mt-1">{[s.school, s.components].filter(Boolean).join(' • ')}</div>
-                    )}
-
-                    {editingId === s.id ? (
-                      <div className="mt-4 space-y-3">
-                        <div className="text-sm font-semibold text-gray-900">Редактирование</div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                          <input
-                            value={editName}
-                            onChange={(e) => setEditName(e.target.value)}
-                            placeholder="Название"
-                            className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                          />
-
-                          <input
-                            value={editNameEn}
-                            onChange={(e) => setEditNameEn(e.target.value)}
-                            placeholder="Название (EN) (опционально)"
-                            className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                          />
-
-                          <div className="flex items-center gap-2">
-                            <label className="text-sm text-gray-700">Уровень</label>
-                            <input
-                              type="number"
-                              min={0}
-                              max={9}
-                              value={editLevel}
-                              onChange={(e) => setEditLevel(e.target.value)}
-                              className="w-24 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                            />
-                          </div>
-
-                          <input
-                            value={editSchool}
-                            onChange={(e) => setEditSchool(e.target.value)}
-                            placeholder="Школа (опционально)"
-                            className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                          />
-
-                          <div className="flex items-center gap-2">
-                            <label className="text-sm text-gray-700">Стихия/фон</label>
-                            <select
-                              value={editTheme}
-                              onChange={(e) => setEditTheme(e.target.value)}
-                              className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                            >
-                              {themeOptions.map((o) => (
-                                <option key={o.value} value={o.value}>
-                                  {o.label}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-
-                          <input
-                            value={editCastingTime}
-                            onChange={(e) => setEditCastingTime(e.target.value)}
-                            placeholder="Время накладывания (опционально)"
-                            className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                          />
-
-                          <input
-                            value={editRangeText}
-                            onChange={(e) => setEditRangeText(e.target.value)}
-                            placeholder="Дистанция (опционально)"
-                            className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                          />
-
-                          <input
-                            value={editComponents}
-                            onChange={(e) => setEditComponents(e.target.value)}
-                            placeholder="Компоненты (например: В, С, М)"
-                            className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                          />
-
-                          <input
-                            value={editDuration}
-                            onChange={(e) => setEditDuration(e.target.value)}
-                            placeholder="Длительность (опционально)"
-                            className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                          />
-
-                          <input
-                            value={editClasses}
-                            onChange={(e) => setEditClasses(e.target.value)}
-                            placeholder="Классы (опционально)"
-                            className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                          />
-
-                          <input
-                            value={editSubclasses}
-                            onChange={(e) => setEditSubclasses(e.target.value)}
-                            placeholder="Подклассы (опционально)"
-                            className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                          />
-
-                          <input
-                            value={editSource}
-                            onChange={(e) => setEditSource(e.target.value)}
-                            placeholder="Источник (например PH) (опционально)"
-                            className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                          />
-
-                          <input
-                            value={editSourcePages}
-                            onChange={(e) => setEditSourcePages(e.target.value)}
-                            placeholder="Страницы (например PH14) (опционально)"
-                            className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                          />
-                        </div>
-
-                        <div className="flex items-center justify-between gap-3 flex-wrap">
-                          <div className="text-sm font-semibold text-gray-900">Описание</div>
-                          <div className="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-1">
-                            <button
-                              type="button"
-                              onClick={() => setEditHasEotVariant(false)}
-                              className={
-                                editHasEotVariant
-                                  ? 'px-3 py-1.5 rounded-md text-sm text-gray-700 hover:bg-white'
-                                  : 'px-3 py-1.5 rounded-md text-sm font-semibold bg-white text-gray-900 shadow-sm'
-                              }
-                            >
-                              Оригинал
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setEditHasEotVariant(true)}
-                              className={
-                                editHasEotVariant
-                                  ? 'px-3 py-1.5 rounded-md text-sm font-semibold bg-white text-gray-900 shadow-sm'
-                                  : 'px-3 py-1.5 rounded-md text-sm text-gray-700 hover:bg-white'
-                              }
-                            >
-                              EoT
-                            </button>
-                          </div>
-                        </div>
-
-                        <SpellDescriptionEditor key={editingId} value={editDescription} onChange={setEditDescription} />
-
-                        {editHasEotVariant ? (
-                          <div className="space-y-2">
-                            <div className="text-sm font-semibold text-gray-900">Описание (EoT) (опционально)</div>
-                            <SpellDescriptionEditor value={editDescriptionEot} onChange={setEditDescriptionEot} />
-                          </div>
-                        ) : null}
-
-                        <div className="flex items-center gap-3">
-                          <button
-                            type="button"
-                            onClick={() => saveEdit(s.id)}
-                            className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-medium"
-                          >
-                            Сохранить
-                          </button>
-                          <button
-                            type="button"
-                            onClick={cancelEdit}
-                            className="px-4 py-2 rounded-lg font-medium text-gray-700 hover:bg-gray-100"
-                          >
-                            Отмена
-                          </button>
-                        </div>
-                      </div>
-                    ) : null}
-                  </div>
-
-                  <div className="flex items-center gap-3 flex-shrink-0">
-                    {editingId === s.id ? null : (
-                      <button
-                        onClick={() => startEdit(s)}
-                        className="text-gray-700 hover:text-gray-900 font-medium text-sm"
-                      >
-                        Редактировать
-                      </button>
-                    )}
-                    <button
-                      onClick={() => handleDelete(s.id)}
-                      className="text-red-600 hover:text-red-900 font-medium text-sm"
-                    >
-                      Удалить
-                    </button>
-                  </div>
-                </div>
+                <SpellRow
+                  key={s.id}
+                  spell={s}
+                  isEditing={editingId === s.id}
+                  onStartEdit={() => startEdit(s)}
+                  onDelete={() => handleDelete(s.id)}
+                  editState={{
+                    editingKey: editingId,
+                    editName,
+                    setEditName,
+                    editNameEn,
+                    setEditNameEn,
+                    editLevel,
+                    setEditLevel,
+                    editSchool,
+                    setEditSchool,
+                    editTheme,
+                    setEditTheme,
+                    editCastingTime,
+                    setEditCastingTime,
+                    editRangeText,
+                    setEditRangeText,
+                    editComponents,
+                    setEditComponents,
+                    editDuration,
+                    setEditDuration,
+                    editClasses,
+                    setEditClasses,
+                    editSubclasses,
+                    setEditSubclasses,
+                    editSource,
+                    setEditSource,
+                    editSourcePages,
+                    setEditSourcePages,
+                    editDescription,
+                    setEditDescription,
+                    editHasEotVariant,
+                    setEditHasEotVariant,
+                    editDescriptionEot,
+                    setEditDescriptionEot,
+                  }}
+                  themeOptions={themeOptions}
+                  onSaveEdit={() => saveEdit(s.id)}
+                  onCancelEdit={cancelEdit}
+                />
               ))}
             </div>
           )}

@@ -1,5 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import AdminLayout from '../../components/admin/AdminLayout.jsx';
+import ItemCreateForm from '../../components/admin/market/ItemCreateForm.jsx';
+import ItemList from '../../components/admin/market/ItemList.jsx';
+import MarkupsPanel from '../../components/admin/market/MarkupsPanel.jsx';
+import RegionsPanel from '../../components/admin/market/RegionsPanel.jsx';
 import { marketAPI } from '../../lib/api.js';
 
 const MARKET_CATEGORIES = [
@@ -41,22 +45,6 @@ const toNonNegInt = (value) => {
   const n = Number(value);
   if (!Number.isFinite(n) || n < 0) return null;
   return Math.floor(n);
-};
-
-const PricePreview = ({ gp, sp, cp }) => {
-  const g = Number(gp || 0);
-  const s = Number(sp || 0);
-  const c = Number(cp || 0);
-  const hasAny = g || s || c;
-  if (!hasAny) return <span className="text-xs text-gray-500">Цена: —</span>;
-
-  return (
-    <div className="flex items-center gap-2 flex-wrap text-xs">
-      {g ? <span className="px-2 py-1 rounded-md bg-amber-100 text-amber-800 border border-amber-200">{g} З</span> : null}
-      {s ? <span className="px-2 py-1 rounded-md bg-gray-100 text-gray-800 border border-gray-200">{s} С</span> : null}
-      {c ? <span className="px-2 py-1 rounded-md bg-orange-100 text-orange-800 border border-orange-200">{c} М</span> : null}
-    </div>
-  );
 };
 
 const supportsCombatFields = (category) => {
@@ -290,6 +278,15 @@ export default function AdminMarketPage() {
     applyDraftFromRegion(rid);
   };
 
+  const handleMarkupDraftChange = (categoryValue, value) => {
+    setMarkupDraft((prev) => ({ ...prev, [categoryValue]: value }));
+  };
+
+  const handleResetMarkups = () => {
+    if (!markupRegionId) return;
+    applyDraftFromRegion(String(markupRegionId));
+  };
+
   const saveMarkups = async () => {
     setError('');
     const rid = String(markupRegionId || '').trim();
@@ -487,327 +484,99 @@ export default function AdminMarketPage() {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
           <div className="space-y-6">
-            <div className="bg-white rounded-lg shadow-sm border p-4 space-y-4">
-              <div className="text-lg font-semibold text-gray-900">Регионы</div>
+            <RegionsPanel
+              regionName={regionName}
+              onRegionNameChange={(e) => setRegionName(e.target.value)}
+              onCreateRegion={handleCreateRegion}
+              regions={regions}
+              shouldScroll={shouldScrollRegions}
+              editingRegionId={editingRegionId}
+              editRegionName={editRegionName}
+              onEditRegionNameChange={(e) => setEditRegionName(e.target.value)}
+              onStartEditRegion={startEditRegion}
+              onCancelEditRegion={cancelEditRegion}
+              onSaveEditRegion={saveEditRegion}
+              onRemoveRegion={removeRegion}
+              inputClass={inputClass}
+            />
 
-              <form onSubmit={handleCreateRegion} className="space-y-3">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <input value={regionName} onChange={(e) => setRegionName(e.target.value)} placeholder="Регион" className={inputClass} />
-                  <div className="flex items-center justify-end">
-                    <button type="submit" className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg font-medium">
-                      Добавить регион
-                    </button>
-                  </div>
-                </div>
-              </form>
-
-              {regions.length === 0 ? (
-                <div className="text-sm text-gray-600">Регионов пока нет.</div>
-              ) : (
-                <div className={shouldScrollRegions ? 'max-h-[15rem] overflow-y-auto pr-2' : ''}>
-                  <div className="divide-y divide-gray-200">
-                    {regions.map((r) => (
-                      <div key={r.id} className="py-3 flex items-start justify-between gap-4">
-                        <div className="min-w-0">
-                          <div className="font-semibold text-gray-900 truncate">{r.name}</div>
-
-                          {editingRegionId === r.id ? (
-                            <div className="mt-2 space-y-2">
-                              <input value={editRegionName} onChange={(e) => setEditRegionName(e.target.value)} placeholder="Регион" className={inputClass} />
-                              <div className="flex items-center gap-2">
-                                <button type="button" onClick={() => saveEditRegion(r.id)} className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-2 rounded-lg font-medium">
-                                  Сохранить
-                                </button>
-                                <button type="button" onClick={cancelEditRegion} className="px-3 py-2 rounded-lg font-medium text-gray-700 hover:bg-gray-100">
-                                  Отмена
-                                </button>
-                              </div>
-                            </div>
-                          ) : null}
-                        </div>
-
-                        <div className="flex items-center gap-3 flex-shrink-0">
-                          {editingRegionId === r.id ? null : (
-                            <button onClick={() => startEditRegion(r)} className="text-gray-700 hover:text-gray-900 font-medium text-sm">
-                              Редактировать
-                            </button>
-                          )}
-                          <button onClick={() => removeRegion(r.id)} className="text-red-600 hover:text-red-900 font-medium text-sm">
-                            Удалить
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div className="bg-white rounded-lg shadow-sm border p-4 space-y-4">
-              <div className="text-lg font-semibold text-gray-900">Наценки по категориям (регион × категория)</div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-end">
-                <div className="min-w-0">
-                  <div className="text-xs text-gray-600 mb-1">Регион</div>
-                  <select value={markupRegionId} onChange={(e) => handleSelectMarkupRegion(e.target.value)} className={inputClass}>
-                    <option value="">Выберите регион…</option>
-                    {regions.map((r) => (
-                      <option key={r.id} value={String(r.id)}>
-                        {r.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="min-w-0">
-                  <div className="text-xs text-gray-600 mb-1">Сезон</div>
-                  <select value={markupSeason} onChange={(e) => setMarkupSeason(e.target.value)} className={inputClass}>
-                    {MARKET_SEASONS.map((s) => (
-                      <option key={s.value} value={s.value}>
-                        {s.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-end gap-2 flex-wrap">
-                <button
-                  type="button"
-                  onClick={() => (markupRegionId ? applyDraftFromRegion(String(markupRegionId)) : null)}
-                  className="px-4 py-2 rounded-lg font-medium text-gray-700 hover:bg-gray-100 whitespace-nowrap"
-                >
-                  Сбросить
-                </button>
-                <button
-                  type="button"
-                  onClick={saveMarkups}
-                  className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-medium whitespace-nowrap"
-                >
-                  Сохранить
-                </button>
-              </div>
-
-              <div className={shouldScrollMarkupCategories ? 'max-h-[15rem] overflow-y-auto pr-2' : ''}>
-                <div className="space-y-3">
-                  {MARKET_CATEGORIES.map((c) => (
-                    <div key={c.value} className="grid grid-cols-1 md:grid-cols-2 gap-3 items-center">
-                      <div className="text-sm text-gray-900">{c.label}</div>
-                      <div className="flex items-center gap-2">
-                        <input
-                          value={markupDraft?.[c.value] ?? '0'}
-                          onChange={(e) => setMarkupDraft((prev) => ({ ...prev, [c.value]: e.target.value }))}
-                          inputMode="numeric"
-                          placeholder="0"
-                          className={inputClass}
-                          disabled={!markupRegionId}
-                        />
-                        <div className="text-sm text-gray-600 whitespace-nowrap">%</div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {!markupRegionId ? <div className="text-xs text-gray-500">Выберите регион, чтобы настроить наценки.</div> : null}
-            </div>
+            <MarkupsPanel
+              regions={regions}
+              markupRegionId={markupRegionId}
+              onSelectMarkupRegion={handleSelectMarkupRegion}
+              markupSeason={markupSeason}
+              onSeasonChange={setMarkupSeason}
+              categories={MARKET_CATEGORIES}
+              markupDraft={markupDraft}
+              onMarkupDraftChange={handleMarkupDraftChange}
+              onReset={handleResetMarkups}
+              onSave={saveMarkups}
+              inputClass={inputClass}
+              shouldScroll={shouldScrollMarkupCategories}
+              seasons={MARKET_SEASONS}
+            />
           </div>
-
-          <form onSubmit={handleCreate} className="bg-white rounded-lg shadow-sm border p-4 space-y-4 self-start h-fit">
-            <div className="text-lg font-semibold text-gray-900">Добавить предмет</div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Название" className={inputClass} />
-
-              <select value={category} onChange={(e) => setCategory(e.target.value)} className={inputClass}>
-                {MARKET_CATEGORIES.map((c) => (
-                  <option key={c.value} value={c.value}>
-                    {c.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <div className="text-xs text-gray-600 mb-1">Краткое описание (показывается подсказкой на рынке)</div>
-              <textarea
-                value={shortDescription}
-                onChange={(e) => setShortDescription(e.target.value)}
-                placeholder="Например: лёгкий, складной, выдаёт преимущество в…"
-                className={`${inputClass} min-h-[84px]`}
-              />
-            </div>
-
-            {supportsCombatFields(category) ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div>
-                  <div className="text-xs text-gray-600 mb-1">Урон (опционально)</div>
-                  <input value={damage} onChange={(e) => setDamage(e.target.value)} placeholder="например 1к8 рубящее" className={inputClass} />
-                </div>
-                <div>
-                  <div className="text-xs text-gray-600 mb-1">Класс доспеха (опционально)</div>
-                  <input value={armorClass} onChange={(e) => setArmorClass(e.target.value)} placeholder="например 14 + ЛВК (макс 2)" className={inputClass} />
-                </div>
-                <div className="md:col-span-2">
-                  <div className="text-xs text-gray-600 mb-1">Категория оружия (только если задан урон)</div>
-                  <select
-                    value={weaponType}
-                    onChange={(e) => setWeaponType(e.target.value)}
-                    className={inputClass}
-                    disabled={!String(damage || '').trim()}
-                  >
-                    <option value="">—</option>
-                    {WEAPON_TYPES.map((t) => (
-                      <option key={t.value} value={t.value}>
-                        {t.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-            ) : null}
-
-            <div className="flex items-center justify-end">
-              <PricePreview gp={priceGp} sp={priceSp} cp={priceCp} />
-            </div>
-
-            <div className="grid grid-cols-3 gap-3">
-              <input value={priceGp} onChange={(e) => setPriceGp(e.target.value)} inputMode="numeric" placeholder="З" className={inputClass} />
-              <input value={priceSp} onChange={(e) => setPriceSp(e.target.value)} inputMode="numeric" placeholder="С" className={inputClass} />
-              <input value={priceCp} onChange={(e) => setPriceCp(e.target.value)} inputMode="numeric" placeholder="М" className={inputClass} />
-            </div>
-
-            <div>
-              <button type="submit" className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-medium">
-                Создать
-              </button>
-            </div>
-          </form>
+          <ItemCreateForm
+            name={name}
+            onNameChange={(e) => setName(e.target.value)}
+            category={category}
+            onCategoryChange={(e) => setCategory(e.target.value)}
+            categories={MARKET_CATEGORIES}
+            shortDescription={shortDescription}
+            onShortDescriptionChange={(e) => setShortDescription(e.target.value)}
+            damage={damage}
+            onDamageChange={(e) => setDamage(e.target.value)}
+            armorClass={armorClass}
+            onArmorClassChange={(e) => setArmorClass(e.target.value)}
+            weaponType={weaponType}
+            onWeaponTypeChange={(e) => setWeaponType(e.target.value)}
+            weaponTypes={WEAPON_TYPES}
+            priceGp={priceGp}
+            onPriceGpChange={(e) => setPriceGp(e.target.value)}
+            priceSp={priceSp}
+            onPriceSpChange={(e) => setPriceSp(e.target.value)}
+            priceCp={priceCp}
+            onPriceCpChange={(e) => setPriceCp(e.target.value)}
+            supportsCombatFields={supportsCombatFields}
+            inputClass={inputClass}
+            onSubmit={handleCreate}
+          />
         </div>
-
-        <div className="bg-white rounded-lg shadow-sm border p-4">
-          <div className="flex items-center justify-between gap-4 flex-wrap">
-            <div className="text-lg font-semibold text-gray-900">Список предметов</div>
-            <div className="flex items-center gap-2 flex-wrap">
-              <select value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)} className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500">
-                <option value="">Все категории</option>
-                {MARKET_CATEGORIES.map((c) => (
-                  <option key={c.value} value={c.value}>
-                    {c.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg shadow-sm border">
-          {loading ? (
-            <div className="p-6 text-gray-700">Загрузка…</div>
-          ) : filteredSorted.length === 0 ? (
-            <div className="p-6 text-gray-700">Предметов пока нет.</div>
-          ) : (
-            <div className={shouldScrollItems ? 'max-h-[28rem] overflow-y-auto' : ''}>
-              <div className="divide-y divide-gray-200">
-                {filteredSorted.map((it) => (
-                  <div key={it.id} className="p-4 flex items-start justify-between gap-4">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-3 flex-wrap">
-                        <div className="font-semibold text-gray-900 truncate">{it.name}</div>
-                        <div className="text-xs text-gray-500">Категория: {categoryLabel(it.category)}</div>
-                        <PricePreview gp={it.price_gp} sp={it.price_sp} cp={it.price_cp} />
-                      </div>
-
-                      {editingId === it.id ? (
-                        <div className="mt-4 space-y-3">
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <input value={editName} onChange={(e) => setEditName(e.target.value)} placeholder="Название" className={inputClass} />
-
-                            <select value={editCategory} onChange={(e) => setEditCategory(e.target.value)} className={inputClass}>
-                              {MARKET_CATEGORIES.map((c) => (
-                                <option key={c.value} value={c.value}>
-                                  {c.label}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-
-                          <div>
-                            <div className="text-xs text-gray-600 mb-1">Краткое описание</div>
-                            <textarea
-                              value={editShortDescription}
-                              onChange={(e) => setEditShortDescription(e.target.value)}
-                              placeholder="Краткая подсказка для рынка"
-                              className={`${inputClass} min-h-[84px]`}
-                            />
-                          </div>
-
-                          {supportsCombatFields(editCategory) ? (
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                              <div>
-                                <div className="text-xs text-gray-600 mb-1">Урон (опционально)</div>
-                                <input value={editDamage} onChange={(e) => setEditDamage(e.target.value)} placeholder="например 1к8 рубящее" className={inputClass} />
-                              </div>
-                              <div>
-                                <div className="text-xs text-gray-600 mb-1">Класс доспеха (опционально)</div>
-                                <input value={editArmorClass} onChange={(e) => setEditArmorClass(e.target.value)} placeholder="например 14 + ЛВК (макс 2)" className={inputClass} />
-                              </div>
-                              <div className="md:col-span-2">
-                                <div className="text-xs text-gray-600 mb-1">Категория оружия (только если задан урон)</div>
-                                <select
-                                  value={editWeaponType}
-                                  onChange={(e) => setEditWeaponType(e.target.value)}
-                                  className={inputClass}
-                                  disabled={!String(editDamage || '').trim()}
-                                >
-                                  <option value="">—</option>
-                                  {WEAPON_TYPES.map((t) => (
-                                    <option key={t.value} value={t.value}>
-                                      {t.label}
-                                    </option>
-                                  ))}
-                                </select>
-                              </div>
-                            </div>
-                          ) : null}
-
-                          <div className="flex items-center justify-end">
-                            <PricePreview gp={editPriceGp} sp={editPriceSp} cp={editPriceCp} />
-                          </div>
-
-                          <div className="grid grid-cols-3 gap-3">
-                            <input value={editPriceGp} onChange={(e) => setEditPriceGp(e.target.value)} inputMode="numeric" placeholder="З" className={inputClass} />
-                            <input value={editPriceSp} onChange={(e) => setEditPriceSp(e.target.value)} inputMode="numeric" placeholder="С" className={inputClass} />
-                            <input value={editPriceCp} onChange={(e) => setEditPriceCp(e.target.value)} inputMode="numeric" placeholder="М" className={inputClass} />
-                          </div>
-
-                          <div className="flex items-center gap-3">
-                            <button type="button" onClick={() => saveEdit(it.id)} className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-medium">
-                              Сохранить
-                            </button>
-                            <button type="button" onClick={cancelEdit} className="px-4 py-2 rounded-lg font-medium text-gray-700 hover:bg-gray-100">
-                              Отмена
-                            </button>
-                          </div>
-                        </div>
-                      ) : null}
-                    </div>
-
-                    <div className="flex items-center gap-3 flex-shrink-0">
-                      {editingId === it.id ? null : (
-                        <button onClick={() => startEdit(it)} className="text-gray-700 hover:text-gray-900 font-medium text-sm">
-                          Редактировать
-                        </button>
-                      )}
-                      <button onClick={() => remove(it.id)} className="text-red-600 hover:text-red-900 font-medium text-sm">
-                        Удалить
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
+        <ItemList
+          loading={loading}
+          items={filteredSorted}
+          filterCategory={filterCategory}
+          onFilterCategoryChange={(e) => setFilterCategory(e.target.value)}
+          categories={MARKET_CATEGORIES}
+          categoryLabel={categoryLabel}
+          shouldScroll={shouldScrollItems}
+          editingId={editingId}
+          onStartEdit={startEdit}
+          onRemove={remove}
+          onSave={saveEdit}
+          onCancel={cancelEdit}
+          inputClass={inputClass}
+          supportsCombatFields={supportsCombatFields}
+          weaponTypes={WEAPON_TYPES}
+          editName={editName}
+          onEditNameChange={(e) => setEditName(e.target.value)}
+          editCategory={editCategory}
+          onEditCategoryChange={(e) => setEditCategory(e.target.value)}
+          editShortDescription={editShortDescription}
+          onEditShortDescriptionChange={(e) => setEditShortDescription(e.target.value)}
+          editDamage={editDamage}
+          onEditDamageChange={(e) => setEditDamage(e.target.value)}
+          editArmorClass={editArmorClass}
+          onEditArmorClassChange={(e) => setEditArmorClass(e.target.value)}
+          editWeaponType={editWeaponType}
+          onEditWeaponTypeChange={(e) => setEditWeaponType(e.target.value)}
+          editPriceGp={editPriceGp}
+          onEditPriceGpChange={(e) => setEditPriceGp(e.target.value)}
+          editPriceSp={editPriceSp}
+          onEditPriceSpChange={(e) => setEditPriceSp(e.target.value)}
+          editPriceCp={editPriceCp}
+          onEditPriceCpChange={(e) => setEditPriceCp(e.target.value)}
+        />
       </div>
     </AdminLayout>
   );

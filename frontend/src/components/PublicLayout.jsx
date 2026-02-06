@@ -163,7 +163,7 @@ export default function PublicLayout({ children }) {
           onClick={() => setMobileMenuOpen(false)}
         />
         <aside
-          className={`absolute left-0 top-0 h-full w-72 border-r border-white/10 bg-slate-950/95 backdrop-blur p-4 transition-transform ${
+          className={`absolute left-0 top-0 h-full w-72 border-r border-white/10 bg-slate-950/95 backdrop-blur p-4 transition-transform flex flex-col min-h-0 ${
             mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
           }`}
         >
@@ -182,11 +182,11 @@ export default function PublicLayout({ children }) {
             </button>
           </div>
 
-          <div className="mt-4 space-y-1">
+          <div className="mt-4 space-y-1 flex-1 overflow-y-auto">
             <NavItems onNavigate={() => setMobileMenuOpen(false)} />
           </div>
 
-          <div className="mt-6 pt-4 border-t border-white/10">
+          <div className="mt-auto pt-4 border-t border-white/10">
             <AuthItems onNavigate={() => setMobileMenuOpen(false)} />
           </div>
         </aside>

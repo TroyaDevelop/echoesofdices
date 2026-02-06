@@ -8,11 +8,14 @@ export default function RegisterPage() {
     login: '',
     nickname: '',
     password: '',
+    confirmPassword: '',
     key: '',
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [ok, setOk] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const navigate = useNavigate();
 
   const onChange = (name) => (e) => setFormData((p) => ({ ...p, [name]: e.target.value }));
@@ -24,6 +27,12 @@ export default function RegisterPage() {
     setLoading(true);
 
     try {
+      if (String(formData.password || '') !== String(formData.confirmPassword || '')) {
+        setError('Пароли не совпадают');
+        setLoading(false);
+        return;
+      }
+
       await authAPI.register({
         login: String(formData.login || '').trim(),
         nickname: String(formData.nickname || '').trim(),
@@ -101,19 +110,83 @@ export default function RegisterPage() {
             <label htmlFor="password" className="block text-sm font-medium text-gray-300 mb-2">
               Пароль
             </label>
-            <input
-              type="password"
-              id="password"
-              name="password"
-              value={formData.password}
-              onChange={onChange('password')}
-              required
-              minLength={6}
-              className="w-full px-4 py-3 bg-white/10 border border-purple-500/30 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-              placeholder="••••••••"
-              autoComplete="new-password"
-            />
+            <div className="relative">
+              <input
+                type={showPassword ? 'text' : 'password'}
+                id="password"
+                name="password"
+                value={formData.password}
+                onChange={onChange('password')}
+                required
+                minLength={6}
+                className="w-full px-4 py-3 pr-12 bg-white/10 border border-purple-500/30 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                placeholder="••••••••"
+                autoComplete="new-password"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((prev) => !prev)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-300 hover:text-white transition-colors"
+                aria-label={showPassword ? 'Скрыть пароль' : 'Показать пароль'}
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="w-5 h-5"
+                  aria-hidden="true"
+                >
+                  <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z" />
+                  <circle cx="12" cy="12" r="3" />
+                </svg>
+              </button>
+            </div>
             <div className="mt-1 text-xs text-gray-400">Минимум 6 символов.</div>
+          </div>
+
+          <div>
+            <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-300 mb-2">
+              Подтвердите пароль
+            </label>
+            <div className="relative">
+              <input
+                type={showConfirmPassword ? 'text' : 'password'}
+                id="confirmPassword"
+                name="confirmPassword"
+                value={formData.confirmPassword}
+                onChange={onChange('confirmPassword')}
+                required
+                minLength={6}
+                className="w-full px-4 py-3 pr-12 bg-white/10 border border-purple-500/30 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                placeholder="••••••••"
+                autoComplete="new-password"
+              />
+              <button
+                type="button"
+                onClick={() => setShowConfirmPassword((prev) => !prev)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-300 hover:text-white transition-colors"
+                aria-label={showConfirmPassword ? 'Скрыть пароль' : 'Показать пароль'}
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="w-5 h-5"
+                  aria-hidden="true"
+                >
+                  <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z" />
+                  <circle cx="12" cy="12" r="3" />
+                </svg>
+              </button>
+            </div>
           </div>
 
           <div>

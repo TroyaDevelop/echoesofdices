@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import AdminLayout from '../../components/admin/AdminLayout.jsx';
+import NewsCreateForm from '../../components/admin/news/NewsCreateForm.jsx';
+import NewsHeader from '../../components/admin/news/NewsHeader.jsx';
+import NewsList from '../../components/admin/news/NewsList.jsx';
 import { newsAPI } from '../../lib/api.js';
-import SpellDescriptionEditor from '../../components/admin/SpellDescriptionEditor.jsx';
 import { normalizeSpellDescriptionForSave } from '../../lib/richText.js';
 
 const formatDate = (value) => {
@@ -139,153 +141,43 @@ export default function AdminNewsPage() {
   return (
     <AdminLayout>
       <div className="space-y-6">
-        <div className="flex items-center justify-between gap-4 flex-wrap">
-          <h1 className="text-2xl font-bold text-gray-900">Новости</h1>
-        </div>
+        <NewsHeader />
 
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">{error}</div>
         )}
 
-        <form onSubmit={handleCreate} className="bg-white rounded-lg shadow-sm border p-4 space-y-4">
-          <div className="flex items-center justify-between gap-3 flex-wrap">
-            <div className="text-lg font-semibold text-gray-900">Добавить новость</div>
-            <div className="flex items-center gap-2">
-              <label className="text-sm text-gray-700">Статус</label>
-              <select
-                value={status}
-                onChange={(e) => setStatus(e.target.value)}
-                className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
-              >
-                <option value="published">Опубликовано</option>
-                <option value="draft">Черновик</option>
-              </select>
-            </div>
-          </div>
+        <NewsCreateForm
+          title={title}
+          onTitleChange={(e) => setTitle(e.target.value)}
+          excerpt={excerpt}
+          onExcerptChange={(e) => setExcerpt(e.target.value)}
+          content={content}
+          onContentChange={setContent}
+          status={status}
+          onStatusChange={(e) => setStatus(e.target.value)}
+          onSubmit={handleCreate}
+        />
 
-          <input
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="Заголовок"
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-          />
-
-          <input
-            value={excerpt}
-            onChange={(e) => setExcerpt(e.target.value)}
-            placeholder="Короткое описание (опционально)"
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-          />
-
-          <SpellDescriptionEditor value={content} onChange={setContent} placeholder="Текст" />
-
-          <div>
-            <button type="submit" className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-medium">
-              Создать
-            </button>
-          </div>
-        </form>
-
-        <div className="bg-white rounded-lg shadow-sm border">
-          {loading ? (
-            <div className="p-6 text-gray-700">Загрузка…</div>
-          ) : items.length === 0 ? (
-            <div className="p-6 text-gray-700">Новостей пока нет.</div>
-          ) : (
-            <div className={`divide-y divide-gray-200 ${shouldScrollNews ? 'max-h-[36rem] overflow-y-auto' : ''}`}>
-              {items.map((post) => (
-                <div key={post.id} className="p-4 flex items-start justify-between gap-4">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-3 flex-wrap">
-                      <div className="font-semibold text-gray-900 truncate">{post.title}</div>
-                      <span
-                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                          post.status === 'published'
-                            ? 'bg-green-100 text-green-800'
-                            : 'bg-yellow-100 text-yellow-800'
-                        }`}
-                      >
-                        {post.status === 'published' ? 'Опубликовано' : 'Черновик'}
-                      </span>
-                      <span className="text-xs text-gray-500">{formatDate(post.created_at)}</span>
-                    </div>
-
-                    {post.excerpt && <div className="text-sm text-gray-600 mt-1">{post.excerpt}</div>}
-
-                    {editingId === post.id ? (
-                      <div className="mt-4 space-y-3">
-                        <div className="flex items-center justify-between gap-3 flex-wrap">
-                          <div className="text-sm font-semibold text-gray-900">Редактирование</div>
-                          <div className="flex items-center gap-2">
-                            <label className="text-sm text-gray-700">Статус</label>
-                            <select
-                              value={editStatus}
-                              onChange={(e) => setEditStatus(e.target.value)}
-                              className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
-                            >
-                              <option value="published">Опубликовано</option>
-                              <option value="draft">Черновик</option>
-                            </select>
-                          </div>
-                        </div>
-
-                        <input
-                          value={editTitle}
-                          onChange={(e) => setEditTitle(e.target.value)}
-                          placeholder="Заголовок"
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                        />
-
-                        <input
-                          value={editExcerpt}
-                          onChange={(e) => setEditExcerpt(e.target.value)}
-                          placeholder="Короткое описание (опционально)"
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-                        />
-
-                        <SpellDescriptionEditor value={editContent} onChange={setEditContent} placeholder="Текст" />
-
-                        <div className="flex items-center gap-3">
-                          <button
-                            type="button"
-                            onClick={() => saveEdit(post.id)}
-                            className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-medium"
-                          >
-                            Сохранить
-                          </button>
-                          <button
-                            type="button"
-                            onClick={cancelEdit}
-                            className="px-4 py-2 rounded-lg font-medium text-gray-700 hover:bg-gray-100"
-                          >
-                            Отмена
-                          </button>
-                        </div>
-                      </div>
-                    ) : null}
-                  </div>
-
-                  <div className="flex items-center gap-3 flex-shrink-0">
-                    {editingId === post.id ? null : (
-                      <button
-                        onClick={() => startEdit(post)}
-                        className="text-gray-700 hover:text-gray-900 font-medium text-sm"
-                      >
-                        Редактировать
-                      </button>
-                    )}
-                    <button
-                      onClick={() => handleDelete(post.id)}
-                      className="text-red-600 hover:text-red-900 font-medium text-sm"
-                    >
-                      Удалить
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+        <NewsList
+          loading={loading}
+          items={items}
+          shouldScroll={shouldScrollNews}
+          editingId={editingId}
+          formatDate={formatDate}
+          onStartEdit={startEdit}
+          onDelete={handleDelete}
+          editTitle={editTitle}
+          onEditTitleChange={(e) => setEditTitle(e.target.value)}
+          editExcerpt={editExcerpt}
+          onEditExcerptChange={(e) => setEditExcerpt(e.target.value)}
+          editContent={editContent}
+          onEditContentChange={setEditContent}
+          editStatus={editStatus}
+          onEditStatusChange={(e) => setEditStatus(e.target.value)}
+          onSave={saveEdit}
+          onCancel={cancelEdit}
+        />
       </div>
     </AdminLayout>
   );
