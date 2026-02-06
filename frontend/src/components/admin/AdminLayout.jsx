@@ -102,6 +102,20 @@ export default function AdminLayout({ children }) {
         ),
       },
       {
+        name: 'Черты',
+        href: '/admin/traits',
+        icon: (
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="2"
+              d="M12 2l3 7h7l-5.5 4 2.5 7-7-4.5L5 20l2.5-7L2 9h7l3-7z"
+            ></path>
+          </svg>
+        ),
+      },
+      {
         name: 'Рынок',
         href: '/admin/market',
         icon: (

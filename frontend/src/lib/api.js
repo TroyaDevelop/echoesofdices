@@ -102,6 +102,25 @@ export const spellsAPI = {
   remove: (id) => apiClient(`/spells/${id}`, { method: 'DELETE' }),
 };
 
+export const traitsAPI = {
+  list: () => apiClient('/traits', { method: 'GET' }),
+  getById: (id) => apiClient(`/traits/${id}`, { method: 'GET' }),
+  getLikes: (id) => apiClient(`/traits/${id}/likes`, { method: 'GET' }),
+  like: (id) => apiClient(`/traits/${id}/like`, { method: 'POST' }),
+  unlike: (id) => apiClient(`/traits/${id}/like`, { method: 'DELETE' }),
+  listComments: (id) => apiClient(`/traits/${id}/comments`, { method: 'GET' }),
+  addComment: (id, content) =>
+    apiClient(`/traits/${id}/comments`, {
+      method: 'POST',
+      body: JSON.stringify({ content }),
+    }),
+  deleteComment: (traitId, commentId) => apiClient(`/traits/${traitId}/comments/${commentId}`, { method: 'DELETE' }),
+  listAdmin: () => apiClient('/traits/admin', { method: 'GET' }),
+  create: (data) => apiClient('/traits', { method: 'POST', body: JSON.stringify(data) }),
+  update: (id, data) => apiClient(`/traits/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  remove: (id) => apiClient(`/traits/${id}`, { method: 'DELETE' }),
+};
+
 export const spellClassesAPI = {
   list: () => apiClient('/spell-classes', { method: 'GET' }),
   listAdmin: () => apiClient('/spell-classes/admin', { method: 'GET' }),

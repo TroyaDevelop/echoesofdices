@@ -1,15 +1,8 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --background: #0a0a0a;
+  --foreground: #ededed;
 }
 
 body {
@@ -227,6 +220,16 @@ body {
   height: 0;
 }
 
+.tiptap-editor ul {
+  list-style: disc;
+  padding-left: 1.25rem;
+  margin: 0 0 0.75rem 0;
+}
+
+.tiptap-editor li {
+  margin: 0.25rem 0;
+}
+
 .tiptap-editor table {
   width: 100%;
   border-collapse: collapse;
@@ -251,6 +254,16 @@ body {
 
 .spell-description p:last-child {
   margin-bottom: 0;
+}
+
+.spell-description ul {
+  list-style: disc;
+  padding-left: 1.25rem;
+  margin: 0 0 0.75rem 0;
+}
+
+.spell-description li {
+  margin: 0.25rem 0;
 }
 
 .spell-description table {

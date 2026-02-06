@@ -175,7 +175,22 @@ async function ensureRuntimeSchema() {
   );
 
   await query(
+    "CREATE TABLE IF NOT EXISTS traits (id INT PRIMARY KEY AUTO_INCREMENT, name VARCHAR(255) NOT NULL, name_en VARCHAR(255), source VARCHAR(100), source_pages VARCHAR(50), description LONGTEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, INDEX idx_traits_name (name))",
+    []
+  );
+
+  await query(
     'CREATE TABLE IF NOT EXISTS spell_classes (id INT PRIMARY KEY AUTO_INCREMENT, name VARCHAR(80) NOT NULL UNIQUE, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP)',
+    []
+  );
+
+  await query(
+    'CREATE TABLE IF NOT EXISTS trait_likes (id INT PRIMARY KEY AUTO_INCREMENT, trait_id INT NOT NULL, user_id INT NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, UNIQUE KEY uniq_trait_user (trait_id, user_id), INDEX idx_trait_likes_trait (trait_id), FOREIGN KEY (trait_id) REFERENCES traits(id) ON DELETE CASCADE, FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE)',
+    []
+  );
+
+  await query(
+    'CREATE TABLE IF NOT EXISTS trait_comments (id INT PRIMARY KEY AUTO_INCREMENT, trait_id INT NOT NULL, user_id INT NOT NULL, content TEXT NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, INDEX idx_trait_comments_trait_created (trait_id, created_at), FOREIGN KEY (trait_id) REFERENCES traits(id) ON DELETE CASCADE, FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE)',
     []
   );
 
@@ -266,6 +281,12 @@ async function ensureRuntimeSchema() {
   await query('ALTER TABLE spells ADD COLUMN IF NOT EXISTS source_pages VARCHAR(50)', []);
   await query("ALTER TABLE spells ADD COLUMN IF NOT EXISTS theme VARCHAR(32) DEFAULT 'none'", []);
   await query('ALTER TABLE spells ADD COLUMN IF NOT EXISTS description_eot LONGTEXT', []);
+
+  await query('ALTER TABLE traits ADD COLUMN IF NOT EXISTS name_en VARCHAR(255)', []);
+  await query('ALTER TABLE traits ADD COLUMN IF NOT EXISTS source VARCHAR(100)', []);
+  await query('ALTER TABLE traits ADD COLUMN IF NOT EXISTS source_pages VARCHAR(50)', []);
+  await query('ALTER TABLE traits ADD COLUMN IF NOT EXISTS description LONGTEXT', []);
+  await query('ALTER TABLE traits ADD COLUMN IF NOT EXISTS description_eot LONGTEXT', []);
 
   const anyEditor = await query("SELECT id FROM users WHERE role = 'editor' LIMIT 1", []);
   if (!anyEditor || !anyEditor[0]) {
@@ -1519,6 +1540,272 @@ app.delete('/api/spells/:id(\\d+)', authenticateToken, requireStaff, async (req,
   } catch (error) {
     console.error('Delete spell error:', error);
     res.status(500).json({ error: 'Ошибка при удалении заклинания' });
+  }
+});
+
+app.get('/api/traits', async (req, res) => {
+  try {
+    const rows = await query(
+      'SELECT id, name, name_en, source, source_pages, description, description_eot, created_at, updated_at FROM traits ORDER BY name ASC',
+      []
+    );
+    res.json(rows);
+  } catch (error) {
+    console.error('List traits error:', error);
+    res.status(503).json({ error: 'База данных недоступна' });
+  }
+});
+
+app.get('/api/traits/:id(\\d+)', async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) return res.status(400).json({ error: 'Некорректный id' });
+
+    const rows = await query(
+      'SELECT id, name, name_en, source, source_pages, description, description_eot, created_at, updated_at FROM traits WHERE id = ? LIMIT 1',
+      [id]
+    );
+
+    const trait = rows && rows[0];
+    if (!trait) return res.status(404).json({ error: 'Черта не найдена' });
+
+    res.json(trait);
+  } catch (error) {
+    console.error('Get trait error:', error);
+    res.status(503).json({ error: 'База данных недоступна' });
+  }
+});
+
+app.get('/api/traits/:id(\\d+)/likes', authenticateOptional, async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) return res.status(400).json({ error: 'Некорректный id' });
+
+    const countRows = await query('SELECT COUNT(*) AS c FROM trait_likes WHERE trait_id = ?', [id]);
+    const count = Number(countRows?.[0]?.c || 0);
+
+    let liked = false;
+    if (req.user && req.user.userId) {
+      const likedRows = await query('SELECT 1 AS ok FROM trait_likes WHERE trait_id = ? AND user_id = ? LIMIT 1', [id, req.user.userId]);
+      liked = Boolean(likedRows && likedRows[0]);
+    }
+
+    res.json({ count, liked });
+  } catch (error) {
+    console.error('Get trait likes error:', error);
+    res.status(503).json({ error: 'База данных недоступна' });
+  }
+});
+
+app.get('/api/traits/:id(\\d+)/comments', async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) return res.status(400).json({ error: 'Некорректный id' });
+
+    const rows = await query(
+      'SELECT c.id, c.content, c.created_at, u.login AS author_login, u.nickname AS author_nickname FROM trait_comments c JOIN users u ON c.user_id = u.id WHERE c.trait_id = ? ORDER BY c.created_at ASC, c.id ASC',
+      [id]
+    );
+
+    res.json(Array.isArray(rows) ? rows : []);
+  } catch (error) {
+    console.error('List trait comments error:', error);
+    res.status(503).json({ error: 'База данных недоступна' });
+  }
+});
+
+app.post('/api/traits/:id(\\d+)/comments', authenticateToken, async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) return res.status(400).json({ error: 'Некорректный id' });
+
+    const raw = String(req.body?.content || '');
+    const content = raw.trim();
+    if (!content) return res.status(400).json({ error: 'Комментарий не может быть пустым' });
+    if (content.length > 2000) return res.status(400).json({ error: 'Комментарий слишком длинный (макс. 2000 символов)' });
+
+    const exists = await query('SELECT id FROM traits WHERE id = ? LIMIT 1', [id]);
+    if (!exists || !exists[0]) return res.status(404).json({ error: 'Черта не найдена' });
+
+    const result = await query(
+      'INSERT INTO trait_comments (trait_id, user_id, content) VALUES (?, ?, ?)',
+      [id, req.user.userId, content]
+    );
+    const insertedId = typeof result.insertId === 'bigint' ? Number(result.insertId) : result.insertId;
+
+    const rows = await query(
+      'SELECT c.id, c.content, c.created_at, u.login AS author_login, u.nickname AS author_nickname FROM trait_comments c JOIN users u ON c.user_id = u.id WHERE c.id = ? LIMIT 1',
+      [insertedId]
+    );
+    const created = rows && rows[0];
+    res.status(201).json(created || { id: insertedId, content, created_at: new Date().toISOString() });
+  } catch (error) {
+    console.error('Create trait comment error:', error);
+    res.status(500).json({ error: 'Ошибка при добавлении комментария' });
+  }
+});
+
+app.delete('/api/traits/:id(\\d+)/comments/:commentId(\\d+)', authenticateToken, requireStaff, async (req, res) => {
+  try {
+    const traitId = Number(req.params.id);
+    const commentId = Number(req.params.commentId);
+    if (!Number.isFinite(traitId) || traitId <= 0) return res.status(400).json({ error: 'Некорректный id' });
+    if (!Number.isFinite(commentId) || commentId <= 0) return res.status(400).json({ error: 'Некорректный id комментария' });
+
+    const exists = await query('SELECT id FROM trait_comments WHERE id = ? AND trait_id = ? LIMIT 1', [commentId, traitId]);
+    if (!exists || !exists[0]) return res.status(404).json({ error: 'Комментарий не найден' });
+
+    await query('DELETE FROM trait_comments WHERE id = ? AND trait_id = ? LIMIT 1', [commentId, traitId]);
+    res.json({ ok: true });
+  } catch (error) {
+    console.error('Delete trait comment error:', error);
+    res.status(500).json({ error: 'Ошибка при удалении комментария' });
+  }
+});
+
+app.post('/api/traits/:id(\\d+)/like', authenticateToken, async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) return res.status(400).json({ error: 'Некорректный id' });
+
+    await query('INSERT IGNORE INTO trait_likes (trait_id, user_id) VALUES (?, ?)', [id, req.user.userId]);
+    const countRows = await query('SELECT COUNT(*) AS c FROM trait_likes WHERE trait_id = ?', [id]);
+    const count = Number(countRows?.[0]?.c || 0);
+    res.json({ count, liked: true });
+  } catch (error) {
+    console.error('Like trait error:', error);
+    res.status(500).json({ error: 'Ошибка при лайке' });
+  }
+});
+
+app.delete('/api/traits/:id(\\d+)/like', authenticateToken, async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) return res.status(400).json({ error: 'Некорректный id' });
+
+    await query('DELETE FROM trait_likes WHERE trait_id = ? AND user_id = ?', [id, req.user.userId]);
+    const countRows = await query('SELECT COUNT(*) AS c FROM trait_likes WHERE trait_id = ?', [id]);
+    const count = Number(countRows?.[0]?.c || 0);
+    res.json({ count, liked: false });
+  } catch (error) {
+    console.error('Unlike trait error:', error);
+    res.status(500).json({ error: 'Ошибка при снятии лайка' });
+  }
+});
+
+app.get('/api/traits/admin', authenticateToken, requireStaff, async (req, res) => {
+  try {
+    const rows = await query(
+      'SELECT id, name, name_en, source, source_pages, description, description_eot, created_at, updated_at FROM traits ORDER BY name ASC',
+      []
+    );
+    res.json(rows);
+  } catch (error) {
+    console.error('List traits admin error:', error);
+    res.status(503).json({ error: 'База данных недоступна' });
+  }
+});
+
+app.post('/api/traits', authenticateToken, requireStaff, async (req, res) => {
+  try {
+    const { name, name_en, source, source_pages, description, description_eot } = req.body;
+
+    if (!name || !String(name).trim()) {
+      return res.status(400).json({ error: 'Название черты обязательно' });
+    }
+
+    const result = await query(
+      'INSERT INTO traits (name, name_en, source, source_pages, description, description_eot) VALUES (?, ?, ?, ?, ?, ?)',
+      [
+        String(name).trim(),
+        name_en ? String(name_en).trim() : null,
+        source ? String(source).trim() : null,
+        source_pages ? String(source_pages).trim() : null,
+        description ? String(description) : null,
+        description_eot ? String(description_eot) : null,
+      ]
+    );
+
+    const insertedId = typeof result.insertId === 'bigint' ? Number(result.insertId) : result.insertId;
+
+    res.status(201).json({
+      id: insertedId,
+      name: String(name).trim(),
+      name_en: name_en ? String(name_en).trim() : null,
+      source: source ? String(source).trim() : null,
+      source_pages: source_pages ? String(source_pages).trim() : null,
+      description: description ? String(description) : null,
+      description_eot: description_eot ? String(description_eot) : null,
+    });
+  } catch (error) {
+    console.error('Create trait error:', error);
+    res.status(500).json({ error: 'Ошибка при добавлении черты' });
+  }
+});
+
+app.put('/api/traits/:id(\\d+)', authenticateToken, requireStaff, async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) return res.status(400).json({ error: 'Некорректный id' });
+
+    const rows = await query(
+      'SELECT id, name, name_en, source, source_pages, description, description_eot FROM traits WHERE id = ? LIMIT 1',
+      [id]
+    );
+    const existing = rows && rows[0];
+    if (!existing) return res.status(404).json({ error: 'Черта не найдена' });
+
+    const normOpt = (v) => {
+      if (v === undefined) return undefined;
+      if (v === null) return null;
+      const s = String(v).trim();
+      return s ? s : null;
+    };
+
+    const nextName = req.body.name !== undefined ? String(req.body.name).trim() : existing.name;
+    if (!nextName) return res.status(400).json({ error: 'Название черты обязательно' });
+
+    const merged = {
+      name: nextName,
+      name_en: normOpt(req.body.name_en) === undefined ? existing.name_en : normOpt(req.body.name_en),
+      source: normOpt(req.body.source) === undefined ? existing.source : normOpt(req.body.source),
+      source_pages: normOpt(req.body.source_pages) === undefined ? existing.source_pages : normOpt(req.body.source_pages),
+      description:
+        req.body.description === undefined
+          ? existing.description
+          : req.body.description === null
+            ? null
+            : String(req.body.description),
+      description_eot:
+        req.body.description_eot === undefined
+          ? existing.description_eot
+          : req.body.description_eot === null
+            ? null
+            : String(req.body.description_eot),
+    };
+
+    await query(
+      'UPDATE traits SET name = ?, name_en = ?, source = ?, source_pages = ?, description = ?, description_eot = ? WHERE id = ?',
+      [merged.name, merged.name_en, merged.source, merged.source_pages, merged.description, merged.description_eot, id]
+    );
+
+    res.json({ id, ...merged });
+  } catch (error) {
+    console.error('Update trait error:', error);
+    res.status(500).json({ error: 'Ошибка при обновлении черты' });
+  }
+});
+
+app.delete('/api/traits/:id(\\d+)', authenticateToken, requireStaff, async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) return res.status(400).json({ error: 'Некорректный id' });
+
+    await query('DELETE FROM traits WHERE id = ?', [id]);
+    res.json({ message: 'Черта удалена' });
+  } catch (error) {
+    console.error('Delete trait error:', error);
+    res.status(500).json({ error: 'Ошибка при удалении черты' });
   }
 });
 

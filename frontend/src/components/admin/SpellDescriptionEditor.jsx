@@ -28,9 +28,9 @@ export default function SpellDescriptionEditor({
     extensions: [
       StarterKit.configure({
         heading: false,
-        bulletList: false,
+        bulletList: true,
         orderedList: false,
-        listItem: false,
+        listItem: true,
         blockquote: false,
         code: false,
         codeBlock: false,
@@ -188,6 +188,15 @@ export default function SpellDescriptionEditor({
             title="Курсив"
           >
             I
+          </button>
+          <button
+            type="button"
+            className={btnClass(editor.isActive('bulletList'))}
+            onClick={() => editor.chain().focus().toggleBulletList().run()}
+            aria-label="Маркированный список"
+            title="Маркированный список"
+          >
+            •
           </button>
         </div>
       </BubbleMenu>

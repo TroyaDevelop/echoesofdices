@@ -2,12 +2,12 @@ import DOMPurify from 'dompurify';
 
 export const isRichHtmlDescription = (value) => {
   const s = String(value ?? '');
-  return /<\s*\/?\s*(p|br|strong|em|b|i|table|thead|tbody|tr|th|td|colgroup|col)\b/i.test(s);
+  return /<\s*\/?\s*(p|br|strong|em|b|i|ul|li|table|thead|tbody|tr|th|td|colgroup|col)\b/i.test(s);
 };
 
 export const isRichHtmlDescriptionNoTables = (value) => {
   const s = String(value ?? '');
-  return /<\s*\/?\s*(p|br|strong|em|b|i)\b/i.test(s);
+  return /<\s*\/?\s*(p|br|strong|em|b|i|ul|li)\b/i.test(s);
 };
 
 const escapeHtml = (value) => {
@@ -66,6 +66,8 @@ export const sanitizeSpellDescriptionHtml = (html) => {
       'em',
       'b',
       'i',
+      'ul',
+      'li',
       'table',
       'thead',
       'tbody',
@@ -83,7 +85,7 @@ export const sanitizeSpellDescriptionHtml = (html) => {
 export const sanitizeNewsHtml = (html) => {
   return DOMPurify.sanitize(String(html ?? ''), {
     USE_PROFILES: { html: true },
-    ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'b', 'i'],
+    ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'b', 'i', 'ul', 'li'],
     ALLOWED_ATTR: [],
   });
 };

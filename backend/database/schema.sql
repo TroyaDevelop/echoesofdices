@@ -59,6 +59,19 @@ CREATE TABLE IF NOT EXISTS spells (
     INDEX idx_spells_name (name)
 );
 
+CREATE TABLE IF NOT EXISTS traits (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    name VARCHAR(255) NOT NULL,
+    name_en VARCHAR(255),
+    source VARCHAR(100),
+    source_pages VARCHAR(50),
+    description LONGTEXT,
+    description_eot LONGTEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_traits_name (name)
+);
+
 CREATE TABLE IF NOT EXISTS spell_classes (
     id INT PRIMARY KEY AUTO_INCREMENT,
     name VARCHAR(80) NOT NULL UNIQUE,
@@ -85,6 +98,28 @@ CREATE TABLE IF NOT EXISTS spell_comments (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     INDEX idx_spell_comments_spell_created (spell_id, created_at),
     FOREIGN KEY (spell_id) REFERENCES spells(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS trait_likes (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    trait_id INT NOT NULL,
+    user_id INT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uniq_trait_user (trait_id, user_id),
+    INDEX idx_trait_likes_trait (trait_id),
+    FOREIGN KEY (trait_id) REFERENCES traits(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS trait_comments (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    trait_id INT NOT NULL,
+    user_id INT NOT NULL,
+    content TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_trait_comments_trait_created (trait_id, created_at),
+    FOREIGN KEY (trait_id) REFERENCES traits(id) ON DELETE CASCADE,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 

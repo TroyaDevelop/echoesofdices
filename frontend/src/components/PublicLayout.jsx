@@ -81,6 +81,9 @@ export default function PublicLayout({ children }) {
       <NavLink to="/spells" className={navLinkClass} onClick={onNavigate}>
         Заклинания
       </NavLink>
+      <NavLink to="/traits" className={navLinkClass} onClick={onNavigate}>
+        Черты
+      </NavLink>
       <NavLink to="/market" className={navLinkClass} onClick={onNavigate}>
         Рынок
       </NavLink>
