@@ -63,6 +63,22 @@ const requireAdmin = (req, res, next) => {
 
 const requireStaff = requireAdmin;
 
+const normalizeClassKey = (value) => String(value || '').trim().toLowerCase();
+const splitClassTokens = (value) =>
+  String(value || '')
+    .split(/[,;/]+/)
+    .map((item) => String(item || '').trim())
+    .filter(Boolean);
+
+const validateClassesExist = async (value) => {
+  const tokens = splitClassTokens(value);
+  if (tokens.length === 0) return [];
+
+  const rows = await query('SELECT name FROM spell_classes', []);
+  const known = new Set((rows || []).map((row) => normalizeClassKey(row.name)));
+  return tokens.filter((token) => !known.has(normalizeClassKey(token)));
+};
+
 app.post('/api/auth/login', async (req, res) => {
   try {
     const { login, password } = req.body;
@@ -155,6 +171,11 @@ async function ensureRuntimeSchema() {
 
   await query(
     "CREATE TABLE IF NOT EXISTS spells (id INT PRIMARY KEY AUTO_INCREMENT, name VARCHAR(255) NOT NULL, name_en VARCHAR(255), level TINYINT UNSIGNED NOT NULL DEFAULT 0, school VARCHAR(100), theme VARCHAR(32) DEFAULT 'none', casting_time VARCHAR(255), range_text VARCHAR(255), components TEXT, duration VARCHAR(255), classes VARCHAR(255), subclasses VARCHAR(255), source VARCHAR(100), source_pages VARCHAR(50), description LONGTEXT, description_eot LONGTEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, INDEX idx_spells_name (name))",
+    []
+  );
+
+  await query(
+    'CREATE TABLE IF NOT EXISTS spell_classes (id INT PRIMARY KEY AUTO_INCREMENT, name VARCHAR(80) NOT NULL UNIQUE, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP)',
     []
   );
 
@@ -1037,13 +1058,63 @@ app.delete('/api/market/:id(\\d+)', authenticateToken, requireStaff, async (req,
 app.get('/api/spells', async (req, res) => {
   try {
     const rows = await query(
-      'SELECT id, name, level, school, components, description, description_eot, created_at, updated_at FROM spells ORDER BY name ASC',
+      'SELECT id, name, level, school, components, classes, description, description_eot, created_at, updated_at FROM spells ORDER BY name ASC',
       []
     );
     res.json(rows);
   } catch (error) {
     console.error('List spells error:', error);
     res.status(503).json({ error: 'База данных недоступна' });
+  }
+});
+
+app.get('/api/spell-classes', async (req, res) => {
+  try {
+    const rows = await query('SELECT id, name FROM spell_classes ORDER BY name ASC', []);
+    res.json(Array.isArray(rows) ? rows : []);
+  } catch (error) {
+    console.error('List spell classes error:', error);
+    res.status(503).json({ error: 'База данных недоступна' });
+  }
+});
+
+app.get('/api/spell-classes/admin', authenticateToken, requireStaff, async (req, res) => {
+  try {
+    const rows = await query('SELECT id, name FROM spell_classes ORDER BY name ASC', []);
+    res.json(Array.isArray(rows) ? rows : []);
+  } catch (error) {
+    console.error('List spell classes admin error:', error);
+    res.status(503).json({ error: 'База данных недоступна' });
+  }
+});
+
+app.post('/api/spell-classes', authenticateToken, requireStaff, async (req, res) => {
+  try {
+    const raw = String(req.body?.name || '').trim();
+    if (!raw) return res.status(400).json({ error: 'Название класса обязательно' });
+
+    const result = await query('INSERT INTO spell_classes (name) VALUES (?)', [raw]);
+    const insertedId = typeof result.insertId === 'bigint' ? Number(result.insertId) : result.insertId;
+    res.status(201).json({ id: insertedId, name: raw });
+  } catch (error) {
+    if (error?.code === 'ER_DUP_ENTRY') {
+      return res.status(409).json({ error: 'Класс уже существует' });
+    }
+    console.error('Create spell class error:', error);
+    res.status(500).json({ error: 'Ошибка при добавлении класса' });
+  }
+});
+
+app.delete('/api/spell-classes/:id(\\d+)', authenticateToken, requireStaff, async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) return res.status(400).json({ error: 'Некорректный id' });
+
+    await query('DELETE FROM spell_classes WHERE id = ? LIMIT 1', [id]);
+    res.json({ ok: true });
+  } catch (error) {
+    console.error('Delete spell class error:', error);
+    res.status(500).json({ error: 'Ошибка при удалении класса' });
   }
 });
 
@@ -1217,6 +1288,11 @@ app.post('/api/spells', authenticateToken, requireStaff, async (req, res) => {
       description_eot,
     } = req.body;
 
+    const invalidClasses = await validateClassesExist(classes);
+    if (invalidClasses.length > 0) {
+      return res.status(400).json({ error: `Неизвестные классы: ${invalidClasses.join(', ')}` });
+    }
+
     if (!name) {
       return res.status(400).json({ error: 'Название заклинания обязательно' });
     }
@@ -1333,6 +1409,11 @@ app.put('/api/spells/:id(\\d+)', authenticateToken, requireStaff, async (req, re
             ? null
             : String(req.body.description_eot),
     };
+
+    const invalidClasses = await validateClassesExist(merged.classes);
+    if (invalidClasses.length > 0) {
+      return res.status(400).json({ error: `Неизвестные классы: ${invalidClasses.join(', ')}` });
+    }
 
     await query(
       'UPDATE spells SET name = ?, name_en = ?, level = ?, school = ?, theme = ?, casting_time = ?, range_text = ?, components = ?, duration = ?, classes = ?, subclasses = ?, source = ?, source_pages = ?, description = ?, description_eot = ? WHERE id = ?',

@@ -163,7 +163,7 @@ export default function PublicLayout({ children }) {
           onClick={() => setMobileMenuOpen(false)}
         />
         <aside
-          className={`absolute left-0 top-0 h-full w-72 border-r border-white/10 bg-slate-950/95 backdrop-blur p-4 transition-transform flex flex-col min-h-0 ${
+          className={`absolute left-0 top-0 h-full w-72 border-r border-white/10 bg-slate-950/95 backdrop-blur p-4 transition-transform ${
             mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
           }`}
         >
@@ -182,11 +182,11 @@ export default function PublicLayout({ children }) {
             </button>
           </div>
 
-          <div className="mt-4 space-y-1 flex-1 overflow-y-auto">
+          <div className="mt-4 space-y-1">
             <NavItems onNavigate={() => setMobileMenuOpen(false)} />
           </div>
 
-          <div className="mt-auto pt-4 border-t border-white/10">
+          <div className="mt-6 pt-4 border-t border-white/10">
             <AuthItems onNavigate={() => setMobileMenuOpen(false)} />
           </div>
         </aside>
@@ -194,7 +194,7 @@ export default function PublicLayout({ children }) {
 
       <div className="flex flex-1 min-h-0">
         {/* Desktop sidebar */}
-        <aside className="hidden md:flex md:flex-col w-64 border-r border-white/10 bg-black/20 backdrop-blur min-h-screen sticky top-0">
+        <aside className="hidden md:flex md:flex-col w-64 border-r border-white/10 bg-black/20 backdrop-blur h-screen sticky top-0">
           <div className="px-4 py-5">
             <Link to="/news" className="text-xl font-bold tracking-wide">
               {brandNode}

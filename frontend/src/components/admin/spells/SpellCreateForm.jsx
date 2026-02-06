@@ -1,4 +1,5 @@
 import SpellDescriptionEditor from '../SpellDescriptionEditor.jsx';
+import SpellClassesHint from './SpellClassesHint.jsx';
 
 export default function SpellCreateForm({
   name,
@@ -23,6 +24,7 @@ export default function SpellCreateForm({
   onClassesChange,
   subclasses,
   onSubclassesChange,
+  classOptions,
   source,
   onSourceChange,
   sourcePages,
@@ -123,6 +125,9 @@ export default function SpellCreateForm({
           placeholder="Классы (опционально)"
           className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
         />
+        <div className="md:col-span-2">
+          <SpellClassesHint value={classes} classOptions={classOptions} />
+        </div>
 
         <input
           value={subclasses}

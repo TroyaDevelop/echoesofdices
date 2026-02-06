@@ -102,6 +102,13 @@ export const spellsAPI = {
   remove: (id) => apiClient(`/spells/${id}`, { method: 'DELETE' }),
 };
 
+export const spellClassesAPI = {
+  list: () => apiClient('/spell-classes', { method: 'GET' }),
+  listAdmin: () => apiClient('/spell-classes/admin', { method: 'GET' }),
+  create: (name) => apiClient('/spell-classes', { method: 'POST', body: JSON.stringify({ name }) }),
+  remove: (id) => apiClient(`/spell-classes/${id}`, { method: 'DELETE' }),
+};
+
 export const marketAPI = {
   list: () => apiClient('/market', { method: 'GET' }),
   listAdmin: () => apiClient('/market/admin', { method: 'GET' }),

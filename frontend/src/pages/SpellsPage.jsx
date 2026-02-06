@@ -1,10 +1,19 @@
 import { useEffect, useMemo, useState } from 'react';
 import PublicLayout from '../components/PublicLayout.jsx';
-import { spellsAPI } from '../lib/api.js';
+import { spellClassesAPI, spellsAPI } from '../lib/api.js';
 import SpellListHeader from '../components/spells/SpellListHeader.jsx';
 import SpellGroupSection from '../components/spells/SpellGroupSection.jsx';
 
 const normalize = (v) => String(v || '').trim();
+const normalizeKey = (v) => normalize(v).toLowerCase();
+
+const splitClasses = (value) => {
+  if (!value) return [];
+  return String(value)
+    .split(/[,;/]+/)
+    .map((item) => normalize(item))
+    .filter(Boolean);
+};
 
 const firstGroupLetter = (name) => {
   const n = normalize(name);
@@ -16,8 +25,10 @@ export default function SpellsPage() {
   const [spells, setSpells] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [classOptions, setClassOptions] = useState([]);
 
   const [query, setQuery] = useState('');
+  const [classFilter, setClassFilter] = useState('');
 
   const [groupMode, setGroupMode] = useState('alpha');
 
@@ -25,8 +36,18 @@ export default function SpellsPage() {
     setError('');
     setLoading(true);
     try {
-      const data = await spellsAPI.list();
+      const [data, classData] = await Promise.all([spellsAPI.list(), spellClassesAPI.list()]);
       setSpells(Array.isArray(data) ? data : []);
+      const normalized = Array.isArray(classData) ? classData : [];
+      setClassOptions(
+        normalized
+          .map((item) => ({
+            value: normalizeKey(item?.name ?? item),
+            label: String((item?.name ?? item) || '').trim(),
+          }))
+          .filter((item) => item.value && item.label)
+          .sort((a, b) => a.label.localeCompare(b.label, 'ru', { sensitivity: 'base' }))
+      );
     } catch (e) {
       console.error(e);
       setError(e.message || 'Ошибка загрузки заклинаний');
@@ -41,14 +62,19 @@ export default function SpellsPage() {
 
   const filteredSorted = useMemo(() => {
     const q = normalize(query).toLowerCase();
+    const cf = normalizeKey(classFilter);
 
     const filtered = (spells || []).filter((s) => {
-      if (!q) return true;
-      return normalize(s.name).toLowerCase().includes(q);
+      if (q && !normalize(s.name).toLowerCase().includes(q)) return false;
+      if (cf) {
+        const classes = splitClasses(s?.classes).map(normalizeKey);
+        return classes.includes(cf);
+      }
+      return true;
     });
 
     return filtered.sort((a, b) => normalize(a.name).localeCompare(normalize(b.name), 'ru', { sensitivity: 'base' }));
-  }, [spells, query]);
+  }, [spells, query, classFilter]);
 
   const grouped = useMemo(() => {
     if (groupMode === 'level') {
@@ -103,6 +129,9 @@ export default function SpellsPage() {
           onGroupModeChange={setGroupMode}
           query={query}
           onQueryChange={setQuery}
+          classFilter={classFilter}
+          onClassFilterChange={setClassFilter}
+          classOptions={classOptions}
         />
 
         {error && <div className="text-red-200 bg-red-500/10 border border-red-500/30 rounded-xl p-4">{error}</div>}

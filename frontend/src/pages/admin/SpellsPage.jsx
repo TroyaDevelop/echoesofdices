@@ -1,12 +1,19 @@
 import { useEffect, useMemo, useState } from 'react';
 import AdminLayout from '../../components/admin/AdminLayout.jsx';
+import SpellClassesPanel from '../../components/admin/spells/SpellClassesPanel.jsx';
 import SpellCreateForm from '../../components/admin/spells/SpellCreateForm.jsx';
 import SpellRow from '../../components/admin/spells/SpellRow.jsx';
 import SpellsHeader from '../../components/admin/spells/SpellsHeader.jsx';
-import { spellsAPI } from '../../lib/api.js';
+import { spellClassesAPI, spellsAPI } from '../../lib/api.js';
 import { normalizeSpellDescriptionForSave } from '../../lib/richText.js';
 
 const normalize = (v) => String(v || '').trim();
+const normalizeClassKey = (v) => String(v || '').trim().toLowerCase();
+const splitClassTokens = (value) =>
+  String(value || '')
+    .split(/[,;/]+/)
+    .map((item) => String(item || '').trim())
+    .filter(Boolean);
 
 const themeOptions = [
   { value: 'none', label: 'Без стихии' },
@@ -31,6 +38,9 @@ export default function AdminSpellsPage() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [classItems, setClassItems] = useState([]);
+  const [classDraft, setClassDraft] = useState('');
+  const [classBusy, setClassBusy] = useState(false);
 
   const [query, setQuery] = useState('');
 
@@ -73,8 +83,9 @@ export default function AdminSpellsPage() {
     setError('');
     setLoading(true);
     try {
-      const data = await spellsAPI.listAdmin();
+      const [data, classesData] = await Promise.all([spellsAPI.listAdmin(), spellClassesAPI.listAdmin()]);
       setItems(Array.isArray(data) ? data : []);
+      setClassItems(Array.isArray(classesData) ? classesData : []);
     } catch (e) {
       console.error(e);
       setError(e.message || 'Ошибка загрузки заклинаний');
@@ -99,9 +110,58 @@ export default function AdminSpellsPage() {
 
   const shouldScrollSpells = useMemo(() => filteredSorted.length > 8, [filteredSorted.length]);
 
+  const classOptions = useMemo(() => classItems, [classItems]);
+  const classSet = useMemo(() => new Set(classItems.map((item) => normalizeClassKey(item.name))), [classItems]);
+
+  const invalidClassesFor = (value) => {
+    const tokens = splitClassTokens(value);
+    if (tokens.length === 0) return [];
+    return tokens.filter((token) => !classSet.has(normalizeClassKey(token)));
+  };
+
+  const handleAddClass = async (e) => {
+    e.preventDefault();
+    setError('');
+    const value = normalize(classDraft);
+    if (!value) {
+      setError('Название класса обязательно');
+      return;
+    }
+
+    try {
+      setClassBusy(true);
+      await spellClassesAPI.create(value);
+      setClassDraft('');
+      const next = await spellClassesAPI.listAdmin();
+      setClassItems(Array.isArray(next) ? next : []);
+    } catch (e) {
+      console.error(e);
+      setError(e.message || 'Ошибка добавления класса');
+    } finally {
+      setClassBusy(false);
+    }
+  };
+
+  const handleRemoveClass = async (id) => {
+    setError('');
+    try {
+      await spellClassesAPI.remove(id);
+      setClassItems((prev) => prev.filter((item) => item.id !== id));
+    } catch (e) {
+      console.error(e);
+      setError(e.message || 'Ошибка удаления класса');
+    }
+  };
+
   const handleCreate = async (e) => {
     e.preventDefault();
     setError('');
+
+    const invalidClasses = invalidClassesFor(classes);
+    if (invalidClasses.length > 0) {
+      setError(`Неизвестные классы: ${invalidClasses.join(', ')}`);
+      return;
+    }
 
     const payload = {
       name: normalize(name),
@@ -211,6 +271,12 @@ export default function AdminSpellsPage() {
 
   const saveEdit = async (id) => {
     setError('');
+
+    const invalidClasses = invalidClassesFor(editClasses);
+    if (invalidClasses.length > 0) {
+      setError(`Неизвестные классы: ${invalidClasses.join(', ')}`);
+      return;
+    }
     const payload = {
       name: normalize(editName),
       name_en: normalize(editNameEn) || null,
@@ -280,6 +346,7 @@ export default function AdminSpellsPage() {
           onClassesChange={setClasses}
           subclasses={subclasses}
           onSubclassesChange={setSubclasses}
+          classOptions={classOptions}
           source={source}
           onSourceChange={setSource}
           sourcePages={sourcePages}
@@ -292,6 +359,15 @@ export default function AdminSpellsPage() {
           onDescriptionEotChange={setDescriptionEot}
           themeOptions={themeOptions}
           onSubmit={handleCreate}
+        />
+
+        <SpellClassesPanel
+          value={classDraft}
+          onValueChange={setClassDraft}
+          onAdd={handleAddClass}
+          items={classItems}
+          onRemove={handleRemoveClass}
+          busy={classBusy}
         />
 
         <div className="bg-white rounded-lg shadow-sm border">
@@ -343,6 +419,7 @@ export default function AdminSpellsPage() {
                     editDescriptionEot,
                     setEditDescriptionEot,
                   }}
+                  classOptions={classOptions}
                   themeOptions={themeOptions}
                   onSaveEdit={() => saveEdit(s.id)}
                   onCancelEdit={cancelEdit}

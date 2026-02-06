@@ -1,4 +1,12 @@
-export default function SpellListHeader({ groupMode, onGroupModeChange, query, onQueryChange }) {
+export default function SpellListHeader({
+  groupMode,
+  onGroupModeChange,
+  query,
+  onQueryChange,
+  classFilter,
+  onClassFilterChange,
+  classOptions,
+}) {
   return (
     <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
       <div>
@@ -32,6 +40,21 @@ export default function SpellListHeader({ groupMode, onGroupModeChange, query, o
           >
             Уровень
           </button>
+        </div>
+
+        <div className="w-full sm:w-56">
+          <select
+            value={classFilter}
+            onChange={(e) => onClassFilterChange(e.target.value)}
+            className="w-full bg-slate-900/60 border border-white/10 rounded-xl px-4 py-3"
+          >
+            <option value="">Все классы</option>
+            {classOptions.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
         </div>
 
         <div className="w-full sm:w-80">

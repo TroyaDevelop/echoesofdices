@@ -26,13 +26,13 @@ export default function RegisterPage() {
     setOk(false);
     setLoading(true);
 
-    try {
-      if (String(formData.password || '') !== String(formData.confirmPassword || '')) {
-        setError('Пароли не совпадают');
-        setLoading(false);
-        return;
-      }
+    if (String(formData.password || '') !== String(formData.confirmPassword || '')) {
+      setError('Пароли не совпадают');
+      setLoading(false);
+      return;
+    }
 
+    try {
       await authAPI.register({
         login: String(formData.login || '').trim(),
         nickname: String(formData.nickname || '').trim(),
