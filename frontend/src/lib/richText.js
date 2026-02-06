@@ -2,6 +2,11 @@ import DOMPurify from 'dompurify';
 
 export const isRichHtmlDescription = (value) => {
   const s = String(value ?? '');
+  return /<\s*\/?\s*(p|br|strong|em|b|i|table|thead|tbody|tr|th|td|colgroup|col)\b/i.test(s);
+};
+
+export const isRichHtmlDescriptionNoTables = (value) => {
+  const s = String(value ?? '');
   return /<\s*\/?\s*(p|br|strong|em|b|i)\b/i.test(s);
 };
 
@@ -52,6 +57,30 @@ export const normalizeSpellDescriptionForSave = (value) => {
 };
 
 export const sanitizeSpellDescriptionHtml = (html) => {
+  return DOMPurify.sanitize(String(html ?? ''), {
+    USE_PROFILES: { html: true },
+    ALLOWED_TAGS: [
+      'p',
+      'br',
+      'strong',
+      'em',
+      'b',
+      'i',
+      'table',
+      'thead',
+      'tbody',
+      'tfoot',
+      'tr',
+      'th',
+      'td',
+      'colgroup',
+      'col',
+    ],
+    ALLOWED_ATTR: ['colspan', 'rowspan'],
+  });
+};
+
+export const sanitizeNewsHtml = (html) => {
   return DOMPurify.sanitize(String(html ?? ''), {
     USE_PROFILES: { html: true },
     ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'b', 'i'],

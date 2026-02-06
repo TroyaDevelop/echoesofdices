@@ -6,6 +6,8 @@ export default function MarketFilters({
   onRegionChange,
   season,
   onSeasonChange,
+  showMarkup,
+  onShowMarkupChange,
   filterCategory,
   onCategoryChange,
   categories,
@@ -13,36 +15,50 @@ export default function MarketFilters({
 }) {
   return (
     <div className="w-full sm:w-[34rem] flex flex-col sm:flex-row gap-3">
-      <select
-        value={regionId}
-        onChange={(e) => onRegionChange(e.target.value)}
-        style={{ colorScheme: 'dark' }}
-        className="w-full sm:w-72 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-slate-100 focus:outline-none focus:ring-2 focus:ring-purple-500"
-      >
-        {regions.length === 0 ? (
-          <option value="" style={darkSelectOptionStyle}>
-            Регионы не настроены
-          </option>
-        ) : null}
-        {regions.map((r) => (
-          <option key={r.id} value={String(r.id)} style={darkSelectOptionStyle}>
-            {r.name}
-          </option>
-        ))}
-      </select>
+      <label className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-100">
+        <input
+          type="checkbox"
+          checked={showMarkup}
+          onChange={(e) => onShowMarkupChange(e.target.checked)}
+          className="h-4 w-4 rounded border-white/20 bg-slate-900/60 text-purple-500 focus:ring-purple-500"
+        />
+        Наценки EoT
+      </label>
 
-      <select
-        value={season}
-        onChange={(e) => onSeasonChange(e.target.value)}
-        style={{ colorScheme: 'dark' }}
-        className="w-full sm:w-56 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-slate-100 focus:outline-none focus:ring-2 focus:ring-purple-500"
-      >
-        {seasons.map((s) => (
-          <option key={s.value} value={s.value} style={darkSelectOptionStyle}>
-            {s.label}
-          </option>
-        ))}
-      </select>
+      {showMarkup ? (
+        <>
+        <select
+          value={regionId}
+          onChange={(e) => onRegionChange(e.target.value)}
+          style={{ colorScheme: 'dark' }}
+          className="w-full sm:w-72 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-slate-100 focus:outline-none focus:ring-2 focus:ring-purple-500"
+        >
+          {regions.length === 0 ? (
+            <option value="" style={darkSelectOptionStyle}>
+              Регионы не настроены
+            </option>
+          ) : null}
+          {regions.map((r) => (
+            <option key={r.id} value={String(r.id)} style={darkSelectOptionStyle}>
+              {r.name}
+            </option>
+          ))}
+        </select>
+
+        <select
+          value={season}
+          onChange={(e) => onSeasonChange(e.target.value)}
+          style={{ colorScheme: 'dark' }}
+          className="w-full sm:w-56 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-slate-100 focus:outline-none focus:ring-2 focus:ring-purple-500"
+        >
+          {seasons.map((s) => (
+            <option key={s.value} value={s.value} style={darkSelectOptionStyle}>
+              {s.label}
+            </option>
+          ))}
+        </select>
+        </>
+      ) : null}
 
       <select
         value={filterCategory}

@@ -22,8 +22,13 @@ export default function ItemRow({
   onEditDamageChange,
   editArmorClass,
   onEditArmorClassChange,
+  editArmorType,
+  onEditArmorTypeChange,
+  armorTypes,
   editWeaponType,
   onEditWeaponTypeChange,
+  editWeight,
+  onEditWeightChange,
   editPriceGp,
   onEditPriceGpChange,
   editPriceSp,
@@ -74,6 +79,22 @@ export default function ItemRow({
                   <div className="text-xs text-gray-600 mb-1">Класс доспеха (опционально)</div>
                   <input value={editArmorClass} onChange={onEditArmorClassChange} placeholder="например 14 + ЛВК (макс 2)" className={inputClass} />
                 </div>
+                <div>
+                  <div className="text-xs text-gray-600 mb-1">Тип доспеха (если указан КД)</div>
+                  <select
+                    value={editArmorType}
+                    onChange={onEditArmorTypeChange}
+                    className={inputClass}
+                    disabled={!String(editArmorClass || '').trim()}
+                  >
+                    <option value="">—</option>
+                    {armorTypes.map((type) => (
+                      <option key={type.value} value={type.value}>
+                        {type.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
                 <div className="md:col-span-2">
                   <div className="text-xs text-gray-600 mb-1">Категория оружия (только если задан урон)</div>
                   <select
@@ -92,6 +113,17 @@ export default function ItemRow({
                 </div>
               </div>
             ) : null}
+
+            <div>
+              <div className="text-xs text-gray-600 mb-1">Вес (опционально)</div>
+              <input
+                value={editWeight}
+                onChange={onEditWeightChange}
+                inputMode="decimal"
+                placeholder="например 2.5"
+                className={inputClass}
+              />
+            </div>
 
             <div className="flex items-center justify-end">
               <PricePreview gp={editPriceGp} sp={editPriceSp} cp={editPriceCp} />

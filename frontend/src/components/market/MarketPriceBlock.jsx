@@ -37,10 +37,34 @@ const Coin = ({ label, value, className }) => {
   );
 };
 
-export default function MarketPriceBlock({ item, percent }) {
+const CoinRow = ({ value, emptyLabel, className }) => {
+  const hasAny = value.gp || value.sp || value.cp;
+  if (!hasAny) {
+    return <span className="text-xs text-slate-400">{emptyLabel}</span>;
+  }
+
+  return (
+    <div className={`flex items-center gap-2 flex-wrap ${className || ''}`.trim()}>
+      <Coin label="З" value={value.gp} className="bg-amber-500/25 text-amber-200 border border-amber-500/30" />
+      <Coin label="С" value={value.sp} className="bg-slate-400/20 text-slate-100 border border-white/15" />
+      <Coin label="М" value={value.cp} className="bg-orange-500/20 text-orange-200 border border-orange-500/30" />
+    </div>
+  );
+};
+
+export default function MarketPriceBlock({ item, percent, showMarkup }) {
   const base = formatPrice(item);
   const baseCp = toCopper(base);
   if (!baseCp) return <span className="text-xs text-slate-400">Цена: —</span>;
+
+  if (!showMarkup) {
+    return (
+      <div className="flex items-center justify-between gap-3">
+        <div className="text-[11px] text-slate-400">Цена</div>
+        <CoinRow value={base} emptyLabel="—" className="justify-end" />
+      </div>
+    );
+  }
 
   const buyCp = applyMarkupPercent(baseCp, percent);
   const buy = fromCopper(buyCp);
@@ -48,7 +72,6 @@ export default function MarketPriceBlock({ item, percent }) {
   const sell = fromCopper(sellCp);
   const p = Number(percent || 0);
   const showPercent = Number.isFinite(p) && p !== 0;
-
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between gap-3">

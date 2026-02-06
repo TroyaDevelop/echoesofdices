@@ -16,6 +16,7 @@ export default function ItemList({
   inputClass,
   supportsCombatFields,
   weaponTypes,
+  armorTypes,
   editName,
   onEditNameChange,
   editCategory,
@@ -26,8 +27,12 @@ export default function ItemList({
   onEditDamageChange,
   editArmorClass,
   onEditArmorClassChange,
+  editArmorType,
+  onEditArmorTypeChange,
   editWeaponType,
   onEditWeaponTypeChange,
+  editWeight,
+  onEditWeightChange,
   editPriceGp,
   onEditPriceGpChange,
   editPriceSp,
@@ -77,6 +82,7 @@ export default function ItemList({
                   onCancel={onCancel}
                   categories={categories}
                   weaponTypes={weaponTypes}
+                  armorTypes={armorTypes}
                   supportsCombatFields={supportsCombatFields}
                   inputClass={inputClass}
                   editName={editName}
@@ -89,8 +95,12 @@ export default function ItemList({
                   onEditDamageChange={onEditDamageChange}
                   editArmorClass={editArmorClass}
                   onEditArmorClassChange={onEditArmorClassChange}
+                  editArmorType={editArmorType}
+                  onEditArmorTypeChange={onEditArmorTypeChange}
                   editWeaponType={editWeaponType}
                   onEditWeaponTypeChange={onEditWeaponTypeChange}
+                  editWeight={editWeight}
+                  onEditWeightChange={onEditWeightChange}
                   editPriceGp={editPriceGp}
                   onEditPriceGpChange={onEditPriceGpChange}
                   editPriceSp={editPriceSp}

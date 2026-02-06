@@ -227,12 +227,49 @@ body {
   height: 0;
 }
 
+.tiptap-editor table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.tiptap-editor th,
+.tiptap-editor td {
+  border: 1px solid #e5e7eb;
+  padding: 6px 8px;
+  vertical-align: top;
+}
+
+.tiptap-editor th {
+  background: #6b5a45;
+  color: #f7f2e7;
+  font-weight: 600;
+}
+
 .spell-description p {
   margin: 0 0 0.75rem 0;
 }
 
 .spell-description p:last-child {
   margin-bottom: 0;
+}
+
+.spell-description table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.75rem 0;
+}
+
+.spell-description th,
+.spell-description td {
+  border: 1px solid rgba(15, 23, 42, 0.18);
+  padding: 6px 8px;
+  vertical-align: top;
+}
+
+.spell-description th {
+  background: #6b5a45;
+  color: #f7f2e7;
+  font-weight: 600;
 }
 
 .news-content p {

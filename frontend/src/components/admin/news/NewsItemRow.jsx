@@ -65,7 +65,7 @@ export default function NewsItemRow({
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
             />
 
-            <SpellDescriptionEditor value={editContent} onChange={onEditContentChange} placeholder="Текст" />
+            <SpellDescriptionEditor value={editContent} onChange={onEditContentChange} placeholder="Текст" enableTables={false} />
 
             <div className="flex items-center gap-3">
               <button

@@ -42,7 +42,7 @@ export default function NewsCreateForm({
         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
       />
 
-      <SpellDescriptionEditor value={content} onChange={onContentChange} placeholder="Текст" />
+      <SpellDescriptionEditor value={content} onChange={onContentChange} placeholder="Текст" enableTables={false} />
 
       <div>
         <button type="submit" className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-medium">

@@ -38,6 +38,12 @@ const WEAPON_TYPES = [
   { value: 'martial_ranged', label: 'Воинское дальнобойное' },
 ];
 
+const ARMOR_TYPES = [
+  { value: 'light', label: 'Легкий' },
+  { value: 'medium', label: 'Средний' },
+  { value: 'heavy', label: 'Тяжелый' },
+];
+
 const weaponTypeLabel = (value) => WEAPON_TYPES.find((t) => t.value === value)?.label || '';
 
 const toNonNegInt = (value) => {
@@ -45,6 +51,13 @@ const toNonNegInt = (value) => {
   const n = Number(value);
   if (!Number.isFinite(n) || n < 0) return null;
   return Math.floor(n);
+};
+
+const toNonNegFloat = (value) => {
+  if (value === undefined || value === null || value === '') return null;
+  const n = Number(value);
+  if (!Number.isFinite(n) || n < 0) return null;
+  return Math.round(n * 100) / 100;
 };
 
 const supportsCombatFields = (category) => {
@@ -73,7 +86,9 @@ export default function AdminMarketPage() {
   const [shortDescription, setShortDescription] = useState('');
   const [damage, setDamage] = useState('');
   const [armorClass, setArmorClass] = useState('');
+  const [armorType, setArmorType] = useState('');
   const [weaponType, setWeaponType] = useState('');
+  const [weight, setWeight] = useState('');
   const [priceGp, setPriceGp] = useState('');
   const [priceSp, setPriceSp] = useState('');
   const [priceCp, setPriceCp] = useState('');
@@ -84,7 +99,9 @@ export default function AdminMarketPage() {
   const [editShortDescription, setEditShortDescription] = useState('');
   const [editDamage, setEditDamage] = useState('');
   const [editArmorClass, setEditArmorClass] = useState('');
+  const [editArmorType, setEditArmorType] = useState('');
   const [editWeaponType, setEditWeaponType] = useState('');
+  const [editWeight, setEditWeight] = useState('');
   const [editPriceGp, setEditPriceGp] = useState('');
   const [editPriceSp, setEditPriceSp] = useState('');
   const [editPriceCp, setEditPriceCp] = useState('');
@@ -191,7 +208,9 @@ export default function AdminMarketPage() {
     setShortDescription('');
     setDamage('');
     setArmorClass('');
+    setArmorType('');
     setWeaponType('');
+    setWeight('');
     setPriceGp('');
     setPriceSp('');
     setPriceCp('');
@@ -340,6 +359,7 @@ export default function AdminMarketPage() {
     const gp = toNonNegInt(priceGp);
     const sp = toNonNegInt(priceSp);
     const cp = toNonNegInt(priceCp);
+    const w = toNonNegFloat(weight);
 
     if (!n) {
       setError('Заполните название');
@@ -347,6 +367,11 @@ export default function AdminMarketPage() {
     }
     if (gp === null || sp === null || cp === null) {
       setError('Цена должна быть неотрицательным числом');
+      return;
+    }
+
+    if (w === null && String(weight || '').trim()) {
+      setError('Вес должен быть неотрицательным числом');
       return;
     }
 
@@ -361,14 +386,17 @@ export default function AdminMarketPage() {
       price_sp: sp,
       price_cp: cp,
       short_description: sd || null,
+      weight: w,
     };
 
     if (supportsCombatFields(category)) {
       payload.damage = d || null;
       payload.armor_class = ac || null;
+      payload.armor_type = ac ? (String(armorType || '').trim() || null) : null;
       payload.weapon_type = d ? (String(weaponType || '').trim() || null) : null;
     } else {
       payload.weapon_type = null;
+      payload.armor_type = null;
     }
 
     try {
@@ -388,7 +416,9 @@ export default function AdminMarketPage() {
     setEditShortDescription(String(it.short_description || ''));
     setEditDamage(String(it.damage || ''));
     setEditArmorClass(String(it.armor_class || ''));
+    setEditArmorType(String(it.armor_type || ''));
     setEditWeaponType(String(it.weapon_type || ''));
+    setEditWeight(it.weight === null || it.weight === undefined ? '' : String(it.weight));
     setEditPriceGp(String(it.price_gp ?? 0));
     setEditPriceSp(String(it.price_sp ?? 0));
     setEditPriceCp(String(it.price_cp ?? 0));
@@ -401,7 +431,9 @@ export default function AdminMarketPage() {
     setEditShortDescription('');
     setEditDamage('');
     setEditArmorClass('');
+    setEditArmorType('');
     setEditWeaponType('');
+    setEditWeight('');
     setEditPriceGp('');
     setEditPriceSp('');
     setEditPriceCp('');
@@ -415,6 +447,7 @@ export default function AdminMarketPage() {
     const gp = toNonNegInt(editPriceGp);
     const sp = toNonNegInt(editPriceSp);
     const cp = toNonNegInt(editPriceCp);
+    const w = toNonNegFloat(editWeight);
 
     if (!n) {
       setError('Заполните название');
@@ -422,6 +455,11 @@ export default function AdminMarketPage() {
     }
     if (gp === null || sp === null || cp === null) {
       setError('Цена должна быть неотрицательным числом');
+      return;
+    }
+
+    if (w === null && String(editWeight || '').trim()) {
+      setError('Вес должен быть неотрицательным числом');
       return;
     }
 
@@ -436,16 +474,19 @@ export default function AdminMarketPage() {
       price_sp: sp,
       price_cp: cp,
       short_description: sd || null,
+      weight: w,
     };
 
     if (supportsCombatFields(editCategory)) {
       payload.damage = d || null;
       payload.armor_class = ac || null;
+      payload.armor_type = ac ? (String(editArmorType || '').trim() || null) : null;
       payload.weapon_type = d ? (String(editWeaponType || '').trim() || null) : null;
     } else {
       payload.damage = null;
       payload.armor_class = null;
       payload.weapon_type = null;
+      payload.armor_type = null;
     }
 
     try {
@@ -528,9 +569,14 @@ export default function AdminMarketPage() {
             onDamageChange={(e) => setDamage(e.target.value)}
             armorClass={armorClass}
             onArmorClassChange={(e) => setArmorClass(e.target.value)}
+            armorType={armorType}
+            onArmorTypeChange={(e) => setArmorType(e.target.value)}
+            armorTypes={ARMOR_TYPES}
             weaponType={weaponType}
             onWeaponTypeChange={(e) => setWeaponType(e.target.value)}
             weaponTypes={WEAPON_TYPES}
+            weight={weight}
+            onWeightChange={(e) => setWeight(e.target.value)}
             priceGp={priceGp}
             onPriceGpChange={(e) => setPriceGp(e.target.value)}
             priceSp={priceSp}
@@ -558,6 +604,7 @@ export default function AdminMarketPage() {
           inputClass={inputClass}
           supportsCombatFields={supportsCombatFields}
           weaponTypes={WEAPON_TYPES}
+          armorTypes={ARMOR_TYPES}
           editName={editName}
           onEditNameChange={(e) => setEditName(e.target.value)}
           editCategory={editCategory}
@@ -568,8 +615,12 @@ export default function AdminMarketPage() {
           onEditDamageChange={(e) => setEditDamage(e.target.value)}
           editArmorClass={editArmorClass}
           onEditArmorClassChange={(e) => setEditArmorClass(e.target.value)}
+          editArmorType={editArmorType}
+          onEditArmorTypeChange={(e) => setEditArmorType(e.target.value)}
           editWeaponType={editWeaponType}
           onEditWeaponTypeChange={(e) => setEditWeaponType(e.target.value)}
+          editWeight={editWeight}
+          onEditWeightChange={(e) => setEditWeight(e.target.value)}
           editPriceGp={editPriceGp}
           onEditPriceGpChange={(e) => setEditPriceGp(e.target.value)}
           editPriceSp={editPriceSp}

@@ -40,7 +40,14 @@ const WEAPON_TYPES = [
   { value: 'martial_ranged', label: 'Воинское дальнобойное' },
 ];
 
+const ARMOR_TYPES = [
+  { value: 'light', label: 'Легкий' },
+  { value: 'medium', label: 'Средний' },
+  { value: 'heavy', label: 'Тяжелый' },
+];
+
 const weaponTypeLabel = (value) => WEAPON_TYPES.find((t) => t.value === value)?.label || '';
+const armorTypeLabel = (value) => ARMOR_TYPES.find((t) => t.value === value)?.label || '';
 
 
 export default function MarketPage() {
@@ -53,6 +60,7 @@ export default function MarketPage() {
   const [regionId, setRegionId] = useState('');
   const [season, setSeason] = useState('spring_summer');
   const [openInfoId, setOpenInfoId] = useState(null);
+  const [showMarkup, setShowMarkup] = useState(true);
 
   const load = async () => {
     setError('');
@@ -79,6 +87,7 @@ export default function MarketPage() {
   }, []);
 
   useEffect(() => {
+    if (!showMarkup) return;
     let cancelled = false;
 
     (async () => {
@@ -96,7 +105,7 @@ export default function MarketPage() {
     return () => {
       cancelled = true;
     };
-  }, [season]);
+  }, [season, showMarkup]);
 
   const filteredItems = useMemo(() => {
     const fc = String(filterCategory || '').trim();
@@ -133,16 +142,18 @@ export default function MarketPage() {
   }, [regions]);
 
   useEffect(() => {
+    if (!showMarkup) return;
     if (regionId) return;
     if (!sortedRegions.length) return;
     setRegionId(String(sortedRegions[0].id));
-  }, [sortedRegions, regionId]);
+  }, [sortedRegions, regionId, showMarkup]);
 
   const selectedRegion = useMemo(() => {
+    if (!showMarkup) return null;
     const rid = String(regionId || '');
     if (!rid) return null;
     return sortedRegions.find((r) => String(r?.id) === rid) || null;
-  }, [sortedRegions, regionId]);
+  }, [sortedRegions, regionId, showMarkup]);
 
   const markupMap = useMemo(() => {
     const map = new Map();
@@ -170,6 +181,8 @@ export default function MarketPage() {
               onRegionChange={setRegionId}
               season={season}
               onSeasonChange={setSeason}
+              showMarkup={showMarkup}
+              onShowMarkupChange={setShowMarkup}
               filterCategory={filterCategory}
               onCategoryChange={setFilterCategory}
               categories={MARKET_CATEGORIES}
@@ -182,14 +195,16 @@ export default function MarketPage() {
 
         {loading ? (
           <div className="text-slate-300">Загрузка…</div>
-        ) : sortedRegions.length === 0 ? (
+        ) : showMarkup && sortedRegions.length === 0 ? (
           <div className="text-slate-300">Регионы пока не настроены.</div>
-        ) : !selectedRegion ? (
+        ) : showMarkup && !selectedRegion ? (
           <div className="text-slate-300">Выберите регион.</div>
         ) : (
           <div className="space-y-4">
             <div className="flex items-baseline justify-between gap-4 flex-wrap">
-              <h2 className="text-2xl font-semibold">{selectedRegion.name}</h2>
+              {showMarkup && selectedRegion ? (
+                <h2 className="text-2xl font-semibold">{selectedRegion.name}</h2>
+              ) : null}
             </div>
 
             {filteredItems.length === 0 ? (
@@ -204,11 +219,13 @@ export default function MarketPage() {
                     key={group.value}
                     group={group}
                     showTitle={!String(filterCategory || '').trim()}
-                    regionId={selectedRegion.id}
+                    regionId={selectedRegion?.id}
                     markupMap={markupMap}
                     categoryLabel={categoryLabel}
                     supportsCombatFields={supportsCombatFields}
                     weaponTypeLabel={weaponTypeLabel}
+                    armorTypeLabel={armorTypeLabel}
+                    showMarkup={showMarkup}
                     openInfoId={openInfoId}
                     setOpenInfoId={setOpenInfoId}
                   />

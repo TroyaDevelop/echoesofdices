@@ -6,6 +6,8 @@ export default function MarketItemCard({
   categoryLabel,
   supportsCombatFields,
   weaponTypeLabel,
+  armorTypeLabel,
+  showMarkup,
   openInfoId,
   setOpenInfoId,
 }) {
@@ -15,10 +17,15 @@ export default function MarketItemCard({
   const combat = supportsCombatFields(String(item?.category || ''));
   const damage = String(item?.damage || '').trim();
   const armorClass = String(item?.armor_class || '').trim();
+  const armorType = String(item?.armor_type || '').trim();
   const weaponType = String(item?.weapon_type || '').trim();
+  const weight = item?.weight;
   const weaponTypeText = weaponTypeLabel(weaponType);
+  const armorTypeText = armorTypeLabel(armorType);
   const showCombat = combat && (damage || armorClass);
   const showWeaponType = Boolean(damage && weaponTypeText);
+  const showArmorType = Boolean(armorClass && armorTypeText);
+  const showWeight = weight !== null && weight !== undefined && String(weight).trim() !== '';
 
   return (
     <div
@@ -55,11 +62,22 @@ export default function MarketItemCard({
                 КД: <span className="text-slate-100 font-semibold">{armorClass}</span>
               </div>
             ) : null}
+            {showArmorType ? (
+              <div className="text-xs text-slate-200">
+                Доспех: <span className="text-slate-100 font-semibold">{armorTypeText}</span>
+              </div>
+            ) : null}
             {showWeaponType ? (
               <div className="text-xs text-slate-200">
                 Тип: <span className="text-slate-100 font-semibold">{weaponTypeText}</span>
               </div>
             ) : null}
+          </div>
+        ) : null}
+
+        {showWeight ? (
+          <div className="mt-2 text-xs text-slate-200">
+            Вес: <span className="text-slate-100 font-semibold">{weight}</span>
           </div>
         ) : null}
 
@@ -85,7 +103,7 @@ export default function MarketItemCard({
       </div>
 
       <div className="mt-4">
-        <MarketPriceBlock item={item} percent={Number(percent || 0)} />
+        <MarketPriceBlock item={item} percent={Number(percent || 0)} showMarkup={showMarkup} />
       </div>
     </div>
   );
