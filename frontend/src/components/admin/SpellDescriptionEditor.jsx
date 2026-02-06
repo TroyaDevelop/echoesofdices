@@ -129,11 +129,27 @@ export default function SpellDescriptionEditor({
           </button>
           <button
             type="button"
+            onClick={() => editor.chain().focus().deleteRow().run()}
+            className={toolBtnClass(!inTable)}
+            disabled={!inTable}
+          >
+            Строка -
+          </button>
+          <button
+            type="button"
             onClick={() => editor.chain().focus().addColumnAfter().run()}
             className={toolBtnClass(!inTable)}
             disabled={!inTable}
           >
             Колонка +
+          </button>
+          <button
+            type="button"
+            onClick={() => editor.chain().focus().deleteColumn().run()}
+            className={toolBtnClass(!inTable)}
+            disabled={!inTable}
+          >
+            Колонка -
           </button>
           <button
             type="button"

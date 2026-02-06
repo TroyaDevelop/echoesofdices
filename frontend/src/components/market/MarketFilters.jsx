@@ -14,7 +14,11 @@ export default function MarketFilters({
   seasons,
 }) {
   return (
-    <div className="w-full sm:w-[34rem] flex flex-col sm:flex-row gap-3">
+    <div
+      className={`w-full sm:w-[34rem] flex flex-col sm:flex-row gap-3${
+        showMarkup ? ' sm:-ml-57' : ''
+      }`}
+    >
       <label className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-slate-100">
         <input
           type="checkbox"
