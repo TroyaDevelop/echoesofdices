@@ -83,6 +83,15 @@ export const newsAPI = {
   remove: (id) => apiClient(`/news/${id}`, { method: 'DELETE' }),
 };
 
+export const articlesAPI = {
+  list: () => apiClient('/articles', { method: 'GET' }),
+  getBySlug: (slug) => apiClient(`/articles/${encodeURIComponent(slug)}`, { method: 'GET' }),
+  listAdmin: () => apiClient('/articles/admin', { method: 'GET' }),
+  create: (data) => apiClient('/articles', { method: 'POST', body: JSON.stringify(data) }),
+  update: (id, data) => apiClient(`/articles/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  remove: (id) => apiClient(`/articles/${id}`, { method: 'DELETE' }),
+};
+
 export const spellsAPI = {
   list: () => apiClient('/spells', { method: 'GET' }),
   getById: (id) => apiClient(`/spells/${id}`, { method: 'GET' }),

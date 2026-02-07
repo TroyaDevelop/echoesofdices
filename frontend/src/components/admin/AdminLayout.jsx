@@ -88,6 +88,20 @@ export default function AdminLayout({ children }) {
         ),
       },
       {
+        name: 'Статьи',
+        href: '/admin/articles',
+        icon: (
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="2"
+              d="M19 11H5m14-4H5m14 8H5m2 4h10"
+            ></path>
+          </svg>
+        ),
+      },
+      {
         name: 'Заклинания',
         href: '/admin/spells',
         icon: (

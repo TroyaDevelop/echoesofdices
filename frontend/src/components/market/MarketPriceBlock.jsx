@@ -55,43 +55,47 @@ const CoinRow = ({ value, emptyLabel, className }) => {
 export default function MarketPriceBlock({ item, percent, showMarkup }) {
   const base = formatPrice(item);
   const baseCp = toCopper(base);
-  if (!baseCp) return <span className="text-xs text-slate-400">Цена: —</span>;
+  let content = null;
 
-  if (!showMarkup) {
-    return (
+  if (!baseCp) {
+    content = <span className="text-xs text-slate-400">Цена: —</span>;
+  } else if (!showMarkup) {
+    content = (
       <div className="flex items-center justify-between gap-3">
         <div className="text-[11px] text-slate-400">Цена</div>
         <CoinRow value={base} emptyLabel="—" className="justify-end" />
       </div>
     );
+  } else {
+    const buyCp = applyMarkupPercent(baseCp, percent);
+    const buy = fromCopper(buyCp);
+    const sellCp = Math.floor(buyCp / 3);
+    const sell = fromCopper(sellCp);
+    const p = Number(percent || 0);
+    const showPercent = Number.isFinite(p) && p !== 0;
+    content = (
+      <div className="space-y-2">
+        <div className="flex items-center justify-between gap-3">
+          <div className="text-[11px] text-slate-400">Покупка</div>
+          <div className="flex items-center gap-2 flex-wrap justify-end">
+            <Coin label="З" value={buy.gp} className="bg-amber-500/25 text-amber-200 border border-amber-500/30" />
+            <Coin label="С" value={buy.sp} className="bg-slate-400/20 text-slate-100 border border-white/15" />
+            <Coin label="М" value={buy.cp} className="bg-orange-500/20 text-orange-200 border border-orange-500/30" />
+            {showPercent ? <span className="text-xs font-semibold text-emerald-300 whitespace-nowrap">+{Math.trunc(p)}%</span> : null}
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between gap-3">
+          <div className="text-[11px] text-slate-400">Продажа</div>
+          <div className="flex items-center gap-2 flex-wrap justify-end">
+            <Coin label="З" value={sell.gp} className="bg-amber-500/25 text-amber-200 border border-amber-500/30" />
+            <Coin label="С" value={sell.sp} className="bg-slate-400/20 text-slate-100 border border-white/15" />
+            <Coin label="М" value={sell.cp} className="bg-orange-500/20 text-orange-200 border border-orange-500/30" />
+          </div>
+        </div>
+      </div>
+    );
   }
 
-  const buyCp = applyMarkupPercent(baseCp, percent);
-  const buy = fromCopper(buyCp);
-  const sellCp = Math.floor(buyCp / 3);
-  const sell = fromCopper(sellCp);
-  const p = Number(percent || 0);
-  const showPercent = Number.isFinite(p) && p !== 0;
-  return (
-    <div className="space-y-2">
-      <div className="flex items-center justify-between gap-3">
-        <div className="text-[11px] text-slate-400">Покупка</div>
-        <div className="flex items-center gap-2 flex-wrap justify-end">
-          <Coin label="З" value={buy.gp} className="bg-amber-500/25 text-amber-200 border border-amber-500/30" />
-          <Coin label="С" value={buy.sp} className="bg-slate-400/20 text-slate-100 border border-white/15" />
-          <Coin label="М" value={buy.cp} className="bg-orange-500/20 text-orange-200 border border-orange-500/30" />
-          {showPercent ? <span className="text-xs font-semibold text-emerald-300 whitespace-nowrap">+{Math.trunc(p)}%</span> : null}
-        </div>
-      </div>
-
-      <div className="flex items-center justify-between gap-3">
-        <div className="text-[11px] text-slate-400">Продажа</div>
-        <div className="flex items-center gap-2 flex-wrap justify-end">
-          <Coin label="З" value={sell.gp} className="bg-amber-500/25 text-amber-200 border border-amber-500/30" />
-          <Coin label="С" value={sell.sp} className="bg-slate-400/20 text-slate-100 border border-white/15" />
-          <Coin label="М" value={sell.cp} className="bg-orange-500/20 text-orange-200 border border-orange-500/30" />
-        </div>
-      </div>
-    </div>
-  );
+  return <div className="min-h-[70px] flex flex-col justify-center">{content}</div>;
 }

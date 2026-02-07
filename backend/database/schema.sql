@@ -37,6 +37,22 @@ CREATE TABLE IF NOT EXISTS news_posts (
     INDEX idx_news_status_created (status, created_at)
 );
 
+CREATE TABLE IF NOT EXISTS articles (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    title VARCHAR(255) NOT NULL,
+    slug VARCHAR(255) UNIQUE NOT NULL,
+    content LONGTEXT NOT NULL,
+    excerpt TEXT,
+    source VARCHAR(100),
+    source_pages VARCHAR(50),
+    author_id INT,
+    status ENUM('draft', 'published') DEFAULT 'draft',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (author_id) REFERENCES users(id) ON DELETE SET NULL,
+    INDEX idx_articles_status_created (status, created_at)
+);
+
 CREATE TABLE IF NOT EXISTS spells (
     id INT PRIMARY KEY AUTO_INCREMENT,
     name VARCHAR(255) NOT NULL,

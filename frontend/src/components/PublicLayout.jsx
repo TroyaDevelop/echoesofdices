@@ -75,9 +75,7 @@ export default function PublicLayout({ children }) {
 
   const NavItems = ({ onNavigate }) => (
     <>
-      <NavLink to="/news" className={navLinkClass} onClick={onNavigate}>
-        Новости
-      </NavLink>
+      <div className="px-3 pt-2 pb-1 text-[11px] uppercase tracking-wider text-slate-400/80">Компендиум</div>
       <NavLink to="/spells" className={navLinkClass} onClick={onNavigate}>
         Заклинания
       </NavLink>
@@ -89,6 +87,10 @@ export default function PublicLayout({ children }) {
       </NavLink>
       <NavLink to="/market" className={navLinkClass} onClick={onNavigate}>
         Рынок
+      </NavLink>
+      <div className="px-3 pt-4 pb-1 text-[11px] uppercase tracking-wider text-slate-400/80">Архив</div>
+      <NavLink to="/articles" className={navLinkClass} onClick={onNavigate}>
+        Статьи
       </NavLink>
     </>
   );

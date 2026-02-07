@@ -170,6 +170,11 @@ async function ensureRuntimeSchema() {
   );
 
   await query(
+    "CREATE TABLE IF NOT EXISTS articles (id INT PRIMARY KEY AUTO_INCREMENT, title VARCHAR(255) NOT NULL, slug VARCHAR(255) UNIQUE NOT NULL, content LONGTEXT NOT NULL, excerpt TEXT, source VARCHAR(100), source_pages VARCHAR(50), author_id INT, status ENUM('draft','published') DEFAULT 'draft', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, FOREIGN KEY (author_id) REFERENCES users(id) ON DELETE SET NULL, INDEX idx_articles_status_created (status, created_at))",
+    []
+  );
+
+  await query(
     "CREATE TABLE IF NOT EXISTS spells (id INT PRIMARY KEY AUTO_INCREMENT, name VARCHAR(255) NOT NULL, name_en VARCHAR(255), level TINYINT UNSIGNED NOT NULL DEFAULT 0, school VARCHAR(100), theme VARCHAR(32) DEFAULT 'none', casting_time VARCHAR(255), range_text VARCHAR(255), components TEXT, duration VARCHAR(255), classes VARCHAR(255), subclasses VARCHAR(255), source VARCHAR(100), source_pages VARCHAR(50), description LONGTEXT, description_eot LONGTEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, INDEX idx_spells_name (name))",
     []
   );
@@ -296,6 +301,9 @@ async function ensureRuntimeSchema() {
   await query('ALTER TABLE spells ADD COLUMN IF NOT EXISTS source_pages VARCHAR(50)', []);
   await query("ALTER TABLE spells ADD COLUMN IF NOT EXISTS theme VARCHAR(32) DEFAULT 'none'", []);
   await query('ALTER TABLE spells ADD COLUMN IF NOT EXISTS description_eot LONGTEXT', []);
+
+  await query('ALTER TABLE articles ADD COLUMN IF NOT EXISTS source VARCHAR(100)', []);
+  await query('ALTER TABLE articles ADD COLUMN IF NOT EXISTS source_pages VARCHAR(50)', []);
 
   await query('ALTER TABLE traits ADD COLUMN IF NOT EXISTS name_en VARCHAR(255)', []);
   await query('ALTER TABLE traits ADD COLUMN IF NOT EXISTS source VARCHAR(100)', []);
@@ -553,6 +561,21 @@ async function ensureUniqueNewsSlug(base) {
   return `${baseSlug}-${Date.now()}`;
 }
 
+async function ensureUniqueArticleSlug(base) {
+  const baseSlug = base || `article-${Date.now()}`;
+  let candidate = baseSlug;
+  let i = 2;
+
+  while (i < 200) {
+    const rows = await query('SELECT id FROM articles WHERE slug = ? LIMIT 1', [candidate]);
+    if (!rows || rows.length === 0) return candidate;
+    candidate = `${baseSlug}-${i}`;
+    i += 1;
+  }
+
+  return `${baseSlug}-${Date.now()}`;
+}
+
 app.get('/api/news', async (req, res) => {
   try {
     const rows = await query(
@@ -667,6 +690,162 @@ app.delete('/api/news/:id(\\d+)', authenticateToken, requireStaff, async (req, r
   } catch (error) {
     console.error('Delete news error:', error);
     res.status(500).json({ error: 'Ошибка при удалении новости' });
+  }
+});
+
+app.get('/api/articles', async (req, res) => {
+  try {
+    const rows = await query(
+      "SELECT a.id, a.title, a.slug, a.excerpt, a.content, a.source, a.source_pages, a.status, a.created_at, a.updated_at, u.login AS author_login, u.nickname AS author_nickname FROM articles a LEFT JOIN users u ON a.author_id = u.id WHERE a.status = 'published' ORDER BY a.created_at DESC",
+      []
+    );
+    res.json(rows);
+  } catch (error) {
+    console.error('List articles error:', error);
+    res.status(503).json({ error: 'База данных недоступна' });
+  }
+});
+
+app.get('/api/articles/admin', authenticateToken, requireStaff, async (req, res) => {
+  try {
+    const rows = await query(
+      'SELECT id, title, slug, excerpt, content, source, source_pages, status, created_at, updated_at FROM articles ORDER BY created_at DESC',
+      []
+    );
+    res.json(rows);
+  } catch (error) {
+    console.error('List articles admin error:', error);
+    res.status(503).json({ error: 'База данных недоступна' });
+  }
+});
+
+app.get('/api/articles/:slug', async (req, res) => {
+  try {
+    const slug = String(req.params.slug || '').trim();
+    if (!slug) return res.status(400).json({ error: 'Некорректный slug' });
+
+    const rows = await query(
+      "SELECT a.id, a.title, a.slug, a.excerpt, a.content, a.source, a.source_pages, a.status, a.created_at, a.updated_at, u.login AS author_login, u.nickname AS author_nickname FROM articles a LEFT JOIN users u ON a.author_id = u.id WHERE a.slug = ? AND a.status = 'published' LIMIT 1",
+      [slug]
+    );
+    const article = rows && rows[0];
+    if (!article) return res.status(404).json({ error: 'Статья не найдена' });
+    res.json(article);
+  } catch (error) {
+    console.error('Get article error:', error);
+    res.status(503).json({ error: 'База данных недоступна' });
+  }
+});
+
+app.post('/api/articles', authenticateToken, requireStaff, async (req, res) => {
+  try {
+    const { title, content, excerpt, status, source, source_pages } = req.body;
+
+    if (!title || !content) {
+      return res.status(400).json({ error: 'Заполните заголовок и текст' });
+    }
+
+    const baseSlug = slugify(title) || `article-${Date.now()}`;
+    const slug = await ensureUniqueArticleSlug(baseSlug);
+    const finalStatus = status === 'draft' ? 'draft' : 'published';
+
+    const result = await query(
+      'INSERT INTO articles (title, slug, content, excerpt, source, source_pages, author_id, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      [
+        String(title).trim(),
+        slug,
+        String(content),
+        excerpt ? String(excerpt) : null,
+        source ? String(source).trim() : null,
+        source_pages ? String(source_pages).trim() : null,
+        req.user.userId,
+        finalStatus,
+      ]
+    );
+
+    const insertedId = typeof result.insertId === 'bigint' ? Number(result.insertId) : result.insertId;
+
+    res.status(201).json({
+      id: insertedId,
+      title: String(title).trim(),
+      slug,
+      excerpt: excerpt ? String(excerpt) : null,
+      content: String(content),
+      source: source ? String(source).trim() : null,
+      source_pages: source_pages ? String(source_pages).trim() : null,
+      status: finalStatus,
+    });
+  } catch (error) {
+    console.error('Create article error:', error);
+    res.status(500).json({ error: 'Ошибка при создании статьи' });
+  }
+});
+
+app.put('/api/articles/:id(\\d+)', authenticateToken, requireStaff, async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) return res.status(400).json({ error: 'Некорректный id' });
+
+    const rows = await query(
+      'SELECT id, title, excerpt, content, status, slug, source, source_pages FROM articles WHERE id = ? LIMIT 1',
+      [id]
+    );
+    const existing = rows && rows[0];
+    if (!existing) return res.status(404).json({ error: 'Статья не найдена' });
+
+    const nextTitle = req.body.title !== undefined ? String(req.body.title).trim() : existing.title;
+    const nextContent = req.body.content !== undefined ? String(req.body.content) : existing.content;
+    const nextExcerpt =
+      req.body.excerpt !== undefined
+        ? req.body.excerpt
+          ? String(req.body.excerpt).trim()
+          : null
+        : existing.excerpt;
+    const nextStatus =
+      req.body.status !== undefined ? (req.body.status === 'draft' ? 'draft' : 'published') : existing.status;
+    const nextSource =
+      req.body.source !== undefined ? (req.body.source ? String(req.body.source).trim() : null) : existing.source;
+    const nextSourcePages =
+      req.body.source_pages !== undefined
+        ? req.body.source_pages
+          ? String(req.body.source_pages).trim()
+          : null
+        : existing.source_pages;
+
+    if (!nextTitle) return res.status(400).json({ error: 'Заполните заголовок' });
+    if (!nextContent || !String(nextContent).trim()) return res.status(400).json({ error: 'Заполните текст' });
+
+    await query(
+      'UPDATE articles SET title = ?, excerpt = ?, content = ?, source = ?, source_pages = ?, status = ? WHERE id = ?',
+      [nextTitle, nextExcerpt, nextContent, nextSource, nextSourcePages, nextStatus, id]
+    );
+
+    res.json({
+      id,
+      slug: existing.slug,
+      title: nextTitle,
+      excerpt: nextExcerpt,
+      content: nextContent,
+      source: nextSource,
+      source_pages: nextSourcePages,
+      status: nextStatus,
+    });
+  } catch (error) {
+    console.error('Update article error:', error);
+    res.status(500).json({ error: 'Ошибка при обновлении статьи' });
+  }
+});
+
+app.delete('/api/articles/:id(\\d+)', authenticateToken, requireStaff, async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) return res.status(400).json({ error: 'Некорректный id' });
+
+    await query('DELETE FROM articles WHERE id = ?', [id]);
+    res.json({ message: 'Статья удалена' });
+  } catch (error) {
+    console.error('Delete article error:', error);
+    res.status(500).json({ error: 'Ошибка при удалении статьи' });
   }
 });
 
