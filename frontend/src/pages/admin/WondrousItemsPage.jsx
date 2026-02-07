@@ -16,7 +16,7 @@ export default function AdminWondrousItemsPage() {
 
   const [name, setName] = useState('');
   const [nameEn, setNameEn] = useState('');
-  const [itemType, setItemType] = useState('wondrous');
+  const [itemType, setItemType] = useState('');
   const [rarity, setRarity] = useState('common');
   const [recommendedCost, setRecommendedCost] = useState('');
   const [rarityEot, setRarityEot] = useState('common');
@@ -104,7 +104,7 @@ export default function AdminWondrousItemsPage() {
       await wondrousItemsAPI.create(payload);
       setName('');
       setNameEn('');
-      setItemType('wondrous');
+      setItemType('');
       setRarity('common');
       setRecommendedCost('');
       setRarityEot('common');
@@ -160,7 +160,7 @@ export default function AdminWondrousItemsPage() {
     setEditingId(null);
     setEditName('');
     setEditNameEn('');
-    setEditItemType('wondrous');
+    setEditItemType('');
     setEditRarity('common');
     setEditRecommendedCost('');
     setEditRarityEot('common');
