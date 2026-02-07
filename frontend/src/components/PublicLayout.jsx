@@ -84,6 +84,9 @@ export default function PublicLayout({ children }) {
       <NavLink to="/traits" className={navLinkClass} onClick={onNavigate}>
         Черты
       </NavLink>
+      <NavLink to="/wondrous-items" className={navLinkClass} onClick={onNavigate}>
+        Чудесные предметы
+      </NavLink>
       <NavLink to="/market" className={navLinkClass} onClick={onNavigate}>
         Рынок
       </NavLink>

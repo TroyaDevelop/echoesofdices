@@ -180,6 +180,11 @@ async function ensureRuntimeSchema() {
   );
 
   await query(
+    "CREATE TABLE IF NOT EXISTS wondrous_items (id INT PRIMARY KEY AUTO_INCREMENT, name VARCHAR(255) NOT NULL, name_en VARCHAR(255), item_type VARCHAR(24) NOT NULL DEFAULT 'wondrous', rarity VARCHAR(24) NOT NULL DEFAULT 'common', recommended_cost VARCHAR(80), rarity_eot VARCHAR(24), recommended_cost_eot VARCHAR(80), attunement_required TINYINT(1) NOT NULL DEFAULT 0, attunement_by VARCHAR(120), source VARCHAR(100), source_pages VARCHAR(50), description LONGTEXT, description_eot LONGTEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, INDEX idx_wondrous_items_name (name))",
+    []
+  );
+
+  await query(
     'CREATE TABLE IF NOT EXISTS spell_classes (id INT PRIMARY KEY AUTO_INCREMENT, name VARCHAR(80) NOT NULL UNIQUE, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP)',
     []
   );
@@ -191,6 +196,16 @@ async function ensureRuntimeSchema() {
 
   await query(
     'CREATE TABLE IF NOT EXISTS trait_comments (id INT PRIMARY KEY AUTO_INCREMENT, trait_id INT NOT NULL, user_id INT NOT NULL, content TEXT NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, INDEX idx_trait_comments_trait_created (trait_id, created_at), FOREIGN KEY (trait_id) REFERENCES traits(id) ON DELETE CASCADE, FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE)',
+    []
+  );
+
+  await query(
+    'CREATE TABLE IF NOT EXISTS wondrous_item_likes (id INT PRIMARY KEY AUTO_INCREMENT, wondrous_item_id INT NOT NULL, user_id INT NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, UNIQUE KEY uniq_wondrous_item_user (wondrous_item_id, user_id), INDEX idx_wondrous_item_likes_item (wondrous_item_id), FOREIGN KEY (wondrous_item_id) REFERENCES wondrous_items(id) ON DELETE CASCADE, FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE)',
+    []
+  );
+
+  await query(
+    'CREATE TABLE IF NOT EXISTS wondrous_item_comments (id INT PRIMARY KEY AUTO_INCREMENT, wondrous_item_id INT NOT NULL, user_id INT NOT NULL, content TEXT NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, INDEX idx_wondrous_item_comments_item_created (wondrous_item_id, created_at), FOREIGN KEY (wondrous_item_id) REFERENCES wondrous_items(id) ON DELETE CASCADE, FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE)',
     []
   );
 
@@ -287,6 +302,19 @@ async function ensureRuntimeSchema() {
   await query('ALTER TABLE traits ADD COLUMN IF NOT EXISTS source_pages VARCHAR(50)', []);
   await query('ALTER TABLE traits ADD COLUMN IF NOT EXISTS description LONGTEXT', []);
   await query('ALTER TABLE traits ADD COLUMN IF NOT EXISTS description_eot LONGTEXT', []);
+
+  await query('ALTER TABLE wondrous_items ADD COLUMN IF NOT EXISTS name_en VARCHAR(255)', []);
+  await query("ALTER TABLE wondrous_items ADD COLUMN IF NOT EXISTS item_type VARCHAR(24) NOT NULL DEFAULT 'wondrous'", []);
+  await query("ALTER TABLE wondrous_items ADD COLUMN IF NOT EXISTS rarity VARCHAR(24) NOT NULL DEFAULT 'common'", []);
+  await query('ALTER TABLE wondrous_items ADD COLUMN IF NOT EXISTS recommended_cost VARCHAR(80)', []);
+  await query('ALTER TABLE wondrous_items ADD COLUMN IF NOT EXISTS rarity_eot VARCHAR(24)', []);
+  await query('ALTER TABLE wondrous_items ADD COLUMN IF NOT EXISTS recommended_cost_eot VARCHAR(80)', []);
+  await query('ALTER TABLE wondrous_items ADD COLUMN IF NOT EXISTS attunement_required TINYINT(1) NOT NULL DEFAULT 0', []);
+  await query('ALTER TABLE wondrous_items ADD COLUMN IF NOT EXISTS attunement_by VARCHAR(120)', []);
+  await query('ALTER TABLE wondrous_items ADD COLUMN IF NOT EXISTS source VARCHAR(100)', []);
+  await query('ALTER TABLE wondrous_items ADD COLUMN IF NOT EXISTS source_pages VARCHAR(50)', []);
+  await query('ALTER TABLE wondrous_items ADD COLUMN IF NOT EXISTS description LONGTEXT', []);
+  await query('ALTER TABLE wondrous_items ADD COLUMN IF NOT EXISTS description_eot LONGTEXT', []);
 
   const anyEditor = await query("SELECT id FROM users WHERE role = 'editor' LIMIT 1", []);
   if (!anyEditor || !anyEditor[0]) {
@@ -1806,6 +1834,374 @@ app.delete('/api/traits/:id(\\d+)', authenticateToken, requireStaff, async (req,
   } catch (error) {
     console.error('Delete trait error:', error);
     res.status(500).json({ error: 'Ошибка при удалении черты' });
+  }
+});
+
+const normalizeWondrousRarity = (value) => String(value || '').trim().toLowerCase();
+const isValidWondrousRarity = (value) =>
+  ['common', 'uncommon', 'rare', 'very_rare', 'legendary', 'artifact'].includes(normalizeWondrousRarity(value));
+const toBool = (value) => value === true || value === 'true' || value === 1 || value === '1';
+
+app.get('/api/wondrous-items', async (req, res) => {
+  try {
+    const rows = await query(
+      'SELECT id, name, name_en, item_type, rarity, recommended_cost, rarity_eot, recommended_cost_eot, attunement_required, attunement_by, source, source_pages, description, description_eot, created_at, updated_at FROM wondrous_items ORDER BY name ASC',
+      []
+    );
+    res.json(rows);
+  } catch (error) {
+    console.error('List wondrous items error:', error);
+    res.status(503).json({ error: 'База данных недоступна' });
+  }
+});
+
+app.get('/api/wondrous-items/:id(\\d+)', async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) return res.status(400).json({ error: 'Некорректный id' });
+
+    const rows = await query(
+      'SELECT id, name, name_en, item_type, rarity, recommended_cost, rarity_eot, recommended_cost_eot, attunement_required, attunement_by, source, source_pages, description, description_eot, created_at, updated_at FROM wondrous_items WHERE id = ? LIMIT 1',
+      [id]
+    );
+
+    const item = rows && rows[0];
+    if (!item) return res.status(404).json({ error: 'Чудесный предмет не найден' });
+
+    res.json(item);
+  } catch (error) {
+    console.error('Get wondrous item error:', error);
+    res.status(503).json({ error: 'База данных недоступна' });
+  }
+});
+
+app.get('/api/wondrous-items/:id(\\d+)/likes', authenticateOptional, async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) return res.status(400).json({ error: 'Некорректный id' });
+
+    const countRows = await query('SELECT COUNT(*) AS c FROM wondrous_item_likes WHERE wondrous_item_id = ?', [id]);
+    const count = Number(countRows?.[0]?.c || 0);
+
+    let liked = false;
+    if (req.user && req.user.userId) {
+      const likedRows = await query(
+        'SELECT 1 AS ok FROM wondrous_item_likes WHERE wondrous_item_id = ? AND user_id = ? LIMIT 1',
+        [id, req.user.userId]
+      );
+      liked = Boolean(likedRows && likedRows[0]);
+    }
+
+    res.json({ count, liked });
+  } catch (error) {
+    console.error('Get wondrous item likes error:', error);
+    res.status(503).json({ error: 'База данных недоступна' });
+  }
+});
+
+app.get('/api/wondrous-items/:id(\\d+)/comments', async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) return res.status(400).json({ error: 'Некорректный id' });
+
+    const rows = await query(
+      'SELECT c.id, c.content, c.created_at, u.login AS author_login, u.nickname AS author_nickname FROM wondrous_item_comments c JOIN users u ON c.user_id = u.id WHERE c.wondrous_item_id = ? ORDER BY c.created_at ASC, c.id ASC',
+      [id]
+    );
+
+    res.json(Array.isArray(rows) ? rows : []);
+  } catch (error) {
+    console.error('List wondrous item comments error:', error);
+    res.status(503).json({ error: 'База данных недоступна' });
+  }
+});
+
+app.post('/api/wondrous-items/:id(\\d+)/comments', authenticateToken, async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) return res.status(400).json({ error: 'Некорректный id' });
+
+    const raw = String(req.body?.content || '');
+    const content = raw.trim();
+    if (!content) return res.status(400).json({ error: 'Комментарий не может быть пустым' });
+    if (content.length > 2000) return res.status(400).json({ error: 'Комментарий слишком длинный (макс. 2000 символов)' });
+
+    const exists = await query('SELECT id FROM wondrous_items WHERE id = ? LIMIT 1', [id]);
+    if (!exists || !exists[0]) return res.status(404).json({ error: 'Чудесный предмет не найден' });
+
+    const result = await query(
+      'INSERT INTO wondrous_item_comments (wondrous_item_id, user_id, content) VALUES (?, ?, ?)',
+      [id, req.user.userId, content]
+    );
+    const insertedId = typeof result.insertId === 'bigint' ? Number(result.insertId) : result.insertId;
+
+    const rows = await query(
+      'SELECT c.id, c.content, c.created_at, u.login AS author_login, u.nickname AS author_nickname FROM wondrous_item_comments c JOIN users u ON c.user_id = u.id WHERE c.id = ? LIMIT 1',
+      [insertedId]
+    );
+    const created = rows && rows[0];
+    res.status(201).json(created || { id: insertedId, content, created_at: new Date().toISOString() });
+  } catch (error) {
+    console.error('Create wondrous item comment error:', error);
+    res.status(500).json({ error: 'Ошибка при добавлении комментария' });
+  }
+});
+
+app.delete('/api/wondrous-items/:id(\\d+)/comments/:commentId(\\d+)', authenticateToken, requireStaff, async (req, res) => {
+  try {
+    const itemId = Number(req.params.id);
+    const commentId = Number(req.params.commentId);
+    if (!Number.isFinite(itemId) || itemId <= 0) return res.status(400).json({ error: 'Некорректный id' });
+    if (!Number.isFinite(commentId) || commentId <= 0) return res.status(400).json({ error: 'Некорректный id комментария' });
+
+    const exists = await query(
+      'SELECT id FROM wondrous_item_comments WHERE id = ? AND wondrous_item_id = ? LIMIT 1',
+      [commentId, itemId]
+    );
+    if (!exists || !exists[0]) return res.status(404).json({ error: 'Комментарий не найден' });
+
+    await query('DELETE FROM wondrous_item_comments WHERE id = ? AND wondrous_item_id = ? LIMIT 1', [commentId, itemId]);
+    res.json({ ok: true });
+  } catch (error) {
+    console.error('Delete wondrous item comment error:', error);
+    res.status(500).json({ error: 'Ошибка при удалении комментария' });
+  }
+});
+
+app.post('/api/wondrous-items/:id(\\d+)/like', authenticateToken, async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) return res.status(400).json({ error: 'Некорректный id' });
+
+    await query('INSERT IGNORE INTO wondrous_item_likes (wondrous_item_id, user_id) VALUES (?, ?)', [id, req.user.userId]);
+    const countRows = await query('SELECT COUNT(*) AS c FROM wondrous_item_likes WHERE wondrous_item_id = ?', [id]);
+    const count = Number(countRows?.[0]?.c || 0);
+    res.json({ count, liked: true });
+  } catch (error) {
+    console.error('Like wondrous item error:', error);
+    res.status(500).json({ error: 'Ошибка при лайке' });
+  }
+});
+
+app.delete('/api/wondrous-items/:id(\\d+)/like', authenticateToken, async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) return res.status(400).json({ error: 'Некорректный id' });
+
+    await query('DELETE FROM wondrous_item_likes WHERE wondrous_item_id = ? AND user_id = ?', [id, req.user.userId]);
+    const countRows = await query('SELECT COUNT(*) AS c FROM wondrous_item_likes WHERE wondrous_item_id = ?', [id]);
+    const count = Number(countRows?.[0]?.c || 0);
+    res.json({ count, liked: false });
+  } catch (error) {
+    console.error('Unlike wondrous item error:', error);
+    res.status(500).json({ error: 'Ошибка при снятии лайка' });
+  }
+});
+
+app.get('/api/wondrous-items/admin', authenticateToken, requireStaff, async (req, res) => {
+  try {
+    const rows = await query(
+      'SELECT id, name, name_en, item_type, rarity, recommended_cost, rarity_eot, recommended_cost_eot, attunement_required, attunement_by, source, source_pages, description, description_eot, created_at, updated_at FROM wondrous_items ORDER BY name ASC',
+      []
+    );
+    res.json(rows);
+  } catch (error) {
+    console.error('List wondrous items admin error:', error);
+    res.status(503).json({ error: 'База данных недоступна' });
+  }
+});
+
+app.post('/api/wondrous-items', authenticateToken, requireStaff, async (req, res) => {
+  try {
+    const {
+      name,
+      name_en,
+      item_type,
+      rarity,
+      recommended_cost,
+      rarity_eot,
+      recommended_cost_eot,
+      attunement_required,
+      attunement_by,
+      source,
+      source_pages,
+      description,
+      description_eot,
+    } = req.body;
+
+    if (!name || !String(name).trim()) {
+      return res.status(400).json({ error: 'Название предмета обязательно' });
+    }
+
+    const normalizedType = String(item_type || '').trim() || 'Чудесный предмет';
+
+    const normalizedRarity = normalizeWondrousRarity(rarity || 'common');
+    if (!isValidWondrousRarity(normalizedRarity)) {
+      return res.status(400).json({ error: 'Некорректная редкость предмета' });
+    }
+
+    const normalizedRarityEot = rarity_eot ? normalizeWondrousRarity(rarity_eot) : null;
+    if (normalizedRarityEot && !isValidWondrousRarity(normalizedRarityEot)) {
+      return res.status(400).json({ error: 'Некорректная редкость предмета (EoT)' });
+    }
+
+    const requiresAttunement = toBool(attunement_required);
+    const attuneBy = requiresAttunement ? String(attunement_by || '').trim() || null : null;
+
+    const result = await query(
+      'INSERT INTO wondrous_items (name, name_en, item_type, rarity, recommended_cost, rarity_eot, recommended_cost_eot, attunement_required, attunement_by, source, source_pages, description, description_eot) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [
+        String(name).trim(),
+        name_en ? String(name_en).trim() : null,
+        normalizedType,
+        normalizedRarity,
+        recommended_cost ? String(recommended_cost).trim() : null,
+        normalizedRarityEot,
+        recommended_cost_eot ? String(recommended_cost_eot).trim() : null,
+        requiresAttunement ? 1 : 0,
+        attuneBy,
+        source ? String(source).trim() : null,
+        source_pages ? String(source_pages).trim() : null,
+        description ? String(description) : null,
+        description_eot ? String(description_eot) : null,
+      ]
+    );
+
+    const insertedId = typeof result.insertId === 'bigint' ? Number(result.insertId) : result.insertId;
+
+    res.status(201).json({
+      id: insertedId,
+      name: String(name).trim(),
+      name_en: name_en ? String(name_en).trim() : null,
+      item_type: normalizedType,
+      rarity: normalizedRarity,
+      recommended_cost: recommended_cost ? String(recommended_cost).trim() : null,
+      rarity_eot: normalizedRarityEot,
+      recommended_cost_eot: recommended_cost_eot ? String(recommended_cost_eot).trim() : null,
+      attunement_required: requiresAttunement ? 1 : 0,
+      attunement_by: attuneBy,
+      source: source ? String(source).trim() : null,
+      source_pages: source_pages ? String(source_pages).trim() : null,
+      description: description ? String(description) : null,
+      description_eot: description_eot ? String(description_eot) : null,
+    });
+  } catch (error) {
+    console.error('Create wondrous item error:', error);
+    res.status(500).json({ error: 'Ошибка при добавлении предмета' });
+  }
+});
+
+app.put('/api/wondrous-items/:id(\\d+)', authenticateToken, requireStaff, async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) return res.status(400).json({ error: 'Некорректный id' });
+
+    const rows = await query(
+      'SELECT id, name, name_en, item_type, rarity, recommended_cost, rarity_eot, recommended_cost_eot, attunement_required, attunement_by, source, source_pages, description, description_eot FROM wondrous_items WHERE id = ? LIMIT 1',
+      [id]
+    );
+    const existing = rows && rows[0];
+    if (!existing) return res.status(404).json({ error: 'Чудесный предмет не найден' });
+
+    const normOpt = (v) => {
+      if (v === undefined) return undefined;
+      if (v === null) return null;
+      const s = String(v).trim();
+      return s ? s : null;
+    };
+
+    const nextName = req.body.name !== undefined ? String(req.body.name).trim() : existing.name;
+    if (!nextName) return res.status(400).json({ error: 'Название предмета обязательно' });
+
+    const nextTypeRaw = req.body.item_type !== undefined ? String(req.body.item_type).trim() : String(existing.item_type || '').trim();
+    const nextType = nextTypeRaw || String(existing.item_type || '').trim() || 'Чудесный предмет';
+
+    const nextRarityRaw = req.body.rarity !== undefined ? req.body.rarity : existing.rarity;
+    const nextRarity = normalizeWondrousRarity(nextRarityRaw || 'common');
+    if (!isValidWondrousRarity(nextRarity)) {
+      return res.status(400).json({ error: 'Некорректная редкость предмета' });
+    }
+
+    const nextRarityEotRaw = req.body.rarity_eot !== undefined ? req.body.rarity_eot : existing.rarity_eot;
+    const nextRarityEot = nextRarityEotRaw ? normalizeWondrousRarity(nextRarityEotRaw) : null;
+    if (nextRarityEot && !isValidWondrousRarity(nextRarityEot)) {
+      return res.status(400).json({ error: 'Некорректная редкость предмета (EoT)' });
+    }
+
+    const nextAttunementRequired = req.body.attunement_required !== undefined
+      ? toBool(req.body.attunement_required)
+      : Boolean(existing.attunement_required);
+    const nextAttunementBy = nextAttunementRequired
+      ? (normOpt(req.body.attunement_by) === undefined ? normOpt(existing.attunement_by) : normOpt(req.body.attunement_by))
+      : null;
+
+    const merged = {
+      name: nextName,
+      name_en: normOpt(req.body.name_en) === undefined ? existing.name_en : normOpt(req.body.name_en),
+      item_type: nextType,
+      rarity: nextRarity,
+      recommended_cost:
+        normOpt(req.body.recommended_cost) === undefined ? normOpt(existing.recommended_cost) : normOpt(req.body.recommended_cost),
+      rarity_eot: nextRarityEot,
+      recommended_cost_eot:
+        normOpt(req.body.recommended_cost_eot) === undefined
+          ? normOpt(existing.recommended_cost_eot)
+          : normOpt(req.body.recommended_cost_eot),
+      attunement_required: nextAttunementRequired ? 1 : 0,
+      attunement_by: nextAttunementBy,
+      source: normOpt(req.body.source) === undefined ? existing.source : normOpt(req.body.source),
+      source_pages: normOpt(req.body.source_pages) === undefined ? existing.source_pages : normOpt(req.body.source_pages),
+      description:
+        req.body.description === undefined
+          ? existing.description
+          : req.body.description === null
+            ? null
+            : String(req.body.description),
+      description_eot:
+        req.body.description_eot === undefined
+          ? existing.description_eot
+          : req.body.description_eot === null
+            ? null
+            : String(req.body.description_eot),
+    };
+
+    await query(
+      'UPDATE wondrous_items SET name = ?, name_en = ?, item_type = ?, rarity = ?, recommended_cost = ?, rarity_eot = ?, recommended_cost_eot = ?, attunement_required = ?, attunement_by = ?, source = ?, source_pages = ?, description = ?, description_eot = ? WHERE id = ?',
+      [
+        merged.name,
+        merged.name_en,
+        merged.item_type,
+        merged.rarity,
+        merged.recommended_cost,
+        merged.rarity_eot,
+        merged.recommended_cost_eot,
+        merged.attunement_required,
+        merged.attunement_by,
+        merged.source,
+        merged.source_pages,
+        merged.description,
+        merged.description_eot,
+        id,
+      ]
+    );
+
+    res.json({ id, ...merged });
+  } catch (error) {
+    console.error('Update wondrous item error:', error);
+    res.status(500).json({ error: 'Ошибка при обновлении предмета' });
+  }
+});
+
+app.delete('/api/wondrous-items/:id(\\d+)', authenticateToken, requireStaff, async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) return res.status(400).json({ error: 'Некорректный id' });
+
+    await query('DELETE FROM wondrous_items WHERE id = ?', [id]);
+    res.json({ message: 'Чудесный предмет удален' });
+  } catch (error) {
+    console.error('Delete wondrous item error:', error);
+    res.status(500).json({ error: 'Ошибка при удалении предмета' });
   }
 });
 

@@ -121,6 +121,25 @@ export const traitsAPI = {
   remove: (id) => apiClient(`/traits/${id}`, { method: 'DELETE' }),
 };
 
+export const wondrousItemsAPI = {
+  list: () => apiClient('/wondrous-items', { method: 'GET' }),
+  getById: (id) => apiClient(`/wondrous-items/${id}`, { method: 'GET' }),
+  getLikes: (id) => apiClient(`/wondrous-items/${id}/likes`, { method: 'GET' }),
+  like: (id) => apiClient(`/wondrous-items/${id}/like`, { method: 'POST' }),
+  unlike: (id) => apiClient(`/wondrous-items/${id}/like`, { method: 'DELETE' }),
+  listComments: (id) => apiClient(`/wondrous-items/${id}/comments`, { method: 'GET' }),
+  addComment: (id, content) =>
+    apiClient(`/wondrous-items/${id}/comments`, {
+      method: 'POST',
+      body: JSON.stringify({ content }),
+    }),
+  deleteComment: (itemId, commentId) => apiClient(`/wondrous-items/${itemId}/comments/${commentId}`, { method: 'DELETE' }),
+  listAdmin: () => apiClient('/wondrous-items/admin', { method: 'GET' }),
+  create: (data) => apiClient('/wondrous-items', { method: 'POST', body: JSON.stringify(data) }),
+  update: (id, data) => apiClient(`/wondrous-items/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  remove: (id) => apiClient(`/wondrous-items/${id}`, { method: 'DELETE' }),
+};
+
 export const spellClassesAPI = {
   list: () => apiClient('/spell-classes', { method: 'GET' }),
   listAdmin: () => apiClient('/spell-classes/admin', { method: 'GET' }),

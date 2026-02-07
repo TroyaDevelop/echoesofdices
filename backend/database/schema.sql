@@ -72,6 +72,26 @@ CREATE TABLE IF NOT EXISTS traits (
     INDEX idx_traits_name (name)
 );
 
+CREATE TABLE IF NOT EXISTS wondrous_items (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    name VARCHAR(255) NOT NULL,
+    name_en VARCHAR(255),
+    item_type VARCHAR(24) NOT NULL DEFAULT 'wondrous',
+    rarity VARCHAR(24) NOT NULL DEFAULT 'common',
+    recommended_cost VARCHAR(80),
+    rarity_eot VARCHAR(24),
+    recommended_cost_eot VARCHAR(80),
+    attunement_required TINYINT(1) NOT NULL DEFAULT 0,
+    attunement_by VARCHAR(120),
+    source VARCHAR(100),
+    source_pages VARCHAR(50),
+    description LONGTEXT,
+    description_eot LONGTEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_wondrous_items_name (name)
+);
+
 CREATE TABLE IF NOT EXISTS spell_classes (
     id INT PRIMARY KEY AUTO_INCREMENT,
     name VARCHAR(80) NOT NULL UNIQUE,
@@ -120,6 +140,28 @@ CREATE TABLE IF NOT EXISTS trait_comments (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     INDEX idx_trait_comments_trait_created (trait_id, created_at),
     FOREIGN KEY (trait_id) REFERENCES traits(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS wondrous_item_likes (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    wondrous_item_id INT NOT NULL,
+    user_id INT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uniq_wondrous_item_user (wondrous_item_id, user_id),
+    INDEX idx_wondrous_item_likes_item (wondrous_item_id),
+    FOREIGN KEY (wondrous_item_id) REFERENCES wondrous_items(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS wondrous_item_comments (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    wondrous_item_id INT NOT NULL,
+    user_id INT NOT NULL,
+    content TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_wondrous_item_comments_item_created (wondrous_item_id, created_at),
+    FOREIGN KEY (wondrous_item_id) REFERENCES wondrous_items(id) ON DELETE CASCADE,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 

@@ -5,6 +5,8 @@ import SpellsPage from './pages/SpellsPage.jsx';
 import SpellDetailPage from './pages/SpellDetailPage.jsx';
 import TraitsPage from './pages/TraitsPage.jsx';
 import TraitDetailPage from './pages/TraitDetailPage.jsx';
+import WondrousItemsPage from './pages/WondrousItemsPage.jsx';
+import WondrousItemDetailPage from './pages/WondrousItemDetailPage.jsx';
 import MarketPage from './pages/MarketPage.jsx';
 import LoginPage from './pages/admin/LoginPage.jsx';
 import RegisterPage from './pages/RegisterPage.jsx';
@@ -12,6 +14,7 @@ import AdminDashboardPage from './pages/admin/DashboardPage.jsx';
 import AdminNewsPage from './pages/admin/NewsPage.jsx';
 import AdminSpellsPage from './pages/admin/SpellsPage.jsx';
 import AdminTraitsPage from './pages/admin/TraitsPage.jsx';
+import AdminWondrousItemsPage from './pages/admin/WondrousItemsPage.jsx';
 import AdminUsersPage from './pages/admin/UsersPage.jsx';
 import AdminMarketPage from './pages/admin/MarketPage.jsx';
 
@@ -24,6 +27,8 @@ export default function App() {
       <Route path="/spells/:id" element={<SpellDetailPage />} />
       <Route path="/traits" element={<TraitsPage />} />
       <Route path="/traits/:id" element={<TraitDetailPage />} />
+      <Route path="/wondrous-items" element={<WondrousItemsPage />} />
+      <Route path="/wondrous-items/:id" element={<WondrousItemDetailPage />} />
       <Route path="/market" element={<MarketPage />} />
 
       <Route path="/login" element={<LoginPage />} />
@@ -34,6 +39,7 @@ export default function App() {
       <Route path="/admin/news" element={<AdminNewsPage />} />
       <Route path="/admin/spells" element={<AdminSpellsPage />} />
       <Route path="/admin/traits" element={<AdminTraitsPage />} />
+      <Route path="/admin/wondrous-items" element={<AdminWondrousItemsPage />} />
       <Route path="/admin/market" element={<AdminMarketPage />} />
       <Route path="/admin/users" element={<AdminUsersPage />} />
 
