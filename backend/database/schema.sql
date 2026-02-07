@@ -92,7 +92,7 @@ CREATE TABLE IF NOT EXISTS wondrous_items (
     id INT PRIMARY KEY AUTO_INCREMENT,
     name VARCHAR(255) NOT NULL,
     name_en VARCHAR(255),
-    item_type VARCHAR(24) NOT NULL DEFAULT 'wondrous',
+    item_type VARCHAR(255) NOT NULL DEFAULT 'wondrous',
     rarity VARCHAR(24) NOT NULL DEFAULT 'common',
     recommended_cost VARCHAR(80),
     rarity_eot VARCHAR(24),

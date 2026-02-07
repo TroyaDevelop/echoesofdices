@@ -312,7 +312,8 @@ async function ensureRuntimeSchema() {
   await query('ALTER TABLE traits ADD COLUMN IF NOT EXISTS description_eot LONGTEXT', []);
 
   await query('ALTER TABLE wondrous_items ADD COLUMN IF NOT EXISTS name_en VARCHAR(255)', []);
-  await query("ALTER TABLE wondrous_items ADD COLUMN IF NOT EXISTS item_type VARCHAR(24) NOT NULL DEFAULT 'wondrous'", []);
+  await query("ALTER TABLE wondrous_items ADD COLUMN IF NOT EXISTS item_type VARCHAR(255) NOT NULL DEFAULT 'wondrous'", []);
+  await safeQuery("ALTER TABLE wondrous_items MODIFY COLUMN item_type VARCHAR(255) NOT NULL DEFAULT 'wondrous'", []);
   await query("ALTER TABLE wondrous_items ADD COLUMN IF NOT EXISTS rarity VARCHAR(24) NOT NULL DEFAULT 'common'", []);
   await query('ALTER TABLE wondrous_items ADD COLUMN IF NOT EXISTS recommended_cost VARCHAR(80)', []);
   await query('ALTER TABLE wondrous_items ADD COLUMN IF NOT EXISTS rarity_eot VARCHAR(24)', []);

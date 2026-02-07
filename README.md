@@ -73,7 +73,7 @@ npm run dev
 ```
 
 Запустит одновременно:
-- Frontend на http://localhost:3017
+- Frontend на http://localhost:3018 (или порт из `FRONTEND_PORT`)
 - Backend API на http://localhost:5017
 
 ### Запуск через Docker (рекомендуется)
