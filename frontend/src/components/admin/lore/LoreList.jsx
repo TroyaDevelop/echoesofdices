@@ -1,6 +1,6 @@
-import ArticleItemRow from './ArticleItemRow.jsx';
+import LoreItemRow from './LoreItemRow.jsx';
 
-export default function ArticleList({
+export default function LoreList({
   loading,
   items,
   shouldScroll,
@@ -10,18 +10,18 @@ export default function ArticleList({
   onDelete,
   editTitle,
   onEditTitleChange,
+  editYear,
+  onEditYearChange,
+  editLocations,
+  onEditLocationsChange,
+  locationDatalistId,
+  locationOptions,
   editExcerpt,
   onEditExcerptChange,
   editContent,
   onEditContentChange,
   editStatus,
   onEditStatusChange,
-  editSource,
-  onEditSourceChange,
-  sourceListId,
-  sourceOptions,
-  editSourcePages,
-  onEditSourcePagesChange,
   onSave,
   onCancel,
 }) {
@@ -30,11 +30,11 @@ export default function ArticleList({
       {loading ? (
         <div className="p-6 text-gray-700">Загрузка…</div>
       ) : items.length === 0 ? (
-        <div className="p-6 text-gray-700">Статей пока нет.</div>
+        <div className="p-6 text-gray-700">Записей пока нет.</div>
       ) : (
         <div className={`divide-y divide-gray-200 ${shouldScroll ? 'max-h-[36rem] overflow-y-auto' : ''}`}>
           {items.map((post) => (
-            <ArticleItemRow
+            <LoreItemRow
               key={post.id}
               post={post}
               isEditing={editingId === post.id}
@@ -43,18 +43,18 @@ export default function ArticleList({
               onDelete={onDelete}
               editTitle={editTitle}
               onEditTitleChange={onEditTitleChange}
+              editYear={editYear}
+              onEditYearChange={onEditYearChange}
+              editLocations={editLocations}
+              onEditLocationsChange={onEditLocationsChange}
+              locationDatalistId={locationDatalistId}
+              locationOptions={locationOptions}
               editExcerpt={editExcerpt}
               onEditExcerptChange={onEditExcerptChange}
               editContent={editContent}
               onEditContentChange={onEditContentChange}
               editStatus={editStatus}
               onEditStatusChange={onEditStatusChange}
-              editSource={editSource}
-              onEditSourceChange={onEditSourceChange}
-              sourceListId={sourceListId}
-              sourceOptions={sourceOptions}
-              editSourcePages={editSourcePages}
-              onEditSourcePagesChange={onEditSourcePagesChange}
               onSave={onSave}
               onCancel={onCancel}
             />

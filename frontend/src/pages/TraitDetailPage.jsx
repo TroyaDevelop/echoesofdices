@@ -190,7 +190,11 @@ export default function TraitDetailPage() {
   };
 
   const sourceText = useMemo(() => String(trait?.source || '').trim(), [trait?.source]);
-  const sourcePages = useMemo(() => String(trait?.source_pages || '').trim(), [trait?.source_pages]);
+  const requirementsText = useMemo(() => String(trait?.requirements || '').trim(), [trait?.requirements]);
+  const subtitle = useMemo(() => {
+    if (!requirementsText) return 'Черта';
+    return `Черта • Требования: ${requirementsText}`;
+  }, [requirementsText]);
   const hasEotDescription = useMemo(() => Boolean(String(trait?.description_eot || '').trim()), [trait?.description_eot]);
   const activeDescription = useMemo(() => {
     if (!trait) return '';
@@ -230,9 +234,8 @@ export default function TraitDetailPage() {
           <div className="parchment-card rounded-lg border border-black/20 text-slate-900 shadow-2xl overflow-hidden">
             <SpellHeader
               title={title}
-              subtitle="Черта"
+              subtitle={subtitle}
               sourceText={sourceText}
-              sourcePages={sourcePages}
               hasEotDescription={hasEotDescription}
               showEot={showEot}
               onToggleEot={setShowEot}

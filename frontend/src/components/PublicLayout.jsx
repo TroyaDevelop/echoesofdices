@@ -92,6 +92,10 @@ export default function PublicLayout({ children }) {
       <NavLink to="/articles" className={navLinkClass} onClick={onNavigate}>
         Статьи
       </NavLink>
+      <div className="px-3 pt-4 pb-1 text-[11px] uppercase tracking-wider text-slate-400/80">Echoes of Times</div>
+      <NavLink to="/lore" className={navLinkClass} onClick={onNavigate}>
+        Lore
+      </NavLink>
     </>
   );
 
@@ -99,6 +103,13 @@ export default function PublicLayout({ children }) {
     user ? (
       <div className="space-y-2">
         <div className="text-xs text-slate-300">{user.login}</div>
+        <Link
+          to="/profile"
+          onClick={onNavigate}
+          className="block w-full px-3 py-2 rounded-lg text-sm font-medium text-slate-200 hover:bg-white/10 transition-colors"
+        >
+          Профиль
+        </Link>
         {canSeeAdmin ? (
           <Link
             to="/admin"

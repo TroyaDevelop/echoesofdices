@@ -7,6 +7,31 @@ CREATE TABLE IF NOT EXISTS users (
     password VARCHAR(255) NOT NULL,
     role ENUM('editor', 'user') DEFAULT 'user',
     nickname VARCHAR(100),
+    character_level TINYINT,
+    strength SMALLINT,
+    dexterity SMALLINT,
+    constitution SMALLINT,
+    intelligence SMALLINT,
+    wisdom SMALLINT,
+    charisma SMALLINT,
+    skill_acrobatics TINYINT,
+    skill_animal_handling TINYINT,
+    skill_arcana TINYINT,
+    skill_athletics TINYINT,
+    skill_persuasion TINYINT,
+    skill_performance TINYINT,
+    skill_intimidation TINYINT,
+    skill_deception TINYINT,
+    skill_history TINYINT,
+    skill_insight TINYINT,
+    skill_investigation TINYINT,
+    skill_medicine TINYINT,
+    skill_nature TINYINT,
+    skill_perception TINYINT,
+    skill_religion TINYINT,
+    skill_sleight_of_hand TINYINT,
+    skill_stealth TINYINT,
+    skill_survival TINYINT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
@@ -53,6 +78,30 @@ CREATE TABLE IF NOT EXISTS articles (
     INDEX idx_articles_status_created (status, created_at)
 );
 
+    CREATE TABLE IF NOT EXISTS lore_articles (
+        id INT PRIMARY KEY AUTO_INCREMENT,
+        title VARCHAR(255) NOT NULL,
+        slug VARCHAR(255) UNIQUE NOT NULL,
+        year INT NOT NULL,
+        locations TEXT,
+        content LONGTEXT NOT NULL,
+        excerpt TEXT,
+        author_id INT,
+        status ENUM('draft', 'published') DEFAULT 'draft',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        FOREIGN KEY (author_id) REFERENCES users(id) ON DELETE SET NULL,
+        INDEX idx_lore_status_year (status, year),
+        INDEX idx_lore_year (year)
+    );
+
+    CREATE TABLE IF NOT EXISTS lore_locations (
+        id INT PRIMARY KEY AUTO_INCREMENT,
+        name VARCHAR(120) NOT NULL UNIQUE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_lore_locations_name (name)
+    );
+
 CREATE TABLE IF NOT EXISTS spells (
     id INT PRIMARY KEY AUTO_INCREMENT,
     name VARCHAR(255) NOT NULL,
@@ -79,8 +128,8 @@ CREATE TABLE IF NOT EXISTS traits (
     id INT PRIMARY KEY AUTO_INCREMENT,
     name VARCHAR(255) NOT NULL,
     name_en VARCHAR(255),
+    requirements VARCHAR(255),
     source VARCHAR(100),
-    source_pages VARCHAR(50),
     description LONGTEXT,
     description_eot LONGTEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -92,7 +141,7 @@ CREATE TABLE IF NOT EXISTS wondrous_items (
     id INT PRIMARY KEY AUTO_INCREMENT,
     name VARCHAR(255) NOT NULL,
     name_en VARCHAR(255),
-    item_type VARCHAR(255) NOT NULL DEFAULT 'wondrous',
+        item_type VARCHAR(255) NOT NULL DEFAULT 'wondrous',
     rarity VARCHAR(24) NOT NULL DEFAULT 'common',
     recommended_cost VARCHAR(80),
     rarity_eot VARCHAR(24),
@@ -100,7 +149,6 @@ CREATE TABLE IF NOT EXISTS wondrous_items (
     attunement_required TINYINT(1) NOT NULL DEFAULT 0,
     attunement_by VARCHAR(120),
     source VARCHAR(100),
-    source_pages VARCHAR(50),
     description LONGTEXT,
     description_eot LONGTEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -113,6 +161,14 @@ CREATE TABLE IF NOT EXISTS spell_classes (
     name VARCHAR(80) NOT NULL UNIQUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS sources (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    name VARCHAR(80) NOT NULL UNIQUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_sources_name (name)
 );
 
 CREATE TABLE IF NOT EXISTS spell_likes (
@@ -225,6 +281,32 @@ CREATE TABLE IF NOT EXISTS market_region_category_markups (
     INDEX idx_market_markups_season (season),
     INDEX idx_market_markups_category (category),
     FOREIGN KEY (region_id) REFERENCES market_regions(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS market_trade_logs (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    user_id INT NOT NULL,
+    item_id INT NULL,
+    item_name VARCHAR(255) NOT NULL,
+    trade_type ENUM('sell','buy') NOT NULL,
+    season ENUM('spring_summer','autumn_winter') NOT NULL DEFAULT 'spring_summer',
+    region_id INT NULL,
+    category VARCHAR(40) NOT NULL,
+    markup_percent INT NOT NULL DEFAULT 0,
+    base_cp INT UNSIGNED NOT NULL,
+    roll TINYINT NOT NULL,
+    bonus SMALLINT NOT NULL,
+    result SMALLINT NOT NULL,
+    percent_value DECIMAL(6,4) NOT NULL,
+    final_cp INT UNSIGNED NOT NULL,
+    skill_id VARCHAR(32) NULL,
+    skill_label VARCHAR(64) NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_market_trade_user (user_id),
+    INDEX idx_market_trade_item (item_id),
+    INDEX idx_market_trade_created (created_at),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (item_id) REFERENCES market_items(id) ON DELETE SET NULL
 );
 
 ALTER TABLE market_items

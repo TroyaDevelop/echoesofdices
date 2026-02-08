@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import PublicLayout from '../components/PublicLayout.jsx';
-import { marketAPI } from '../lib/api.js';
+import { marketAPI, userProfileAPI } from '../lib/api.js';
 import MarketFilters from '../components/market/MarketFilters.jsx';
 import MarketCategoryGroup from '../components/market/MarketCategoryGroup.jsx';
+import MarketAutoTradeModal from '../components/market/MarketAutoTradeModal.jsx';
 
 const MARKET_CATEGORIES = [
   { value: 'nonmetal_weapon_armor', label: 'Неметаллическое оружие и броня' },
@@ -49,6 +50,60 @@ const ARMOR_TYPES = [
 const weaponTypeLabel = (value) => WEAPON_TYPES.find((t) => t.value === value)?.label || '';
 const armorTypeLabel = (value) => ARMOR_TYPES.find((t) => t.value === value)?.label || '';
 
+const toSkillValue = (value) => {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return 0;
+  const v = Math.trunc(n);
+  if (v < 0 || v > 2) return 0;
+  return v;
+};
+
+const abilityMod = (score) => {
+  const n = Number(score);
+  if (!Number.isFinite(n)) return 0;
+  return Math.floor((n - 10) / 2);
+};
+
+const proficiencyBonusForLevel = (level) => {
+  const n = Number(level);
+  if (!Number.isFinite(n)) return 2;
+  if (n >= 17) return 6;
+  if (n >= 13) return 5;
+  if (n >= 9) return 4;
+  if (n >= 5) return 3;
+  return 2;
+};
+
+
+const toCoins = (totalCp) => {
+  const t = Math.max(0, Math.trunc(Number(totalCp || 0)));
+  const gp = Math.floor(t / 100);
+  const sp = Math.floor((t % 100) / 10);
+  const cp = t % 10;
+  return { gp, sp, cp };
+};
+
+const formatCoinsShort = (totalCp) => {
+  const { gp, sp, cp } = toCoins(totalCp);
+  const parts = [];
+  if (gp) parts.push(`${gp}з`);
+  if (sp) parts.push(`${sp}с`);
+  if (cp || parts.length === 0) parts.push(`${cp}м`);
+  return parts.join(' ');
+};
+
+const formatLogTime = (value) => {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleString('ru-RU', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+};
 
 export default function MarketPage() {
   const [items, setItems] = useState([]);
@@ -56,13 +111,28 @@ export default function MarketPage() {
   const [markups, setMarkups] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [viewTab, setViewTab] = useState('market');
   const [filterCategory, setFilterCategory] = useState('');
   const [regionId, setRegionId] = useState('');
   const [season, setSeason] = useState('spring_summer');
   const [openInfoId, setOpenInfoId] = useState(null);
   const [showMarkup, setShowMarkup] = useState(true);
+  const [tradeContext, setTradeContext] = useState(null);
+  const [tradeLogs, setTradeLogs] = useState([]);
+  const [logsLoading, setLogsLoading] = useState(false);
+  const [logsError, setLogsError] = useState('');
+  const [profile, setProfile] = useState(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(true);
+  const [userRole, setUserRole] = useState('');
 
   const load = async () => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      setIsAuthenticated(false);
+      setLoading(false);
+      return;
+    }
+    setIsAuthenticated(true);
     setError('');
     setLoading(true);
     try {
@@ -84,6 +154,61 @@ export default function MarketPage() {
 
   useEffect(() => {
     load();
+  }, []);
+
+  useEffect(() => {
+    const loadUser = () => {
+      try {
+        const raw = localStorage.getItem('user');
+        if (!raw) {
+          setUserRole('');
+          return;
+        }
+        const parsed = JSON.parse(raw);
+        setUserRole(String(parsed?.role || '').toLowerCase());
+      } catch {
+        setUserRole('');
+      }
+    };
+
+    loadUser();
+    const onAuthChange = () => loadUser();
+    window.addEventListener('auth:login', onAuthChange);
+    window.addEventListener('auth:logout', onAuthChange);
+    return () => {
+      window.removeEventListener('auth:login', onAuthChange);
+      window.removeEventListener('auth:logout', onAuthChange);
+    };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+
+    const token = localStorage.getItem('token');
+    if (!token) {
+      setProfile(null);
+      setIsAuthenticated(false);
+      return () => {
+        active = false;
+      };
+    }
+
+    (async () => {
+      try {
+        const data = await userProfileAPI.get();
+        if (!active) return;
+        setProfile(data || null);
+        setIsAuthenticated(true);
+      } catch (e) {
+        if (!active) return;
+        setProfile(null);
+        setIsAuthenticated(false);
+      }
+    })();
+
+    return () => {
+      active = false;
+    };
   }, []);
 
   useEffect(() => {
@@ -166,6 +291,106 @@ export default function MarketPage() {
     return map;
   }, [markups]);
 
+  const isAdmin = useMemo(() => userRole === 'editor', [userRole]);
+
+  useEffect(() => {
+    if (!isAdmin && viewTab === 'logs') {
+      setViewTab('market');
+    }
+  }, [isAdmin, viewTab]);
+
+  const skillOptions = useMemo(() => {
+    const level = profile?.character_level ?? 1;
+    const bonus = proficiencyBonusForLevel(level);
+    const chaMod = abilityMod(profile?.charisma ?? 10);
+    const makeOption = (id, label, value) => {
+      const prof = toSkillValue(value);
+      const skillBonus = chaMod + bonus * (prof === 2 ? 2 : prof);
+      return {
+        id,
+        label,
+        bonus: skillBonus,
+      };
+    };
+
+    if (!profile) {
+      return [{ id: 'none', label: 'Без навыка', bonus: 0 }];
+    }
+
+    return [
+      makeOption('persuasion', 'Убеждение', profile?.skill_persuasion),
+      makeOption('performance', 'Выступление', profile?.skill_performance),
+      makeOption('intimidation', 'Запугивание', profile?.skill_intimidation),
+      makeOption('deception', 'Обман', profile?.skill_deception),
+    ];
+  }, [profile]);
+
+  const handleOpenTrade = (item, percent) => {
+    if (!showMarkup) return;
+    setTradeContext({
+      item,
+      percent: Number(percent || 0),
+      markupPercent: Number(percent || 0),
+      season,
+      regionId: selectedRegion?.id ?? null,
+      category: String(item?.category || ''),
+    });
+  };
+
+  const handleTradeComplete = async (entry) => {
+    if (!entry) return;
+    try {
+      const saved = await marketAPI.logTrade({
+        item_id: entry.itemId,
+        item_name: entry.itemName,
+        trade_type: entry.tradeType,
+        season: entry.season,
+        region_id: entry.regionId,
+        category: entry.category,
+        markup_percent: entry.markupPercent,
+        base_cp: entry.baseCp,
+        roll: entry.roll,
+        bonus: entry.bonus,
+        result: entry.result,
+        percent_value: entry.percentValue,
+        final_cp: entry.finalCp,
+        skill_id: entry.skillId,
+        skill_label: entry.skillLabel,
+      });
+      if (isAdmin) {
+        setTradeLogs((prev) => [saved, ...prev]);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  useEffect(() => {
+    if (!isAuthenticated || !isAdmin || viewTab !== 'logs') return;
+    let active = true;
+
+    (async () => {
+      setLogsLoading(true);
+      setLogsError('');
+      try {
+        const data = await marketAPI.listTradeLogs(300);
+        if (!active) return;
+        setTradeLogs(Array.isArray(data) ? data : []);
+      } catch (e) {
+        if (!active) return;
+        console.error(e);
+        setLogsError(e.message || 'Ошибка загрузки логов');
+      } finally {
+        if (!active) return;
+        setLogsLoading(false);
+      }
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, [isAuthenticated, isAdmin, viewTab]);
+
   return (
     <PublicLayout>
       <div className="space-y-6">
@@ -173,6 +398,31 @@ export default function MarketPage() {
           <div>
             <h1 className="text-3xl sm:text-4xl font-bold">Рынок</h1>
           </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setViewTab('market')}
+                className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition ${
+                  viewTab === 'market'
+                    ? 'bg-white/15 text-white'
+                    : 'text-slate-300 hover:text-white hover:bg-white/10'
+                }`}
+              >
+                Рынок
+              </button>
+              {isAdmin ? (
+                <button
+                  type="button"
+                  onClick={() => setViewTab('logs')}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition ${
+                    viewTab === 'logs' ? 'bg-white/15 text-white' : 'text-slate-300 hover:text-white hover:bg-white/10'
+                  }`}
+                >
+                  Журнал сделок
+                </button>
+              ) : null}
+            </div>
 
           <div className="w-full sm:w-[34rem] flex flex-col sm:flex-row gap-3">
             <MarketFilters
@@ -193,8 +443,59 @@ export default function MarketPage() {
 
         {error ? <div className="text-red-200 bg-red-500/10 border border-red-500/30 rounded-xl p-4">{error}</div> : null}
 
-        {loading ? (
+        {!isAuthenticated ? (
+          <div className="text-slate-300">Для доступа к рынку нужно войти в аккаунт.</div>
+        ) : loading ? (
           <div className="text-slate-300">Загрузка…</div>
+        ) : viewTab === 'logs' ? (
+          <div className="space-y-4">
+            <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+              <div className="text-sm text-slate-300">Журнал сделок</div>
+              {logsError ? <div className="mt-3 text-red-200">{logsError}</div> : null}
+              {logsLoading ? (
+                <div className="mt-3 text-slate-400 text-sm">Загрузка…</div>
+              ) : tradeLogs.length === 0 ? (
+                <div className="mt-3 text-slate-400 text-sm">Сделок пока нет.</div>
+              ) : (
+                <div className="mt-3 overflow-x-auto">
+                  <table className="min-w-full text-sm text-slate-200">
+                    <thead>
+                      <tr className="text-left text-xs uppercase tracking-wide text-slate-400 border-b border-white/10">
+                        <th className="py-2 pr-4">Время</th>
+                        <th className="py-2 pr-4">Тип</th>
+                        <th className="py-2 pr-4">Предмет</th>
+                        <th className="py-2 pr-4">Пользователь</th>
+                        <th className="py-2 pr-4">База</th>
+                        <th className="py-2 pr-4">Бросок</th>
+                        <th className="py-2 pr-4">Итог</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {tradeLogs.map((log) => (
+                        <tr key={log.id} className="border-b border-white/5">
+                          <td className="py-2 pr-4 text-slate-300 whitespace-nowrap">
+                            {formatLogTime(log.created_at || log.createdAt)}
+                          </td>
+                          <td className="py-2 pr-4 whitespace-nowrap">
+                            {log.trade_type === 'buy' ? 'Покупка' : 'Продажа'}
+                          </td>
+                          <td className="py-2 pr-4">{log.item_name || log.itemName}</td>
+                          <td className="py-2 pr-4 whitespace-nowrap">
+                            {(log.user_nickname || log.user_login || '').trim() || '—'}
+                          </td>
+                          <td className="py-2 pr-4 whitespace-nowrap">{formatCoinsShort(log.base_cp ?? log.baseCp)}</td>
+                          <td className="py-2 pr-4 whitespace-nowrap">
+                            {log.roll} + {log.bonus} = {log.result}
+                          </td>
+                          <td className="py-2 pr-4 whitespace-nowrap">{formatCoinsShort(log.final_cp ?? log.finalCp)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
         ) : showMarkup && sortedRegions.length === 0 ? (
           <div className="text-slate-300">Регионы пока не настроены.</div>
         ) : showMarkup && !selectedRegion ? (
@@ -228,6 +529,7 @@ export default function MarketPage() {
                     showMarkup={showMarkup}
                     openInfoId={openInfoId}
                     setOpenInfoId={setOpenInfoId}
+                    onTrade={handleOpenTrade}
                   />
                 ))}
               </>
@@ -235,6 +537,16 @@ export default function MarketPage() {
           </div>
         )}
       </div>
+
+      <MarketAutoTradeModal
+        item={tradeContext?.item}
+        percent={tradeContext?.percent}
+        isOpen={Boolean(tradeContext)}
+        onClose={() => setTradeContext(null)}
+        onTradeComplete={handleTradeComplete}
+        skillOptions={skillOptions}
+        tradeContext={tradeContext}
+      />
     </PublicLayout>
   );
 }

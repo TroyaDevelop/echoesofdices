@@ -1,14 +1,13 @@
 import { Link } from 'react-router-dom';
 
-const sourceBadge = (item) => {
-  const source = String(item?.source || '').trim();
-  const pages = String(item?.source_pages || '').trim();
-  if (!source && !pages) return '';
-  return [source, pages].filter(Boolean).join(' ');
-};
+const sourceBadges = (item) =>
+  String(item?.source || '')
+    .split(/[,;/]+/)
+    .map((value) => String(value || '').trim())
+    .filter(Boolean);
 
 export default function WondrousItemCard({ item }) {
-  const badge = sourceBadge(item);
+  const badges = sourceBadges(item);
 
   return (
     <Link
@@ -19,11 +18,16 @@ export default function WondrousItemCard({ item }) {
         <div className="font-medium text-slate-100 truncate">{item.name}</div>
       </div>
 
-      {badge ? (
-        <div className="flex items-center gap-2 flex-shrink-0">
-          <span className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-purple-500/20 border border-purple-500/30 text-purple-200">
-            {badge}
-          </span>
+      {badges.length > 0 ? (
+        <div className="flex items-center gap-2 flex-shrink-0 flex-wrap justify-end">
+          {badges.map((badge) => (
+            <span
+              key={badge}
+              className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-purple-500/20 border border-purple-500/30 text-purple-200"
+            >
+              {badge}
+            </span>
+          ))}
         </div>
       ) : null}
     </Link>

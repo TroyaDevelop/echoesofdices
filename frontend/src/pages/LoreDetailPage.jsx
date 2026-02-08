@@ -2,21 +2,17 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 
 import PublicLayout from '../components/PublicLayout.jsx';
-import { articlesAPI } from '../lib/api.js';
+import { loreAPI } from '../lib/api.js';
 import SpellDescription from '../components/spells/SpellDescription.jsx';
 
-const sourceBadges = (article) => {
-  const sources = String(article?.source || '')
-    .split(/[,;/]+/)
+const parseLocations = (value) => {
+  return String(value || '')
+    .split(',')
     .map((item) => String(item || '').trim())
     .filter(Boolean);
-  const pages = String(article?.source_pages || '').trim();
-  const badges = sources.length > 0 ? sources.slice() : [];
-  if (pages) badges.push(`стр. ${pages}`);
-  return badges;
 };
 
-export default function ArticleDetailPage() {
+export default function LoreDetailPage() {
   const { slug } = useParams();
 
   const [article, setArticle] = useState(null);
@@ -27,11 +23,11 @@ export default function ArticleDetailPage() {
     setError('');
     setLoading(true);
     try {
-      const data = await articlesAPI.getBySlug(slug);
+      const data = await loreAPI.getBySlug(slug);
       setArticle(data);
     } catch (e) {
       console.error(e);
-      setError(e.message || 'Ошибка загрузки статьи');
+      setError(e.message || 'Ошибка загрузки записи');
     } finally {
       setLoading(false);
     }
@@ -41,12 +37,13 @@ export default function ArticleDetailPage() {
     load();
   }, [slug]);
 
-  const badges = useMemo(() => sourceBadges(article), [article]);
+  const yearValue = Number.isFinite(Number(article?.year)) ? Math.trunc(Number(article?.year)) : null;
+  const locations = useMemo(() => parseLocations(article?.locations), [article]);
 
   return (
     <PublicLayout>
       <div className="space-y-6">
-        <Link to="/articles" className="text-sm text-slate-300 hover:text-white transition-colors">
+        <Link to="/lore" className="text-sm text-slate-300 hover:text-white transition-colors">
           ← К списку
         </Link>
 
@@ -59,24 +56,24 @@ export default function ArticleDetailPage() {
         {loading ? (
           <div className="text-slate-300">Загрузка…</div>
         ) : !article ? (
-          <div className="text-slate-300">Статья не найдена.</div>
+          <div className="text-slate-300">Запись не найдена.</div>
         ) : (
           <article className="parchment-card rounded-xl border border-black/10 text-slate-900 shadow-2xl overflow-hidden">
             <header className="px-4 sm:px-6 py-4 border-b border-black/10">
-              <div className="flex items-start justify-between gap-3">
+              <div className="flex items-start justify-between gap-3 flex-wrap">
                 <h1 className="text-2xl sm:text-3xl font-semibold">{article.title}</h1>
-                {badges.length > 0 ? (
-                  <div className="flex flex-wrap items-center gap-2">
-                    {badges.map((badge) => (
-                      <span
-                        key={badge}
-                        className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold bg-white/70 border border-black/10 text-slate-800"
-                      >
-                        {badge}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {yearValue !== null ? (
+                      <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold bg-white/70 border border-black/10 text-slate-800">
+                        {yearValue}
                       </span>
-                    ))}
+                    ) : null}
+                    {locations.length > 0 ? (
+                      <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-semibold bg-white/70 border border-black/10 text-slate-800">
+                        {locations.join(', ')}
+                      </span>
+                    ) : null}
                   </div>
-                ) : null}
               </div>
             </header>
 

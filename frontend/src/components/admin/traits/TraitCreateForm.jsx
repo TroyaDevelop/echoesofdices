@@ -1,14 +1,17 @@
 import SpellDescriptionEditor from '../SpellDescriptionEditor.jsx';
+import TokenHint from '../TokenHint.jsx';
 
 export default function TraitCreateForm({
   name,
   onNameChange,
   nameEn,
   onNameEnChange,
+  requirements,
+  onRequirementsChange,
   source,
   onSourceChange,
-  sourcePages,
-  onSourcePagesChange,
+  sourceListId,
+  sourceOptions,
   description,
   onDescriptionChange,
   hasEotVariant,
@@ -37,18 +40,24 @@ export default function TraitCreateForm({
         />
 
         <input
-          value={source}
-          onChange={(e) => onSourceChange(e.target.value)}
-          placeholder="Источник (например PH) (опционально)"
+          value={requirements}
+          onChange={(e) => onRequirementsChange(e.target.value)}
+          placeholder="Требования (опционально)"
           className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
         />
 
         <input
-          value={sourcePages}
-          onChange={(e) => onSourcePagesChange(e.target.value)}
-          placeholder="Страницы (например PH14) (опционально)"
+          value={source}
+          onChange={(e) => onSourceChange(e.target.value)}
+          placeholder="Источник (опционально)"
+          list={sourceListId}
           className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
         />
+
+        <div className="md:col-span-2">
+          <TokenHint value={source} options={sourceOptions} />
+        </div>
+
       </div>
 
       <div className="flex items-center justify-between gap-3 flex-wrap">

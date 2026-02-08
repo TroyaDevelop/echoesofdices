@@ -218,7 +218,6 @@ export default function WondrousItemDetailPage() {
   };
 
   const sourceText = useMemo(() => String(item?.source || '').trim(), [item?.source]);
-  const sourcePages = useMemo(() => String(item?.source_pages || '').trim(), [item?.source_pages]);
   const hasEotDescription = useMemo(() => Boolean(String(item?.description_eot || '').trim()), [item?.description_eot]);
   const activeRecommendedCost = useMemo(() => {
     const base = String(item?.recommended_cost || '').trim();
@@ -266,7 +265,6 @@ export default function WondrousItemDetailPage() {
               title={title}
               subtitle={subtitle}
               sourceText={sourceText}
-              sourcePages={sourcePages}
               hasEotDescription={hasEotDescription}
               showEot={showEot}
               onToggleEot={setShowEot}

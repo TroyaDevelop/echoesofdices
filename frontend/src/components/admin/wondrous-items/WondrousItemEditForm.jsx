@@ -1,4 +1,5 @@
 import SpellDescriptionEditor from '../SpellDescriptionEditor.jsx';
+import TokenHint from '../TokenHint.jsx';
 
 const rarityOptions = [
   { value: 'common', label: 'Обычный' },
@@ -31,8 +32,8 @@ export default function WondrousItemEditForm({
   onEditRarityEotChange,
   editSource,
   onEditSourceChange,
-  editSourcePages,
-  onEditSourcePagesChange,
+  sourceListId,
+  sourceOptions,
   editDescription,
   onEditDescriptionChange,
   editHasEotVariant,
@@ -111,16 +112,14 @@ export default function WondrousItemEditForm({
         <input
           value={editSource}
           onChange={(e) => onEditSourceChange(e.target.value)}
-          placeholder="Источник (например PH) (опционально)"
+          placeholder="Источник (опционально)"
+          list={sourceListId}
           className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
         />
 
-        <input
-          value={editSourcePages}
-          onChange={(e) => onEditSourcePagesChange(e.target.value)}
-          placeholder="Страницы (например PH14) (опционально)"
-          className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-        />
+        <div className="md:col-span-2">
+          <TokenHint value={editSource} options={sourceOptions} />
+        </div>
       </div>
 
       <div className="flex items-center justify-between gap-3 flex-wrap">

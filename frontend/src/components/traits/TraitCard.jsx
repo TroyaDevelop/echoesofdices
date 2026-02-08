@@ -1,14 +1,13 @@
 import { Link } from 'react-router-dom';
 
-const traitSourceBadge = (trait) => {
-  const source = String(trait?.source || '').trim();
-  const pages = String(trait?.source_pages || '').trim();
-  if (!source && !pages) return '';
-  return [source, pages].filter(Boolean).join(' ');
-};
+const traitSourceBadges = (trait) =>
+  String(trait?.source || '')
+    .split(/[,;/]+/)
+    .map((value) => String(value || '').trim())
+    .filter(Boolean);
 
 export default function TraitCard({ trait }) {
-  const sourceBadge = traitSourceBadge(trait);
+  const sourceBadges = traitSourceBadges(trait);
 
   return (
     <Link
@@ -19,11 +18,16 @@ export default function TraitCard({ trait }) {
         <div className="font-medium text-slate-100 truncate">{trait.name}</div>
       </div>
 
-      {sourceBadge ? (
-        <div className="flex items-center gap-2 flex-shrink-0">
-          <span className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-purple-500/20 border border-purple-500/30 text-purple-200">
-            {sourceBadge}
-          </span>
+      {sourceBadges.length > 0 ? (
+        <div className="flex items-center gap-2 flex-shrink-0 flex-wrap justify-end">
+          {sourceBadges.map((badge) => (
+            <span
+              key={badge}
+              className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-purple-500/20 border border-purple-500/30 text-purple-200"
+            >
+              {badge}
+            </span>
+          ))}
         </div>
       ) : null}
     </Link>

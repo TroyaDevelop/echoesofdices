@@ -12,6 +12,7 @@ export default function MarketCategoryGroup({
   armorTypeLabel,
   openInfoId,
   setOpenInfoId,
+  onTrade,
 }) {
   return (
     <div className="space-y-3">
@@ -36,6 +37,7 @@ export default function MarketCategoryGroup({
               armorTypeLabel={armorTypeLabel}
               openInfoId={openInfoId}
               setOpenInfoId={setOpenInfoId}
+              onTrade={onTrade}
             />
           );
         })}

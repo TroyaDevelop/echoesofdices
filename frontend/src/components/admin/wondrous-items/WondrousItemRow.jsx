@@ -24,10 +24,15 @@ export default function WondrousItemRow({
   onStartEdit,
   onDelete,
   editState,
+  sourceListId,
+  sourceOptions,
   onSaveEdit,
   onCancelEdit,
 }) {
-  const sourceBadge = [item.source, item.source_pages].filter(Boolean).join(' ');
+  const sourceBadge = String(item.source || '')
+    .split(/[,;/]+/)
+    .map((value) => String(value || '').trim())
+    .filter(Boolean)[0] || '';
   const typeBadge = typeLabel(item.item_type);
   const rarityBadge = rarityLabel(item.rarity);
 
@@ -76,8 +81,8 @@ export default function WondrousItemRow({
             onEditAttunementByChange={editState.setEditAttunementBy}
             editSource={editState.editSource}
             onEditSourceChange={editState.setEditSource}
-            editSourcePages={editState.editSourcePages}
-            onEditSourcePagesChange={editState.setEditSourcePages}
+            sourceListId={sourceListId}
+            sourceOptions={sourceOptions}
             editDescription={editState.editDescription}
             onEditDescriptionChange={editState.setEditDescription}
             editHasEotVariant={editState.editHasEotVariant}

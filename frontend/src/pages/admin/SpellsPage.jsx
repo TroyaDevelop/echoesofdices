@@ -1,15 +1,20 @@
 import { useEffect, useMemo, useState } from 'react';
 import AdminLayout from '../../components/admin/AdminLayout.jsx';
-import SpellClassesPanel from '../../components/admin/spells/SpellClassesPanel.jsx';
 import SpellCreateForm from '../../components/admin/spells/SpellCreateForm.jsx';
 import SpellRow from '../../components/admin/spells/SpellRow.jsx';
 import SpellsHeader from '../../components/admin/spells/SpellsHeader.jsx';
-import { spellClassesAPI, spellsAPI } from '../../lib/api.js';
+import { sourcesAPI, spellClassesAPI, spellsAPI } from '../../lib/api.js';
 import { normalizeSpellDescriptionForSave } from '../../lib/richText.js';
 
 const normalize = (v) => String(v || '').trim();
 const normalizeClassKey = (v) => String(v || '').trim().toLowerCase();
 const splitClassTokens = (value) =>
+  String(value || '')
+    .split(/[,;/]+/)
+    .map((item) => String(item || '').trim())
+    .filter(Boolean);
+const normalizeSourceKey = (v) => String(v || '').trim().toLowerCase();
+const splitSourceTokens = (value) =>
   String(value || '')
     .split(/[,;/]+/)
     .map((item) => String(item || '').trim())
@@ -39,8 +44,7 @@ export default function AdminSpellsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [classItems, setClassItems] = useState([]);
-  const [classDraft, setClassDraft] = useState('');
-  const [classBusy, setClassBusy] = useState(false);
+  const [sourceItems, setSourceItems] = useState([]);
 
   const [query, setQuery] = useState('');
 
@@ -83,9 +87,14 @@ export default function AdminSpellsPage() {
     setError('');
     setLoading(true);
     try {
-      const [data, classesData] = await Promise.all([spellsAPI.listAdmin(), spellClassesAPI.listAdmin()]);
+      const [data, classesData, sourcesData] = await Promise.all([
+        spellsAPI.listAdmin(),
+        spellClassesAPI.listAdmin(),
+        sourcesAPI.listAdmin(),
+      ]);
       setItems(Array.isArray(data) ? data : []);
       setClassItems(Array.isArray(classesData) ? classesData : []);
+      setSourceItems(Array.isArray(sourcesData) ? sourcesData : []);
     } catch (e) {
       console.error(e);
       setError(e.message || 'Ошибка загрузки заклинаний');
@@ -112,6 +121,8 @@ export default function AdminSpellsPage() {
 
   const classOptions = useMemo(() => classItems, [classItems]);
   const classSet = useMemo(() => new Set(classItems.map((item) => normalizeClassKey(item.name))), [classItems]);
+  const sourceOptions = useMemo(() => sourceItems, [sourceItems]);
+  const sourceSet = useMemo(() => new Set(sourceItems.map((item) => normalizeSourceKey(item.name))), [sourceItems]);
 
   const invalidClassesFor = (value) => {
     const tokens = splitClassTokens(value);
@@ -119,39 +130,14 @@ export default function AdminSpellsPage() {
     return tokens.filter((token) => !classSet.has(normalizeClassKey(token)));
   };
 
-  const handleAddClass = async (e) => {
-    e.preventDefault();
-    setError('');
-    const value = normalize(classDraft);
-    if (!value) {
-      setError('Название класса обязательно');
-      return;
-    }
-
-    try {
-      setClassBusy(true);
-      await spellClassesAPI.create(value);
-      setClassDraft('');
-      const next = await spellClassesAPI.listAdmin();
-      setClassItems(Array.isArray(next) ? next : []);
-    } catch (e) {
-      console.error(e);
-      setError(e.message || 'Ошибка добавления класса');
-    } finally {
-      setClassBusy(false);
-    }
+  const invalidSourcesFor = (value) => {
+    const tokens = splitSourceTokens(value);
+    if (tokens.length === 0) return [];
+    return tokens.filter((token) => !sourceSet.has(normalizeSourceKey(token)));
   };
 
-  const handleRemoveClass = async (id) => {
-    setError('');
-    try {
-      await spellClassesAPI.remove(id);
-      setClassItems((prev) => prev.filter((item) => item.id !== id));
-    } catch (e) {
-      console.error(e);
-      setError(e.message || 'Ошибка удаления класса');
-    }
-  };
+  const sourceListId = 'admin-spells-sources';
+
 
   const handleCreate = async (e) => {
     e.preventDefault();
@@ -160,6 +146,12 @@ export default function AdminSpellsPage() {
     const invalidClasses = invalidClassesFor(classes);
     if (invalidClasses.length > 0) {
       setError(`Неизвестные классы: ${invalidClasses.join(', ')}`);
+      return;
+    }
+
+    const invalidSources = invalidSourcesFor(source);
+    if (invalidSources.length > 0) {
+      setError(`Неизвестные источники: ${invalidSources.join(', ')}`);
       return;
     }
 
@@ -277,6 +269,12 @@ export default function AdminSpellsPage() {
       setError(`Неизвестные классы: ${invalidClasses.join(', ')}`);
       return;
     }
+
+    const invalidSources = invalidSourcesFor(editSource);
+    if (invalidSources.length > 0) {
+      setError(`Неизвестные источники: ${invalidSources.join(', ')}`);
+      return;
+    }
     const payload = {
       name: normalize(editName),
       name_en: normalize(editNameEn) || null,
@@ -349,6 +347,8 @@ export default function AdminSpellsPage() {
           classOptions={classOptions}
           source={source}
           onSourceChange={setSource}
+          sourceListId={sourceListId}
+          sourceOptions={sourceOptions}
           sourcePages={sourcePages}
           onSourcePagesChange={setSourcePages}
           description={description}
@@ -361,14 +361,11 @@ export default function AdminSpellsPage() {
           onSubmit={handleCreate}
         />
 
-        <SpellClassesPanel
-          value={classDraft}
-          onValueChange={setClassDraft}
-          onAdd={handleAddClass}
-          items={classItems}
-          onRemove={handleRemoveClass}
-          busy={classBusy}
-        />
+        <datalist id={sourceListId}>
+          {sourceOptions.map((item) => (
+            <option key={item.id} value={item.name} />
+          ))}
+        </datalist>
 
         <div className="bg-white rounded-lg shadow-sm border">
           {loading ? (
@@ -420,6 +417,8 @@ export default function AdminSpellsPage() {
                     setEditDescriptionEot,
                   }}
                   classOptions={classOptions}
+                  sourceListId={sourceListId}
+                  sourceOptions={sourceOptions}
                   themeOptions={themeOptions}
                   onSaveEdit={() => saveEdit(s.id)}
                   onCancelEdit={cancelEdit}

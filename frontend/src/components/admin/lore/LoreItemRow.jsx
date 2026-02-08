@@ -1,7 +1,7 @@
 import SpellDescriptionEditor from '../SpellDescriptionEditor.jsx';
 import TokenHint from '../TokenHint.jsx';
 
-export default function ArticleItemRow({
+export default function LoreItemRow({
   post,
   isEditing,
   formatDate,
@@ -9,18 +9,18 @@ export default function ArticleItemRow({
   onDelete,
   editTitle,
   onEditTitleChange,
+  editYear,
+  onEditYearChange,
+  editLocations,
+  onEditLocationsChange,
+  locationDatalistId,
+  locationOptions,
   editExcerpt,
   onEditExcerptChange,
   editContent,
   onEditContentChange,
   editStatus,
   onEditStatusChange,
-  editSource,
-  onEditSourceChange,
-  sourceListId,
-  sourceOptions,
-  editSourcePages,
-  onEditSourcePagesChange,
   onSave,
   onCancel,
 }) {
@@ -29,6 +29,11 @@ export default function ArticleItemRow({
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-3 flex-wrap">
           <div className="font-semibold text-gray-900 truncate">{post.title}</div>
+          {Number.isFinite(Number(post.year)) ? (
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+              {Math.trunc(Number(post.year))}
+            </span>
+          ) : null}
           <span
             className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
               post.status === 'published' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
@@ -40,6 +45,9 @@ export default function ArticleItemRow({
         </div>
 
         {post.excerpt && <div className="text-sm text-gray-600 mt-1">{post.excerpt}</div>}
+        {post.locations ? (
+          <div className="text-xs text-gray-500 mt-1">Места действия: {post.locations}</div>
+        ) : null}
 
         {isEditing ? (
           <div className="mt-4 space-y-3">
@@ -58,32 +66,31 @@ export default function ArticleItemRow({
               </div>
             </div>
 
+            <div className="grid grid-cols-1 md:grid-cols-[2fr_1fr] gap-3">
+              <input
+                value={editTitle}
+                onChange={onEditTitleChange}
+                placeholder="Заголовок"
+                className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+              />
+              <input
+                value={editYear}
+                onChange={onEditYearChange}
+                placeholder="Год события"
+                className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                inputMode="numeric"
+              />
+            </div>
+
             <input
-              value={editTitle}
-              onChange={onEditTitleChange}
-              placeholder="Заголовок"
+              value={editLocations}
+              onChange={onEditLocationsChange}
+              placeholder="Места действия (через запятую)"
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+              list={locationDatalistId}
             />
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <input
-                value={editSource}
-                onChange={onEditSourceChange}
-                placeholder="Источник) (опционально)"
-                list={sourceListId}
-                className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-              />
-              <input
-                value={editSourcePages}
-                onChange={onEditSourcePagesChange}
-                placeholder="Страницы (например PH14) (опционально)"
-                className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-              />
-
-              <div className="md:col-span-2">
-                <TokenHint value={editSource} options={sourceOptions} />
-              </div>
-            </div>
+            <TokenHint value={editLocations} options={locationOptions} />
 
             <input
               value={editExcerpt}

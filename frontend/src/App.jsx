@@ -9,7 +9,10 @@ import WondrousItemsPage from './pages/WondrousItemsPage.jsx';
 import WondrousItemDetailPage from './pages/WondrousItemDetailPage.jsx';
 import ArticlesPage from './pages/ArticlesPage.jsx';
 import ArticleDetailPage from './pages/ArticleDetailPage.jsx';
+import LorePage from './pages/LorePage.jsx';
+import LoreDetailPage from './pages/LoreDetailPage.jsx';
 import MarketPage from './pages/MarketPage.jsx';
+import ProfilePage from './pages/ProfilePage.jsx';
 import LoginPage from './pages/admin/LoginPage.jsx';
 import RegisterPage from './pages/RegisterPage.jsx';
 import AdminDashboardPage from './pages/admin/DashboardPage.jsx';
@@ -18,6 +21,8 @@ import AdminSpellsPage from './pages/admin/SpellsPage.jsx';
 import AdminTraitsPage from './pages/admin/TraitsPage.jsx';
 import AdminWondrousItemsPage from './pages/admin/WondrousItemsPage.jsx';
 import AdminArticlesPage from './pages/admin/ArticlesPage.jsx';
+import AdminLorePage from './pages/admin/LorePage.jsx';
+import AdminUtilitiesPage from './pages/admin/UtilitiesPage.jsx';
 import AdminUsersPage from './pages/admin/UsersPage.jsx';
 import AdminMarketPage from './pages/admin/MarketPage.jsx';
 
@@ -34,7 +39,10 @@ export default function App() {
       <Route path="/wondrous-items/:id" element={<WondrousItemDetailPage />} />
       <Route path="/articles" element={<ArticlesPage />} />
       <Route path="/articles/:slug" element={<ArticleDetailPage />} />
+      <Route path="/lore" element={<LorePage />} />
+      <Route path="/lore/:slug" element={<LoreDetailPage />} />
       <Route path="/market" element={<MarketPage />} />
+      <Route path="/profile" element={<ProfilePage />} />
 
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
@@ -46,6 +54,8 @@ export default function App() {
       <Route path="/admin/traits" element={<AdminTraitsPage />} />
       <Route path="/admin/wondrous-items" element={<AdminWondrousItemsPage />} />
       <Route path="/admin/articles" element={<AdminArticlesPage />} />
+      <Route path="/admin/lore" element={<AdminLorePage />} />
+      <Route path="/admin/utilities" element={<AdminUtilitiesPage />} />
       <Route path="/admin/market" element={<AdminMarketPage />} />
       <Route path="/admin/users" element={<AdminUsersPage />} />
 

@@ -63,6 +63,11 @@ export const authAPI = {
     }),
 };
 
+export const userProfileAPI = {
+  get: () => apiClient('/users/me', { method: 'GET' }),
+  update: (data) => apiClient('/users/me', { method: 'PUT', body: JSON.stringify(data || {}) }),
+};
+
 export const adminAPI = {
   listUsers: () => apiClient('/admin/users', { method: 'GET' }),
   setUserRole: (id, role) =>
@@ -90,6 +95,20 @@ export const articlesAPI = {
   create: (data) => apiClient('/articles', { method: 'POST', body: JSON.stringify(data) }),
   update: (id, data) => apiClient(`/articles/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   remove: (id) => apiClient(`/articles/${id}`, { method: 'DELETE' }),
+};
+
+export const loreAPI = {
+  list: () => apiClient('/lore', { method: 'GET' }),
+  getBySlug: (slug) => apiClient(`/lore/${encodeURIComponent(slug)}`, { method: 'GET' }),
+  listAdmin: () => apiClient('/lore/admin', { method: 'GET' }),
+  listLocations: () => apiClient('/lore/locations', { method: 'GET' }),
+  listLocationsAdmin: () => apiClient('/lore/locations/admin', { method: 'GET' }),
+  createLocation: (name) =>
+    apiClient('/lore/locations', { method: 'POST', body: JSON.stringify({ name }) }),
+  removeLocation: (id) => apiClient(`/lore/locations/${id}`, { method: 'DELETE' }),
+  create: (data) => apiClient('/lore', { method: 'POST', body: JSON.stringify(data) }),
+  update: (id, data) => apiClient(`/lore/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  remove: (id) => apiClient(`/lore/${id}`, { method: 'DELETE' }),
 };
 
 export const spellsAPI = {
@@ -156,6 +175,13 @@ export const spellClassesAPI = {
   remove: (id) => apiClient(`/spell-classes/${id}`, { method: 'DELETE' }),
 };
 
+export const sourcesAPI = {
+  list: () => apiClient('/sources', { method: 'GET' }),
+  listAdmin: () => apiClient('/sources/admin', { method: 'GET' }),
+  create: (name) => apiClient('/sources', { method: 'POST', body: JSON.stringify({ name }) }),
+  remove: (id) => apiClient(`/sources/${id}`, { method: 'DELETE' }),
+};
+
 export const marketAPI = {
   list: () => apiClient('/market', { method: 'GET' }),
   listAdmin: () => apiClient('/market/admin', { method: 'GET' }),
@@ -178,4 +204,6 @@ export const marketAPI = {
   create: (data) => apiClient('/market', { method: 'POST', body: JSON.stringify(data) }),
   update: (id, data) => apiClient(`/market/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   remove: (id) => apiClient(`/market/${id}`, { method: 'DELETE' }),
+  listTradeLogs: (limit = 200) => apiClient(`/market/trades?limit=${encodeURIComponent(limit)}`, { method: 'GET' }),
+  logTrade: (data) => apiClient('/market/trades', { method: 'POST', body: JSON.stringify(data) }),
 };

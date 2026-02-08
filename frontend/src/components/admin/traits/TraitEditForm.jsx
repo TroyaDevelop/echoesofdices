@@ -1,4 +1,5 @@
 import SpellDescriptionEditor from '../SpellDescriptionEditor.jsx';
+import TokenHint from '../TokenHint.jsx';
 
 export default function TraitEditForm({
   editingKey,
@@ -6,10 +7,12 @@ export default function TraitEditForm({
   onEditNameChange,
   editNameEn,
   onEditNameEnChange,
+  editRequirements,
+  onEditRequirementsChange,
   editSource,
   onEditSourceChange,
-  editSourcePages,
-  onEditSourcePagesChange,
+  sourceListId,
+  sourceOptions,
   editDescription,
   onEditDescriptionChange,
   editHasEotVariant,
@@ -39,18 +42,24 @@ export default function TraitEditForm({
         />
 
         <input
-          value={editSource}
-          onChange={(e) => onEditSourceChange(e.target.value)}
-          placeholder="Источник (например PH) (опционально)"
+          value={editRequirements}
+          onChange={(e) => onEditRequirementsChange(e.target.value)}
+          placeholder="Требования (опционально)"
           className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
         />
 
         <input
-          value={editSourcePages}
-          onChange={(e) => onEditSourcePagesChange(e.target.value)}
-          placeholder="Страницы (например PH14) (опционально)"
+          value={editSource}
+          onChange={(e) => onEditSourceChange(e.target.value)}
+          placeholder="Источник (опционально)"
+          list={sourceListId}
           className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
         />
+
+        <div className="md:col-span-2">
+          <TokenHint value={editSource} options={sourceOptions} />
+        </div>
+
       </div>
 
       <div className="flex items-center justify-between gap-3 flex-wrap">

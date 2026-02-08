@@ -10,6 +10,11 @@ export default function SpellHeader({
   onToggleEot,
 }) {
   const pagesLabel = sourcePages ? `стр. ${sourcePages}` : '';
+  const sourceTokens = String(sourceText || '')
+    .split(/[,;/]+/)
+    .map((item) => String(item || '').trim())
+    .filter(Boolean);
+  const sourceBadges = sourceTokens.length > 0 ? sourceTokens : sourcePages ? [''] : [];
   const [isTouchDevice, setIsTouchDevice] = useState(false);
   const [pagesTipHover, setPagesTipHover] = useState(false);
   const [pagesTipPinned, setPagesTipPinned] = useState(false);
@@ -51,37 +56,47 @@ export default function SpellHeader({
             <h1 className="text-2xl sm:text-3xl font-semibold leading-tight break-words">
               {title || 'Без названия'}
             </h1>
-            {sourceText || sourcePages ? (
-              <span
-                ref={pagesTipRef}
-                className="relative inline-flex items-center rounded-md border border-black/20 bg-white/50 px-2 py-0.5 text-xs font-semibold text-slate-800"
-                onMouseEnter={() => {
-                  if (!isTouchDevice) setPagesTipHover(true);
-                }}
-                onMouseLeave={() => {
-                  if (!isTouchDevice) setPagesTipHover(false);
-                }}
-                onClick={() => {
-                  if (!isTouchDevice) return;
-                  if (!sourcePages) return;
-                  setPagesTipPinned((v) => !v);
-                }}
-                role={isTouchDevice && sourcePages ? 'button' : undefined}
-                tabIndex={isTouchDevice && sourcePages ? 0 : undefined}
-                aria-label={pagesLabel || undefined}
-              >
-                {sourceText || 'стр.'}
+            {sourceBadges.length > 0 ? (
+              <div className="flex flex-wrap items-center gap-2">
+                {sourceBadges.map((badge, index) => {
+                  const withPages = index === 0 && Boolean(sourcePages);
+                  return (
+                    <span
+                      key={`${badge || 'pages'}-${index}`}
+                      ref={index === 0 ? pagesTipRef : undefined}
+                      className="relative inline-flex items-center rounded-md border border-black/20 bg-white/50 px-2 py-0.5 text-xs font-semibold text-slate-800"
+                      onMouseEnter={() => {
+                        if (isTouchDevice || !withPages) return;
+                        setPagesTipHover(true);
+                      }}
+                      onMouseLeave={() => {
+                        if (isTouchDevice || !withPages) return;
+                        setPagesTipHover(false);
+                      }}
+                      onClick={() => {
+                        if (!isTouchDevice) return;
+                        if (!withPages) return;
+                        setPagesTipPinned((v) => !v);
+                      }}
+                      role={isTouchDevice && withPages ? 'button' : undefined}
+                      tabIndex={isTouchDevice && withPages ? 0 : undefined}
+                      aria-label={withPages ? pagesLabel || undefined : undefined}
+                    >
+                      {badge || 'стр.'}
 
-                {sourcePages ? (
-                  <span
-                    className={`absolute left-full ml-2 top-1/2 -translate-y-1/2 z-20 whitespace-nowrap rounded-md border border-black/20 bg-white px-2 py-1 text-[11px] font-semibold text-slate-800 shadow-lg transition-all duration-150 ease-out ${
-                      showPagesTip ? 'opacity-100 translate-x-0 pointer-events-none' : 'opacity-0 translate-x-1 pointer-events-none'
-                    }`}
-                  >
-                    {pagesLabel}
-                  </span>
-                ) : null}
-              </span>
+                      {withPages ? (
+                        <span
+                          className={`absolute left-full ml-2 top-1/2 -translate-y-1/2 z-20 whitespace-nowrap rounded-md border border-black/20 bg-white px-2 py-1 text-[11px] font-semibold text-slate-800 shadow-lg transition-all duration-150 ease-out ${
+                            showPagesTip ? 'opacity-100 translate-x-0 pointer-events-none' : 'opacity-0 translate-x-1 pointer-events-none'
+                          }`}
+                        >
+                          {pagesLabel}
+                        </span>
+                      ) : null}
+                    </span>
+                  );
+                })}
+              </div>
             ) : null}
           </div>
           <div className="mt-1 text-sm text-slate-700 italic">{subtitle || '—'}</div>

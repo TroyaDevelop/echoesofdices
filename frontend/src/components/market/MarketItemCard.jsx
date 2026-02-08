@@ -10,9 +10,12 @@ export default function MarketItemCard({
   showMarkup,
   openInfoId,
   setOpenInfoId,
+  onTrade,
 }) {
   const hasInfo = Boolean(String(item?.short_description || '').trim());
   const isOpen = String(openInfoId || '') === String(item.id);
+  const hasPrice = Number(item?.price_gp || 0) || Number(item?.price_sp || 0) || Number(item?.price_cp || 0);
+  const canTrade = showMarkup && Boolean(hasPrice);
 
   const combat = supportsCombatFields(String(item?.category || ''));
   const damage = String(item?.damage || '').trim();
@@ -102,8 +105,20 @@ export default function MarketItemCard({
         ) : null}
       </div>
 
-      <div className="mt-4">
+      <div className="mt-4 space-y-3">
         <MarketPriceBlock item={item} percent={Number(percent || 0)} showMarkup={showMarkup} />
+        {onTrade && canTrade ? (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onTrade(item, Number(percent || 0));
+            }}
+            className="w-full px-3 py-2 rounded-lg text-sm font-semibold transition bg-emerald-500/90 hover:bg-emerald-500 text-slate-950"
+          >
+            Торговать
+          </button>
+        ) : null}
       </div>
     </div>
   );

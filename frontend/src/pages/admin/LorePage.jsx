@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import AdminLayout from '../../components/admin/AdminLayout.jsx';
-import ArticleCreateForm from '../../components/admin/articles/ArticleCreateForm.jsx';
-import ArticleHeader from '../../components/admin/articles/ArticleHeader.jsx';
-import ArticleList from '../../components/admin/articles/ArticleList.jsx';
-import { articlesAPI, sourcesAPI } from '../../lib/api.js';
+import LoreCreateForm from '../../components/admin/lore/LoreCreateForm.jsx';
+import LoreHeader from '../../components/admin/lore/LoreHeader.jsx';
+import LoreList from '../../components/admin/lore/LoreList.jsx';
+import { loreAPI } from '../../lib/api.js';
 import { normalizeSpellDescriptionForSave } from '../../lib/richText.js';
 
 const formatDate = (value) => {
@@ -20,67 +20,62 @@ const formatDate = (value) => {
   }
 };
 
-const normalizeSourceKey = (v) => String(v || '').trim().toLowerCase();
-const splitSourceTokens = (value) =>
-  String(value || '')
-    .split(/[,;/]+/)
-    .map((item) => String(item || '').trim())
-    .filter(Boolean);
+const parseYear = (value) => {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return null;
+  return Math.trunc(n);
+};
 
-export default function AdminArticlesPage() {
+export default function AdminLorePage() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [sourceItems, setSourceItems] = useState([]);
+  const [locations, setLocations] = useState([]);
 
   const [editingId, setEditingId] = useState(null);
   const [editTitle, setEditTitle] = useState('');
+  const [editYear, setEditYear] = useState('');
+  const [editLocations, setEditLocations] = useState('');
   const [editExcerpt, setEditExcerpt] = useState('');
   const [editContent, setEditContent] = useState('');
   const [editStatus, setEditStatus] = useState('published');
-  const [editSource, setEditSource] = useState('');
-  const [editSourcePages, setEditSourcePages] = useState('');
 
   const [title, setTitle] = useState('');
+  const [year, setYear] = useState('');
+  const [locationsValue, setLocationsValue] = useState('');
   const [excerpt, setExcerpt] = useState('');
   const [content, setContent] = useState('');
   const [status, setStatus] = useState('published');
-  const [source, setSource] = useState('');
-  const [sourcePages, setSourcePages] = useState('');
 
   const load = async () => {
     setError('');
     setLoading(true);
     try {
-      const [data, sourcesData] = await Promise.all([
-        articlesAPI.listAdmin(),
-        sourcesAPI.listAdmin(),
-      ]);
+      const data = await loreAPI.listAdmin();
       setItems(Array.isArray(data) ? data : []);
-      setSourceItems(Array.isArray(sourcesData) ? sourcesData : []);
     } catch (e) {
       console.error(e);
-      setError(e.message || 'Ошибка загрузки статей');
+      setError(e.message || 'Ошибка загрузки лора');
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    load();
-  }, []);
-
-  const shouldScrollArticles = useMemo(() => items.length > 4, [items.length]);
-  const sourceOptions = useMemo(() => sourceItems, [sourceItems]);
-  const sourceSet = useMemo(() => new Set(sourceItems.map((item) => normalizeSourceKey(item.name))), [sourceItems]);
-
-  const invalidSourcesFor = (value) => {
-    const tokens = splitSourceTokens(value);
-    if (tokens.length === 0) return [];
-    return tokens.filter((token) => !sourceSet.has(normalizeSourceKey(token)));
+  const loadLocations = async () => {
+    try {
+      const data = await loreAPI.listLocationsAdmin();
+      setLocations(Array.isArray(data) ? data : []);
+    } catch (e) {
+      console.error(e);
+    }
   };
 
-  const sourceListId = 'admin-articles-sources';
+  useEffect(() => {
+    load();
+    loadLocations();
+  }, []);
+
+  const shouldScroll = useMemo(() => items.length > 4, [items.length]);
 
   const handleCreate = async (e) => {
     e.preventDefault();
@@ -88,159 +83,160 @@ export default function AdminArticlesPage() {
 
     const t = title.trim();
     const c = normalizeSpellDescriptionForSave(content);
+    const y = parseYear(year);
 
     if (!t || !c) {
       setError('Заполните заголовок и текст');
       return;
     }
 
-    const invalidSources = invalidSourcesFor(source);
-    if (invalidSources.length > 0) {
-      setError(`Неизвестные источники: ${invalidSources.join(', ')}`);
+    if (y === null) {
+      setError('Укажите год события');
       return;
     }
 
     try {
-      await articlesAPI.create({
+      await loreAPI.create({
         title: t,
+        year: y,
+        locations: locationsValue.trim() || null,
         excerpt: excerpt.trim() || null,
         content: c,
         status,
-        source: source.trim() || null,
-        source_pages: sourcePages.trim() || null,
       });
       setTitle('');
+      setYear('');
+      setLocationsValue('');
       setExcerpt('');
       setContent('');
       setStatus('published');
-      setSource('');
-      setSourcePages('');
       await load();
     } catch (e2) {
       console.error(e2);
-      setError(e2.message || 'Ошибка создания статьи');
+      setError(e2.message || 'Ошибка создания записи');
     }
   };
 
   const handleDelete = async (id) => {
-    if (!confirm('Удалить статью?')) return;
+    if (!confirm('Удалить запись?')) return;
     setError('');
     try {
-      await articlesAPI.remove(id);
+      await loreAPI.remove(id);
       await load();
     } catch (e) {
       console.error(e);
-      setError(e.message || 'Ошибка удаления статьи');
+      setError(e.message || 'Ошибка удаления записи');
     }
   };
 
   const startEdit = (post) => {
     setEditingId(post.id);
     setEditTitle(String(post.title || ''));
+    setEditYear(String(post.year ?? ''));
+    setEditLocations(String(post.locations || ''));
     setEditExcerpt(String(post.excerpt || ''));
     setEditContent(String(post.content || ''));
     setEditStatus(post.status === 'draft' ? 'draft' : 'published');
-    setEditSource(String(post.source || ''));
-    setEditSourcePages(String(post.source_pages || ''));
   };
 
   const cancelEdit = () => {
     setEditingId(null);
     setEditTitle('');
+    setEditYear('');
+    setEditLocations('');
     setEditExcerpt('');
     setEditContent('');
     setEditStatus('published');
-    setEditSource('');
-    setEditSourcePages('');
   };
 
   const saveEdit = async (id) => {
     setError('');
     const t = editTitle.trim();
     const c = normalizeSpellDescriptionForSave(editContent);
+    const y = parseYear(editYear);
     if (!t || !c) {
       setError('Заполните заголовок и текст');
       return;
     }
-
-    const invalidSources = invalidSourcesFor(editSource);
-    if (invalidSources.length > 0) {
-      setError(`Неизвестные источники: ${invalidSources.join(', ')}`);
+    if (y === null) {
+      setError('Укажите год события');
       return;
     }
 
     try {
-      await articlesAPI.update(id, {
+      await loreAPI.update(id, {
         title: t,
+        year: y,
+        locations: editLocations.trim() || null,
         excerpt: editExcerpt.trim() || null,
         content: c,
         status: editStatus,
-        source: editSource.trim() || null,
-        source_pages: editSourcePages.trim() || null,
       });
       cancelEdit();
       await load();
     } catch (e) {
       console.error(e);
-      setError(e.message || 'Ошибка обновления статьи');
+      setError(e.message || 'Ошибка обновления записи');
     }
   };
+
+  const locationDatalistId = 'lore-location-options';
 
   return (
     <AdminLayout>
       <div className="space-y-6">
-        <ArticleHeader />
+        <LoreHeader />
 
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">{error}</div>
         )}
 
-        <ArticleCreateForm
+        <datalist id={locationDatalistId}>
+          {locations.map((loc) => (
+            <option key={loc.id} value={loc.name} />
+          ))}
+        </datalist>
+
+        <LoreCreateForm
           title={title}
           onTitleChange={(e) => setTitle(e.target.value)}
+          year={year}
+          onYearChange={(e) => setYear(e.target.value)}
+          locations={locationsValue}
+          onLocationsChange={(e) => setLocationsValue(e.target.value)}
+          locationDatalistId={locationDatalistId}
+          locationOptions={locations}
           excerpt={excerpt}
           onExcerptChange={(e) => setExcerpt(e.target.value)}
           content={content}
           onContentChange={setContent}
           status={status}
           onStatusChange={(e) => setStatus(e.target.value)}
-          source={source}
-          onSourceChange={(e) => setSource(e.target.value)}
-          sourceListId={sourceListId}
-          sourceOptions={sourceOptions}
-          sourcePages={sourcePages}
-          onSourcePagesChange={(e) => setSourcePages(e.target.value)}
           onSubmit={handleCreate}
         />
 
-        <datalist id={sourceListId}>
-          {sourceOptions.map((item) => (
-            <option key={item.id} value={item.name} />
-          ))}
-        </datalist>
-
-        <ArticleList
+        <LoreList
           loading={loading}
           items={items}
-          shouldScroll={shouldScrollArticles}
+          shouldScroll={shouldScroll}
           editingId={editingId}
           formatDate={formatDate}
           onStartEdit={startEdit}
           onDelete={handleDelete}
           editTitle={editTitle}
           onEditTitleChange={(e) => setEditTitle(e.target.value)}
+          editYear={editYear}
+          onEditYearChange={(e) => setEditYear(e.target.value)}
+          editLocations={editLocations}
+          onEditLocationsChange={(e) => setEditLocations(e.target.value)}
+          locationDatalistId={locationDatalistId}
+          locationOptions={locations}
           editExcerpt={editExcerpt}
           onEditExcerptChange={(e) => setEditExcerpt(e.target.value)}
           editContent={editContent}
           onEditContentChange={setEditContent}
           editStatus={editStatus}
           onEditStatusChange={(e) => setEditStatus(e.target.value)}
-          editSource={editSource}
-          onEditSourceChange={(e) => setEditSource(e.target.value)}
-          sourceListId={sourceListId}
-          sourceOptions={sourceOptions}
-          editSourcePages={editSourcePages}
-          onEditSourcePagesChange={(e) => setEditSourcePages(e.target.value)}
           onSave={saveEdit}
           onCancel={cancelEdit}
         />

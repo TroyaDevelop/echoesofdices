@@ -1,27 +1,27 @@
 import SpellDescriptionEditor from '../SpellDescriptionEditor.jsx';
 import TokenHint from '../TokenHint.jsx';
 
-export default function ArticleCreateForm({
+export default function LoreCreateForm({
   title,
   onTitleChange,
+  year,
+  onYearChange,
+  locations,
+  onLocationsChange,
+  locationDatalistId,
+  locationOptions,
   excerpt,
   onExcerptChange,
   content,
   onContentChange,
   status,
   onStatusChange,
-  source,
-  onSourceChange,
-  sourceListId,
-  sourceOptions,
-  sourcePages,
-  onSourcePagesChange,
   onSubmit,
 }) {
   return (
     <form onSubmit={onSubmit} className="bg-white rounded-lg shadow-sm border p-4 space-y-4">
       <div className="flex items-center justify-between gap-3 flex-wrap">
-        <div className="text-lg font-semibold text-gray-900">Добавить статью</div>
+        <div className="text-lg font-semibold text-gray-900">Добавить лор</div>
         <div className="flex items-center gap-2">
           <label className="text-sm text-gray-700">Статус</label>
           <select
@@ -35,32 +35,31 @@ export default function ArticleCreateForm({
         </div>
       </div>
 
+      <div className="grid grid-cols-1 md:grid-cols-[2fr_1fr] gap-3">
+        <input
+          value={title}
+          onChange={onTitleChange}
+          placeholder="Заголовок"
+          className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+        />
+        <input
+          value={year}
+          onChange={onYearChange}
+          placeholder="Год события"
+          className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+          inputMode="numeric"
+        />
+      </div>
+
       <input
-        value={title}
-        onChange={onTitleChange}
-        placeholder="Заголовок"
+        value={locations}
+        onChange={onLocationsChange}
+        placeholder="Места действия (через запятую)"
         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+        list={locationDatalistId}
       />
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        <input
-          value={source}
-          onChange={onSourceChange}
-          placeholder="Источник (опционально)"
-          list={sourceListId}
-          className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-        />
-        <input
-          value={sourcePages}
-          onChange={onSourcePagesChange}
-          placeholder="Страницы (например PH14) (опционально)"
-          className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-        />
-
-        <div className="md:col-span-2">
-          <TokenHint value={source} options={sourceOptions} />
-        </div>
-      </div>
+      <TokenHint value={locations} options={locationOptions} />
 
       <input
         value={excerpt}

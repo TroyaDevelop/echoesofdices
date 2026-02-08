@@ -1,5 +1,6 @@
 import SpellDescriptionEditor from '../SpellDescriptionEditor.jsx';
 import SpellClassesHint from './SpellClassesHint.jsx';
+import TokenHint from '../TokenHint.jsx';
 
 export default function SpellCreateForm({
   name,
@@ -27,6 +28,8 @@ export default function SpellCreateForm({
   classOptions,
   source,
   onSourceChange,
+  sourceListId,
+  sourceOptions,
   sourcePages,
   onSourcePagesChange,
   description,
@@ -139,7 +142,8 @@ export default function SpellCreateForm({
         <input
           value={source}
           onChange={(e) => onSourceChange(e.target.value)}
-          placeholder="Источник (например PH) (опционально)"
+          placeholder="Источник (опционально)"
+          list={sourceListId}
           className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
         />
 
@@ -149,6 +153,10 @@ export default function SpellCreateForm({
           placeholder="Страницы (например PH14) (опционально)"
           className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
         />
+
+        <div className="md:col-span-2">
+          <TokenHint value={source} options={sourceOptions} />
+        </div>
       </div>
 
       <div className="flex items-center justify-between gap-3 flex-wrap">

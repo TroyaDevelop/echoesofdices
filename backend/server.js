@@ -3,6 +3,7 @@ const cors = require('cors');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
+const cron = require('node-cron');
 
 const path = require('path');
 
@@ -79,6 +80,52 @@ const validateClassesExist = async (value) => {
   return tokens.filter((token) => !known.has(normalizeClassKey(token)));
 };
 
+const normalizeSourceKey = (value) => String(value || '').trim().toLowerCase();
+const splitSourceTokens = (value) =>
+  String(value || '')
+    .split(/[,;/]+/)
+    .map((item) => String(item || '').trim())
+    .filter(Boolean);
+
+const validateSourcesExist = async (value) => {
+  const tokens = splitSourceTokens(value);
+  if (tokens.length === 0) return [];
+
+  const rows = await query('SELECT name FROM sources', []);
+  const known = new Set((rows || []).map((row) => normalizeSourceKey(row.name)));
+  return tokens.filter((token) => !known.has(normalizeSourceKey(token)));
+};
+
+const normalizeSkillValue = (value) => {
+  if (value === undefined) return undefined;
+  if (value === null || value === '') return null;
+  const n = Number(value);
+  if (!Number.isFinite(n)) return undefined;
+  const lvl = Math.trunc(n);
+  if (lvl < 0 || lvl > 2) return undefined;
+  return lvl;
+};
+
+const normalizeAbilityScore = (value) => {
+  if (value === undefined) return undefined;
+  if (value === null || value === '') return null;
+  const n = Number(value);
+  if (!Number.isFinite(n)) return undefined;
+  const v = Math.trunc(n);
+  if (v < 1 || v > 30) return undefined;
+  return v;
+};
+
+const normalizeLevel = (value) => {
+  if (value === undefined) return undefined;
+  if (value === null || value === '') return null;
+  const n = Number(value);
+  if (!Number.isFinite(n)) return undefined;
+  const v = Math.trunc(n);
+  if (v < 1 || v > 20) return undefined;
+  return v;
+};
+
 app.post('/api/auth/login', async (req, res) => {
   try {
     const { login, password } = req.body;
@@ -87,7 +134,7 @@ app.post('/api/auth/login', async (req, res) => {
       return res.status(400).json({ error: 'Заполните логин и пароль' });
     }
 
-    const rows = await query('SELECT id, login, password, role FROM users WHERE login = ? LIMIT 1', [String(login).trim()]);
+    const rows = await query('SELECT id, login, password, role, nickname FROM users WHERE login = ? LIMIT 1', [String(login).trim()]);
     const user = rows && rows[0];
     if (!user) return res.status(401).json({ error: 'Неверные учетные данные' });
 
@@ -107,7 +154,8 @@ app.post('/api/auth/login', async (req, res) => {
       user: {
         id: user.id,
         login: user.login,
-        role: user.role
+        role: user.role,
+        nickname: user.nickname || null
       }
     });
   } catch (error) {
@@ -126,6 +174,229 @@ app.get('/api/auth/verify', authenticateToken, (req, res) => {
   });
 });
 
+app.get('/api/users/me', authenticateToken, async (req, res) => {
+  try {
+    const rows = await query(
+      'SELECT id, login, nickname, created_at, character_level, strength, dexterity, constitution, intelligence, wisdom, charisma, skill_acrobatics, skill_animal_handling, skill_arcana, skill_athletics, skill_deception, skill_history, skill_insight, skill_intimidation, skill_investigation, skill_medicine, skill_nature, skill_perception, skill_performance, skill_persuasion, skill_religion, skill_sleight_of_hand, skill_stealth, skill_survival FROM users WHERE id = ? LIMIT 1',
+      [req.user.userId]
+    );
+    const user = rows && rows[0];
+    if (!user) return res.status(404).json({ error: 'Пользователь не найден' });
+    res.json(user);
+  } catch (error) {
+    console.error('Get profile error:', error);
+    res.status(503).json({ error: 'База данных недоступна' });
+  }
+});
+
+app.put('/api/users/me', authenticateToken, async (req, res) => {
+  try {
+    const rows = await query(
+      'SELECT id, login, nickname, created_at, character_level, strength, dexterity, constitution, intelligence, wisdom, charisma, skill_acrobatics, skill_animal_handling, skill_arcana, skill_athletics, skill_deception, skill_history, skill_insight, skill_intimidation, skill_investigation, skill_medicine, skill_nature, skill_perception, skill_performance, skill_persuasion, skill_religion, skill_sleight_of_hand, skill_stealth, skill_survival FROM users WHERE id = ? LIMIT 1',
+      [req.user.userId]
+    );
+    const existing = rows && rows[0];
+    if (!existing) return res.status(404).json({ error: 'Пользователь не найден' });
+
+    const hasLevel = Object.prototype.hasOwnProperty.call(req.body || {}, 'character_level');
+    const nextLevel = normalizeLevel(req.body?.character_level);
+    if (hasLevel && nextLevel === undefined) {
+      return res.status(400).json({ error: 'Уровень должен быть числом от 1 до 20 или пустым значением' });
+    }
+
+    const nextStrength = normalizeAbilityScore(req.body?.strength);
+    if (nextStrength === undefined) {
+      return res.status(400).json({ error: 'Сила должна быть числом от 1 до 30 или пустым значением' });
+    }
+
+    const nextDexterity = normalizeAbilityScore(req.body?.dexterity);
+    if (nextDexterity === undefined) {
+      return res.status(400).json({ error: 'Ловкость должна быть числом от 1 до 30 или пустым значением' });
+    }
+
+    const nextConstitution = normalizeAbilityScore(req.body?.constitution);
+    if (nextConstitution === undefined) {
+      return res.status(400).json({ error: 'Телосложение должно быть числом от 1 до 30 или пустым значением' });
+    }
+
+    const nextIntelligence = normalizeAbilityScore(req.body?.intelligence);
+    if (nextIntelligence === undefined) {
+      return res.status(400).json({ error: 'Интеллект должен быть числом от 1 до 30 или пустым значением' });
+    }
+
+    const nextWisdom = normalizeAbilityScore(req.body?.wisdom);
+    if (nextWisdom === undefined) {
+      return res.status(400).json({ error: 'Мудрость должна быть числом от 1 до 30 или пустым значением' });
+    }
+
+    const nextCharisma = normalizeAbilityScore(req.body?.charisma);
+    if (nextCharisma === undefined) {
+      return res.status(400).json({ error: 'Харизма должна быть числом от 1 до 30 или пустым значением' });
+    }
+
+    const nextAcrobatics = normalizeSkillValue(req.body?.skill_acrobatics);
+    if (nextAcrobatics === undefined) {
+      return res.status(400).json({ error: 'Некорректное значение навыка Акробатика' });
+    }
+
+    const nextAnimalHandling = normalizeSkillValue(req.body?.skill_animal_handling);
+    if (nextAnimalHandling === undefined) {
+      return res.status(400).json({ error: 'Некорректное значение навыка Уход за животными' });
+    }
+
+    const nextArcana = normalizeSkillValue(req.body?.skill_arcana);
+    if (nextArcana === undefined) {
+      return res.status(400).json({ error: 'Некорректное значение навыка Магия' });
+    }
+
+    const nextAthletics = normalizeSkillValue(req.body?.skill_athletics);
+    if (nextAthletics === undefined) {
+      return res.status(400).json({ error: 'Некорректное значение навыка Атлетика' });
+    }
+
+    const nextDeception = normalizeSkillValue(req.body?.skill_deception);
+    if (nextDeception === undefined) {
+      return res.status(400).json({ error: 'Некорректное значение навыка Обман' });
+    }
+
+    const nextHistory = normalizeSkillValue(req.body?.skill_history);
+    if (nextHistory === undefined) {
+      return res.status(400).json({ error: 'Некорректное значение навыка История' });
+    }
+
+    const nextInsight = normalizeSkillValue(req.body?.skill_insight);
+    if (nextInsight === undefined) {
+      return res.status(400).json({ error: 'Некорректное значение навыка Проницательность' });
+    }
+
+    const nextIntimidation = normalizeSkillValue(req.body?.skill_intimidation);
+    if (nextIntimidation === undefined) {
+      return res.status(400).json({ error: 'Некорректное значение навыка Запугивание' });
+    }
+
+    const nextInvestigation = normalizeSkillValue(req.body?.skill_investigation);
+    if (nextInvestigation === undefined) {
+      return res.status(400).json({ error: 'Некорректное значение навыка Анализ' });
+    }
+
+    const nextMedicine = normalizeSkillValue(req.body?.skill_medicine);
+    if (nextMedicine === undefined) {
+      return res.status(400).json({ error: 'Некорректное значение навыка Медицина' });
+    }
+
+    const nextNature = normalizeSkillValue(req.body?.skill_nature);
+    if (nextNature === undefined) {
+      return res.status(400).json({ error: 'Некорректное значение навыка Природа' });
+    }
+
+    const nextPerception = normalizeSkillValue(req.body?.skill_perception);
+    if (nextPerception === undefined) {
+      return res.status(400).json({ error: 'Некорректное значение навыка Восприятие' });
+    }
+
+    const nextPerformance = normalizeSkillValue(req.body?.skill_performance);
+    if (nextPerformance === undefined) {
+      return res.status(400).json({ error: 'Некорректное значение навыка Выступление' });
+    }
+
+    const nextPersuasion = normalizeSkillValue(req.body?.skill_persuasion);
+    if (nextPersuasion === undefined) {
+      return res.status(400).json({ error: 'Некорректное значение навыка Убеждение' });
+    }
+
+    const nextReligion = normalizeSkillValue(req.body?.skill_religion);
+    if (nextReligion === undefined) {
+      return res.status(400).json({ error: 'Некорректное значение навыка Религия' });
+    }
+
+    const nextSleightOfHand = normalizeSkillValue(req.body?.skill_sleight_of_hand);
+    if (nextSleightOfHand === undefined) {
+      return res.status(400).json({ error: 'Некорректное значение навыка Ловкость рук' });
+    }
+
+    const nextStealth = normalizeSkillValue(req.body?.skill_stealth);
+    if (nextStealth === undefined) {
+      return res.status(400).json({ error: 'Некорректное значение навыка Скрытность' });
+    }
+
+    const nextSurvival = normalizeSkillValue(req.body?.skill_survival);
+    if (nextSurvival === undefined) {
+      return res.status(400).json({ error: 'Некорректное значение навыка Выживание' });
+    }
+
+    const merged = {
+      character_level: nextLevel === undefined ? existing.character_level : nextLevel,
+      strength: nextStrength === undefined ? existing.strength : nextStrength,
+      dexterity: nextDexterity === undefined ? existing.dexterity : nextDexterity,
+      constitution: nextConstitution === undefined ? existing.constitution : nextConstitution,
+      intelligence: nextIntelligence === undefined ? existing.intelligence : nextIntelligence,
+      wisdom: nextWisdom === undefined ? existing.wisdom : nextWisdom,
+      charisma: nextCharisma === undefined ? existing.charisma : nextCharisma,
+      skill_acrobatics: nextAcrobatics === undefined ? existing.skill_acrobatics : nextAcrobatics,
+      skill_animal_handling: nextAnimalHandling === undefined ? existing.skill_animal_handling : nextAnimalHandling,
+      skill_arcana: nextArcana === undefined ? existing.skill_arcana : nextArcana,
+      skill_athletics: nextAthletics === undefined ? existing.skill_athletics : nextAthletics,
+      skill_deception: nextDeception === undefined ? existing.skill_deception : nextDeception,
+      skill_history: nextHistory === undefined ? existing.skill_history : nextHistory,
+      skill_insight: nextInsight === undefined ? existing.skill_insight : nextInsight,
+      skill_intimidation: nextIntimidation === undefined ? existing.skill_intimidation : nextIntimidation,
+      skill_investigation: nextInvestigation === undefined ? existing.skill_investigation : nextInvestigation,
+      skill_medicine: nextMedicine === undefined ? existing.skill_medicine : nextMedicine,
+      skill_nature: nextNature === undefined ? existing.skill_nature : nextNature,
+      skill_perception: nextPerception === undefined ? existing.skill_perception : nextPerception,
+      skill_performance: nextPerformance === undefined ? existing.skill_performance : nextPerformance,
+      skill_persuasion: nextPersuasion === undefined ? existing.skill_persuasion : nextPersuasion,
+      skill_religion: nextReligion === undefined ? existing.skill_religion : nextReligion,
+      skill_sleight_of_hand: nextSleightOfHand === undefined ? existing.skill_sleight_of_hand : nextSleightOfHand,
+      skill_stealth: nextStealth === undefined ? existing.skill_stealth : nextStealth,
+      skill_survival: nextSurvival === undefined ? existing.skill_survival : nextSurvival,
+    };
+
+    await query(
+      'UPDATE users SET character_level = ?, strength = ?, dexterity = ?, constitution = ?, intelligence = ?, wisdom = ?, charisma = ?, skill_acrobatics = ?, skill_animal_handling = ?, skill_arcana = ?, skill_athletics = ?, skill_deception = ?, skill_history = ?, skill_insight = ?, skill_intimidation = ?, skill_investigation = ?, skill_medicine = ?, skill_nature = ?, skill_perception = ?, skill_performance = ?, skill_persuasion = ?, skill_religion = ?, skill_sleight_of_hand = ?, skill_stealth = ?, skill_survival = ? WHERE id = ?',
+      [
+        merged.character_level,
+        merged.strength,
+        merged.dexterity,
+        merged.constitution,
+        merged.intelligence,
+        merged.wisdom,
+        merged.charisma,
+        merged.skill_acrobatics,
+        merged.skill_animal_handling,
+        merged.skill_arcana,
+        merged.skill_athletics,
+        merged.skill_deception,
+        merged.skill_history,
+        merged.skill_insight,
+        merged.skill_intimidation,
+        merged.skill_investigation,
+        merged.skill_medicine,
+        merged.skill_nature,
+        merged.skill_perception,
+        merged.skill_performance,
+        merged.skill_persuasion,
+        merged.skill_religion,
+        merged.skill_sleight_of_hand,
+        merged.skill_stealth,
+        merged.skill_survival,
+        req.user.userId,
+      ]
+    );
+
+    res.json({
+      id: existing.id,
+      login: existing.login,
+      nickname: existing.nickname,
+      created_at: existing.created_at,
+      ...merged,
+    });
+  } catch (error) {
+    console.error('Update profile error:', error);
+    res.status(500).json({ error: 'Ошибка при обновлении профиля' });
+  }
+});
+
 async function safeQuery(sql, params = []) {
   try {
     await query(sql, params);
@@ -136,7 +407,7 @@ async function safeQuery(sql, params = []) {
 
 async function ensureRuntimeSchema() {
   await query(
-    "CREATE TABLE IF NOT EXISTS users (id INT PRIMARY KEY AUTO_INCREMENT, login VARCHAR(255) UNIQUE NOT NULL, password VARCHAR(255) NOT NULL, role ENUM('editor','user') DEFAULT 'user', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP)",
+    "CREATE TABLE IF NOT EXISTS users (id INT PRIMARY KEY AUTO_INCREMENT, login VARCHAR(255) UNIQUE NOT NULL, password VARCHAR(255) NOT NULL, role ENUM('editor','user') DEFAULT 'user', nickname VARCHAR(100), character_level TINYINT, strength SMALLINT, dexterity SMALLINT, constitution SMALLINT, intelligence SMALLINT, wisdom SMALLINT, charisma SMALLINT, skill_acrobatics TINYINT, skill_animal_handling TINYINT, skill_arcana TINYINT, skill_athletics TINYINT, skill_deception TINYINT, skill_history TINYINT, skill_insight TINYINT, skill_intimidation TINYINT, skill_investigation TINYINT, skill_medicine TINYINT, skill_nature TINYINT, skill_perception TINYINT, skill_performance TINYINT, skill_persuasion TINYINT, skill_religion TINYINT, skill_sleight_of_hand TINYINT, skill_stealth TINYINT, skill_survival TINYINT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP)",
     []
   );
 
@@ -148,6 +419,31 @@ async function ensureRuntimeSchema() {
   await safeQuery('ALTER TABLE users ADD UNIQUE INDEX uniq_users_login (login)', []);
 
   await query('ALTER TABLE users ADD COLUMN IF NOT EXISTS nickname VARCHAR(100)', []);
+  await query('ALTER TABLE users ADD COLUMN IF NOT EXISTS character_level TINYINT', []);
+  await query('ALTER TABLE users ADD COLUMN IF NOT EXISTS strength SMALLINT', []);
+  await query('ALTER TABLE users ADD COLUMN IF NOT EXISTS dexterity SMALLINT', []);
+  await query('ALTER TABLE users ADD COLUMN IF NOT EXISTS constitution SMALLINT', []);
+  await query('ALTER TABLE users ADD COLUMN IF NOT EXISTS intelligence SMALLINT', []);
+  await query('ALTER TABLE users ADD COLUMN IF NOT EXISTS wisdom SMALLINT', []);
+  await query('ALTER TABLE users ADD COLUMN IF NOT EXISTS charisma SMALLINT', []);
+  await query('ALTER TABLE users ADD COLUMN IF NOT EXISTS skill_acrobatics TINYINT', []);
+  await query('ALTER TABLE users ADD COLUMN IF NOT EXISTS skill_animal_handling TINYINT', []);
+  await query('ALTER TABLE users ADD COLUMN IF NOT EXISTS skill_arcana TINYINT', []);
+  await query('ALTER TABLE users ADD COLUMN IF NOT EXISTS skill_athletics TINYINT', []);
+  await query('ALTER TABLE users ADD COLUMN IF NOT EXISTS skill_persuasion TINYINT', []);
+  await query('ALTER TABLE users ADD COLUMN IF NOT EXISTS skill_performance TINYINT', []);
+  await query('ALTER TABLE users ADD COLUMN IF NOT EXISTS skill_intimidation TINYINT', []);
+  await query('ALTER TABLE users ADD COLUMN IF NOT EXISTS skill_deception TINYINT', []);
+  await query('ALTER TABLE users ADD COLUMN IF NOT EXISTS skill_history TINYINT', []);
+  await query('ALTER TABLE users ADD COLUMN IF NOT EXISTS skill_insight TINYINT', []);
+  await query('ALTER TABLE users ADD COLUMN IF NOT EXISTS skill_investigation TINYINT', []);
+  await query('ALTER TABLE users ADD COLUMN IF NOT EXISTS skill_medicine TINYINT', []);
+  await query('ALTER TABLE users ADD COLUMN IF NOT EXISTS skill_nature TINYINT', []);
+  await query('ALTER TABLE users ADD COLUMN IF NOT EXISTS skill_perception TINYINT', []);
+  await query('ALTER TABLE users ADD COLUMN IF NOT EXISTS skill_religion TINYINT', []);
+  await query('ALTER TABLE users ADD COLUMN IF NOT EXISTS skill_sleight_of_hand TINYINT', []);
+  await query('ALTER TABLE users ADD COLUMN IF NOT EXISTS skill_stealth TINYINT', []);
+  await query('ALTER TABLE users ADD COLUMN IF NOT EXISTS skill_survival TINYINT', []);
 
   await query(
     'CREATE TABLE IF NOT EXISTS registration_keys (id INT PRIMARY KEY AUTO_INCREMENT, reg_key VARCHAR(80) UNIQUE NOT NULL, is_active TINYINT(1) NOT NULL DEFAULT 1, created_by INT NULL, used_by INT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, used_at TIMESTAMP NULL, INDEX idx_reg_keys_active_used (is_active, used_at), INDEX idx_reg_keys_created_at (created_at))',
@@ -175,22 +471,37 @@ async function ensureRuntimeSchema() {
   );
 
   await query(
+    "CREATE TABLE IF NOT EXISTS lore_articles (id INT PRIMARY KEY AUTO_INCREMENT, title VARCHAR(255) NOT NULL, slug VARCHAR(255) UNIQUE NOT NULL, year INT NOT NULL, locations TEXT, content LONGTEXT NOT NULL, excerpt TEXT, author_id INT, status ENUM('draft','published') DEFAULT 'draft', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, FOREIGN KEY (author_id) REFERENCES users(id) ON DELETE SET NULL, INDEX idx_lore_status_year (status, year), INDEX idx_lore_year (year))",
+    []
+  );
+
+  await query(
+    'CREATE TABLE IF NOT EXISTS lore_locations (id INT PRIMARY KEY AUTO_INCREMENT, name VARCHAR(120) NOT NULL UNIQUE, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, INDEX idx_lore_locations_name (name))',
+    []
+  );
+
+  await query(
     "CREATE TABLE IF NOT EXISTS spells (id INT PRIMARY KEY AUTO_INCREMENT, name VARCHAR(255) NOT NULL, name_en VARCHAR(255), level TINYINT UNSIGNED NOT NULL DEFAULT 0, school VARCHAR(100), theme VARCHAR(32) DEFAULT 'none', casting_time VARCHAR(255), range_text VARCHAR(255), components TEXT, duration VARCHAR(255), classes VARCHAR(255), subclasses VARCHAR(255), source VARCHAR(100), source_pages VARCHAR(50), description LONGTEXT, description_eot LONGTEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, INDEX idx_spells_name (name))",
     []
   );
 
   await query(
-    "CREATE TABLE IF NOT EXISTS traits (id INT PRIMARY KEY AUTO_INCREMENT, name VARCHAR(255) NOT NULL, name_en VARCHAR(255), source VARCHAR(100), source_pages VARCHAR(50), description LONGTEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, INDEX idx_traits_name (name))",
+    "CREATE TABLE IF NOT EXISTS traits (id INT PRIMARY KEY AUTO_INCREMENT, name VARCHAR(255) NOT NULL, name_en VARCHAR(255), requirements VARCHAR(255), source VARCHAR(100), description LONGTEXT, description_eot LONGTEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, INDEX idx_traits_name (name))",
     []
   );
 
   await query(
-    "CREATE TABLE IF NOT EXISTS wondrous_items (id INT PRIMARY KEY AUTO_INCREMENT, name VARCHAR(255) NOT NULL, name_en VARCHAR(255), item_type VARCHAR(24) NOT NULL DEFAULT 'wondrous', rarity VARCHAR(24) NOT NULL DEFAULT 'common', recommended_cost VARCHAR(80), rarity_eot VARCHAR(24), recommended_cost_eot VARCHAR(80), attunement_required TINYINT(1) NOT NULL DEFAULT 0, attunement_by VARCHAR(120), source VARCHAR(100), source_pages VARCHAR(50), description LONGTEXT, description_eot LONGTEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, INDEX idx_wondrous_items_name (name))",
+    "CREATE TABLE IF NOT EXISTS wondrous_items (id INT PRIMARY KEY AUTO_INCREMENT, name VARCHAR(255) NOT NULL, name_en VARCHAR(255), item_type VARCHAR(255) NOT NULL DEFAULT 'wondrous', rarity VARCHAR(24) NOT NULL DEFAULT 'common', recommended_cost VARCHAR(80), rarity_eot VARCHAR(24), recommended_cost_eot VARCHAR(80), attunement_required TINYINT(1) NOT NULL DEFAULT 0, attunement_by VARCHAR(120), source VARCHAR(100), description LONGTEXT, description_eot LONGTEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, INDEX idx_wondrous_items_name (name))",
     []
   );
 
   await query(
     'CREATE TABLE IF NOT EXISTS spell_classes (id INT PRIMARY KEY AUTO_INCREMENT, name VARCHAR(80) NOT NULL UNIQUE, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP)',
+    []
+  );
+
+  await query(
+    'CREATE TABLE IF NOT EXISTS sources (id INT PRIMARY KEY AUTO_INCREMENT, name VARCHAR(80) NOT NULL UNIQUE, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, INDEX idx_sources_name (name))',
     []
   );
 
@@ -244,6 +555,26 @@ async function ensureRuntimeSchema() {
     "CREATE TABLE IF NOT EXISTS market_region_category_markups (id INT PRIMARY KEY AUTO_INCREMENT, region_id INT NOT NULL, season ENUM('spring_summer','autumn_winter') NOT NULL DEFAULT 'spring_summer', category VARCHAR(40) NOT NULL, markup_percent INT NOT NULL DEFAULT 0, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, UNIQUE KEY uniq_market_region_season_category (region_id, season, category), INDEX idx_market_markups_region (region_id), INDEX idx_market_markups_season (season), INDEX idx_market_markups_category (category), FOREIGN KEY (region_id) REFERENCES market_regions(id) ON DELETE CASCADE)",
     []
   );
+  
+  await safeQuery(
+    "CREATE TABLE IF NOT EXISTS market_trade_logs (id INT PRIMARY KEY AUTO_INCREMENT, user_id INT NOT NULL, item_id INT NULL, item_name VARCHAR(255) NOT NULL, trade_type ENUM('sell','buy') NOT NULL, season ENUM('spring_summer','autumn_winter') NOT NULL DEFAULT 'spring_summer', region_id INT NULL, category VARCHAR(40) NOT NULL, markup_percent INT NOT NULL DEFAULT 0, base_cp INT UNSIGNED NOT NULL, roll TINYINT NOT NULL, bonus SMALLINT NOT NULL, result SMALLINT NOT NULL, percent_value DECIMAL(6,4) NOT NULL, final_cp INT UNSIGNED NOT NULL, skill_id VARCHAR(32) NULL, skill_label VARCHAR(64) NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, INDEX idx_market_trade_user (user_id), INDEX idx_market_trade_item (item_id), INDEX idx_market_trade_created (created_at), FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE, FOREIGN KEY (item_id) REFERENCES market_items(id) ON DELETE SET NULL)",
+    []
+  );
+  
+  await safeQuery("ALTER TABLE market_trade_logs ADD COLUMN trade_type ENUM('sell','buy') NOT NULL", []);
+  await safeQuery("ALTER TABLE market_trade_logs ADD COLUMN season ENUM('spring_summer','autumn_winter') NOT NULL DEFAULT 'spring_summer'", []);
+  await safeQuery('ALTER TABLE market_trade_logs ADD COLUMN region_id INT NULL', []);
+  await safeQuery('ALTER TABLE market_trade_logs ADD COLUMN category VARCHAR(40) NOT NULL', []);
+  await safeQuery('ALTER TABLE market_trade_logs ADD COLUMN markup_percent INT NOT NULL DEFAULT 0', []);
+  await safeQuery('ALTER TABLE market_trade_logs ADD COLUMN base_cp INT UNSIGNED NOT NULL', []);
+  await safeQuery('ALTER TABLE market_trade_logs ADD COLUMN roll TINYINT NOT NULL', []);
+  await safeQuery('ALTER TABLE market_trade_logs ADD COLUMN bonus SMALLINT NOT NULL', []);
+  await safeQuery('ALTER TABLE market_trade_logs ADD COLUMN result SMALLINT NOT NULL', []);
+  await safeQuery('ALTER TABLE market_trade_logs ADD COLUMN percent_value DECIMAL(6,4) NOT NULL', []);
+  await safeQuery('ALTER TABLE market_trade_logs ADD COLUMN final_cp INT UNSIGNED NOT NULL', []);
+  await safeQuery('ALTER TABLE market_trade_logs ADD COLUMN skill_id VARCHAR(32) NULL', []);
+  await safeQuery('ALTER TABLE market_trade_logs ADD COLUMN skill_label VARCHAR(64) NULL', []);
+  await safeQuery("ALTER TABLE market_trade_logs ADD COLUMN item_name VARCHAR(255) NOT NULL DEFAULT ''", []);
 
   // Миграция к сезонным наценкам.
   await safeQuery(
@@ -305,9 +636,13 @@ async function ensureRuntimeSchema() {
   await query('ALTER TABLE articles ADD COLUMN IF NOT EXISTS source VARCHAR(100)', []);
   await query('ALTER TABLE articles ADD COLUMN IF NOT EXISTS source_pages VARCHAR(50)', []);
 
+  await safeQuery('ALTER TABLE lore_articles ADD COLUMN year INT NOT NULL DEFAULT 0', []);
+  await safeQuery('ALTER TABLE lore_articles ADD COLUMN IF NOT EXISTS locations TEXT', []);
+
   await query('ALTER TABLE traits ADD COLUMN IF NOT EXISTS name_en VARCHAR(255)', []);
+  await query('ALTER TABLE traits ADD COLUMN IF NOT EXISTS requirements VARCHAR(255)', []);
   await query('ALTER TABLE traits ADD COLUMN IF NOT EXISTS source VARCHAR(100)', []);
-  await query('ALTER TABLE traits ADD COLUMN IF NOT EXISTS source_pages VARCHAR(50)', []);
+  
   await query('ALTER TABLE traits ADD COLUMN IF NOT EXISTS description LONGTEXT', []);
   await query('ALTER TABLE traits ADD COLUMN IF NOT EXISTS description_eot LONGTEXT', []);
 
@@ -321,7 +656,7 @@ async function ensureRuntimeSchema() {
   await query('ALTER TABLE wondrous_items ADD COLUMN IF NOT EXISTS attunement_required TINYINT(1) NOT NULL DEFAULT 0', []);
   await query('ALTER TABLE wondrous_items ADD COLUMN IF NOT EXISTS attunement_by VARCHAR(120)', []);
   await query('ALTER TABLE wondrous_items ADD COLUMN IF NOT EXISTS source VARCHAR(100)', []);
-  await query('ALTER TABLE wondrous_items ADD COLUMN IF NOT EXISTS source_pages VARCHAR(50)', []);
+  
   await query('ALTER TABLE wondrous_items ADD COLUMN IF NOT EXISTS description LONGTEXT', []);
   await query('ALTER TABLE wondrous_items ADD COLUMN IF NOT EXISTS description_eot LONGTEXT', []);
 
@@ -577,6 +912,39 @@ async function ensureUniqueArticleSlug(base) {
   return `${baseSlug}-${Date.now()}`;
 }
 
+async function ensureUniqueLoreSlug(base) {
+  const baseSlug = base || `lore-${Date.now()}`;
+  let candidate = baseSlug;
+  let i = 2;
+
+  while (i < 200) {
+    const rows = await query('SELECT id FROM lore_articles WHERE slug = ? LIMIT 1', [candidate]);
+    if (!rows || rows.length === 0) return candidate;
+    candidate = `${baseSlug}-${i}`;
+    i += 1;
+  }
+
+  return `${baseSlug}-${Date.now()}`;
+}
+
+const normalizeLoreYear = (value, fallback = null) => {
+  if (value === undefined || value === null || value === '') return fallback;
+  const n = Number(value);
+  if (!Number.isFinite(n)) return null;
+  return Math.trunc(n);
+};
+
+const normalizeLoreLocations = (value) => {
+  if (value === undefined) return undefined;
+  if (value === null) return null;
+  const raw = String(value || '')
+    .split(',')
+    .map((item) => String(item || '').trim())
+    .filter(Boolean);
+  if (raw.length === 0) return null;
+  return raw.join(', ');
+};
+
 app.get('/api/news', async (req, res) => {
   try {
     const rows = await query(
@@ -746,6 +1114,11 @@ app.post('/api/articles', authenticateToken, requireStaff, async (req, res) => {
       return res.status(400).json({ error: 'Заполните заголовок и текст' });
     }
 
+    const invalidSources = await validateSourcesExist(source);
+    if (invalidSources.length > 0) {
+      return res.status(400).json({ error: `Неизвестные источники: ${invalidSources.join(', ')}` });
+    }
+
     const baseSlug = slugify(title) || `article-${Date.now()}`;
     const slug = await ensureUniqueArticleSlug(baseSlug);
     const finalStatus = status === 'draft' ? 'draft' : 'published';
@@ -816,6 +1189,13 @@ app.put('/api/articles/:id(\\d+)', authenticateToken, requireStaff, async (req, 
     if (!nextTitle) return res.status(400).json({ error: 'Заполните заголовок' });
     if (!nextContent || !String(nextContent).trim()) return res.status(400).json({ error: 'Заполните текст' });
 
+    if (req.body.source !== undefined) {
+      const invalidSources = await validateSourcesExist(nextSource);
+      if (invalidSources.length > 0) {
+        return res.status(400).json({ error: `Неизвестные источники: ${invalidSources.join(', ')}` });
+      }
+    }
+
     await query(
       'UPDATE articles SET title = ?, excerpt = ?, content = ?, source = ?, source_pages = ?, status = ? WHERE id = ?',
       [nextTitle, nextExcerpt, nextContent, nextSource, nextSourcePages, nextStatus, id]
@@ -846,6 +1226,218 @@ app.delete('/api/articles/:id(\\d+)', authenticateToken, requireStaff, async (re
     res.json({ message: 'Статья удалена' });
   } catch (error) {
     console.error('Delete article error:', error);
+    res.status(500).json({ error: 'Ошибка при удалении статьи' });
+  }
+});
+
+app.get('/api/lore', async (req, res) => {
+  try {
+    const rows = await query(
+      "SELECT l.id, l.title, l.slug, l.year, l.locations, l.excerpt, l.content, l.status, l.created_at, l.updated_at, u.login AS author_login, u.nickname AS author_nickname FROM lore_articles l LEFT JOIN users u ON l.author_id = u.id WHERE l.status = 'published' ORDER BY l.year DESC, l.created_at DESC",
+      []
+    );
+    res.json(rows);
+  } catch (error) {
+    console.error('List lore error:', error);
+    res.status(503).json({ error: 'База данных недоступна' });
+  }
+});
+
+app.get('/api/lore/admin', authenticateToken, requireStaff, async (req, res) => {
+  try {
+    const rows = await query(
+      'SELECT id, title, slug, year, locations, excerpt, content, status, created_at, updated_at FROM lore_articles ORDER BY year DESC, created_at DESC',
+      []
+    );
+    res.json(rows);
+  } catch (error) {
+    console.error('List lore admin error:', error);
+    res.status(503).json({ error: 'База данных недоступна' });
+  }
+});
+
+app.get('/api/lore/locations', async (req, res) => {
+  try {
+    const rows = await query('SELECT id, name FROM lore_locations ORDER BY name ASC', []);
+    res.json(Array.isArray(rows) ? rows : []);
+  } catch (error) {
+    console.error('List lore locations error:', error);
+    res.status(503).json({ error: 'База данных недоступна' });
+  }
+});
+
+app.get('/api/lore/locations/admin', authenticateToken, requireStaff, async (req, res) => {
+  try {
+    const rows = await query('SELECT id, name FROM lore_locations ORDER BY name ASC', []);
+    res.json(Array.isArray(rows) ? rows : []);
+  } catch (error) {
+    console.error('List lore locations admin error:', error);
+    res.status(503).json({ error: 'База данных недоступна' });
+  }
+});
+
+app.post('/api/lore/locations', authenticateToken, requireStaff, async (req, res) => {
+  try {
+    const name = String(req.body?.name || '').trim();
+    if (!name) return res.status(400).json({ error: 'Название локации обязательно' });
+    if (name.length > 120) return res.status(400).json({ error: 'Название слишком длинное' });
+
+    const result = await query('INSERT INTO lore_locations (name) VALUES (?)', [name]);
+    const insertedId = typeof result.insertId === 'bigint' ? Number(result.insertId) : result.insertId;
+    res.status(201).json({ id: insertedId, name });
+  } catch (error) {
+    if (error?.code === 'ER_DUP_ENTRY') {
+      return res.status(409).json({ error: 'Локация уже существует' });
+    }
+    console.error('Create lore location error:', error);
+    res.status(500).json({ error: 'Ошибка при создании локации' });
+  }
+});
+
+app.delete('/api/lore/locations/:id(\\d+)', authenticateToken, requireStaff, async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) return res.status(400).json({ error: 'Некорректный id' });
+
+    await query('DELETE FROM lore_locations WHERE id = ?', [id]);
+    res.json({ message: 'Локация удалена' });
+  } catch (error) {
+    console.error('Delete lore location error:', error);
+    res.status(500).json({ error: 'Ошибка при удалении локации' });
+  }
+});
+
+app.get('/api/lore/:slug', async (req, res) => {
+  try {
+    const slug = String(req.params.slug || '').trim();
+    if (!slug) return res.status(400).json({ error: 'Некорректный slug' });
+
+    const rows = await query(
+      "SELECT l.id, l.title, l.slug, l.year, l.locations, l.excerpt, l.content, l.status, l.created_at, l.updated_at, u.login AS author_login, u.nickname AS author_nickname FROM lore_articles l LEFT JOIN users u ON l.author_id = u.id WHERE l.slug = ? AND l.status = 'published' LIMIT 1",
+      [slug]
+    );
+    const article = rows && rows[0];
+    if (!article) return res.status(404).json({ error: 'Статья не найдена' });
+    res.json(article);
+  } catch (error) {
+    console.error('Get lore error:', error);
+    res.status(503).json({ error: 'База данных недоступна' });
+  }
+});
+
+app.post('/api/lore', authenticateToken, requireStaff, async (req, res) => {
+  try {
+    const { title, content, excerpt, status, year, locations } = req.body;
+
+    if (!title || !content) {
+      return res.status(400).json({ error: 'Заполните заголовок и текст' });
+    }
+
+    const loreYear = normalizeLoreYear(year, null);
+    if (loreYear === null) {
+      return res.status(400).json({ error: 'Год должен быть числом' });
+    }
+
+    const normalizedLocations = normalizeLoreLocations(locations);
+
+    const baseSlug = slugify(title) || `lore-${Date.now()}`;
+    const slug = await ensureUniqueLoreSlug(baseSlug);
+    const finalStatus = status === 'draft' ? 'draft' : 'published';
+
+    const result = await query(
+      'INSERT INTO lore_articles (title, slug, year, locations, content, excerpt, author_id, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      [
+        String(title).trim(),
+        slug,
+        loreYear,
+        normalizedLocations,
+        String(content),
+        excerpt ? String(excerpt) : null,
+        req.user.userId,
+        finalStatus,
+      ]
+    );
+
+    const insertedId = typeof result.insertId === 'bigint' ? Number(result.insertId) : result.insertId;
+
+    res.status(201).json({
+      id: insertedId,
+      title: String(title).trim(),
+      slug,
+      year: loreYear,
+      locations: normalizedLocations,
+      excerpt: excerpt ? String(excerpt) : null,
+      content: String(content),
+      status: finalStatus,
+    });
+  } catch (error) {
+    console.error('Create lore error:', error);
+    res.status(500).json({ error: 'Ошибка при создании статьи' });
+  }
+});
+
+app.put('/api/lore/:id(\\d+)', authenticateToken, requireStaff, async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) return res.status(400).json({ error: 'Некорректный id' });
+
+    const rows = await query(
+      'SELECT id, title, excerpt, content, status, slug, year, locations FROM lore_articles WHERE id = ? LIMIT 1',
+      [id]
+    );
+    const existing = rows && rows[0];
+    if (!existing) return res.status(404).json({ error: 'Статья не найдена' });
+
+    const nextTitle = req.body.title !== undefined ? String(req.body.title).trim() : existing.title;
+    const nextContent = req.body.content !== undefined ? String(req.body.content) : existing.content;
+    const nextExcerpt =
+      req.body.excerpt !== undefined
+        ? req.body.excerpt
+          ? String(req.body.excerpt).trim()
+          : null
+        : existing.excerpt;
+    const nextStatus =
+      req.body.status !== undefined ? (req.body.status === 'draft' ? 'draft' : 'published') : existing.status;
+    const nextLocationsRaw = normalizeLoreLocations(
+      req.body.locations !== undefined ? req.body.locations : existing.locations
+    );
+    const nextYear =
+      req.body.year !== undefined ? normalizeLoreYear(req.body.year, null) : normalizeLoreYear(existing.year, null);
+
+    if (!nextTitle) return res.status(400).json({ error: 'Заполните заголовок' });
+    if (!nextContent || !String(nextContent).trim()) return res.status(400).json({ error: 'Заполните текст' });
+    if (nextYear === null) return res.status(400).json({ error: 'Год должен быть числом' });
+
+    await query(
+      'UPDATE lore_articles SET title = ?, excerpt = ?, content = ?, status = ?, year = ?, locations = ? WHERE id = ?',
+      [nextTitle, nextExcerpt, nextContent, nextStatus, nextYear, nextLocationsRaw, id]
+    );
+
+    res.json({
+      id,
+      slug: existing.slug,
+      title: nextTitle,
+      excerpt: nextExcerpt,
+      content: nextContent,
+      status: nextStatus,
+      year: nextYear,
+      locations: nextLocationsRaw,
+    });
+  } catch (error) {
+    console.error('Update lore error:', error);
+    res.status(500).json({ error: 'Ошибка при обновлении статьи' });
+  }
+});
+
+app.delete('/api/lore/:id(\\d+)', authenticateToken, requireStaff, async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) return res.status(400).json({ error: 'Некорректный id' });
+
+    await query('DELETE FROM lore_articles WHERE id = ?', [id]);
+    res.json({ message: 'Статья удалена' });
+  } catch (error) {
+    console.error('Delete lore error:', error);
     res.status(500).json({ error: 'Ошибка при удалении статьи' });
   }
 });
@@ -965,6 +1557,28 @@ const normalizeArmorType = (value) => {
   const s = String(value).trim();
   if (!s) return undefined;
   return ARMOR_TYPES[s] ? s : null;
+};
+
+const normalizeTradeType = (value) => {
+  if (value === undefined || value === null || value === '') return null;
+  const s = String(value).trim().toLowerCase();
+  if (s === 'sell' || s === 'buy') return s;
+  return null;
+};
+
+const toIntInRange = (value, min, max) => {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return null;
+  const v = Math.trunc(n);
+  if (v < min || v > max) return null;
+  return v;
+};
+
+const toPercentValue = (value) => {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return null;
+  if (n < 0 || n > 1) return null;
+  return Math.round(n * 10000) / 10000;
 };
 
 const normOpt = (value) => {
@@ -1128,6 +1742,112 @@ app.put('/api/market/markups', authenticateToken, requireStaff, async (req, res)
   } catch (error) {
     console.error('Upsert market markup error:', error);
     res.status(500).json({ error: 'Ошибка при сохранении наценки' });
+  }
+});
+
+app.get('/api/market/trades', authenticateToken, requireStaff, async (req, res) => {
+  try {
+    const limitRaw = Number(req.query?.limit || 200);
+    const limit = Number.isFinite(limitRaw) ? Math.min(Math.max(Math.trunc(limitRaw), 1), 500) : 200;
+
+    const rows = await query(
+      'SELECT l.id, l.created_at, l.trade_type, l.item_id, l.item_name, l.season, l.region_id, r.name AS region_name, l.category, l.markup_percent, l.base_cp, l.roll, l.bonus, l.result, l.percent_value, l.final_cp, l.skill_id, l.skill_label, u.login AS user_login, u.nickname AS user_nickname FROM market_trade_logs l LEFT JOIN users u ON u.id = l.user_id LEFT JOIN market_regions r ON r.id = l.region_id ORDER BY l.created_at DESC, l.id DESC LIMIT ?',
+      [limit]
+    );
+
+    res.json(Array.isArray(rows) ? rows : []);
+  } catch (error) {
+    console.error('List market trade logs error:', error);
+    res.status(503).json({ error: 'База данных недоступна' });
+  }
+});
+
+app.post('/api/market/trades', authenticateToken, async (req, res) => {
+  try {
+    const itemIdRaw = req.body?.item_id;
+    const itemId = itemIdRaw === null || itemIdRaw === undefined || itemIdRaw === '' ? null : Number(itemIdRaw);
+    if (itemId !== null && (!Number.isFinite(itemId) || itemId <= 0)) {
+      return res.status(400).json({ error: 'Некорректный предмет' });
+    }
+
+    const itemName = String(req.body?.item_name || '').trim();
+    if (!itemName) return res.status(400).json({ error: 'Название предмета обязательно' });
+    if (itemName.length > 255) return res.status(400).json({ error: 'Название предмета слишком длинное' });
+
+    const tradeType = normalizeTradeType(req.body?.trade_type);
+    if (!tradeType) return res.status(400).json({ error: 'Некорректный тип сделки' });
+
+    const season = normalizeMarketSeason(req.body?.season);
+    if (season === null) return res.status(400).json({ error: 'Некорректный сезон' });
+
+    const category = normalizeMarketCategory(req.body?.category);
+    if (!category) return res.status(400).json({ error: 'Некорректная категория' });
+
+    const regionIdRaw = req.body?.region_id;
+    const regionId = regionIdRaw === null || regionIdRaw === undefined || regionIdRaw === '' ? null : Number(regionIdRaw);
+    if (regionId !== null && (!Number.isFinite(regionId) || regionId <= 0)) {
+      return res.status(400).json({ error: 'Некорректный регион' });
+    }
+
+    const markupPercent = toMarkupPercent(req.body?.markup_percent, 0);
+    if (markupPercent === null) return res.status(400).json({ error: 'Некорректная наценка' });
+
+    const baseCp = toNonNegInt(req.body?.base_cp, null);
+    const finalCp = toNonNegInt(req.body?.final_cp, null);
+    if (baseCp === null || finalCp === null) {
+      return res.status(400).json({ error: 'Некорректная цена' });
+    }
+
+    const roll = toIntInRange(req.body?.roll, 1, 20);
+    if (roll === null) return res.status(400).json({ error: 'Некорректный бросок' });
+
+    const bonus = toIntInRange(req.body?.bonus, -50, 50);
+    if (bonus === null) return res.status(400).json({ error: 'Некорректный бонус' });
+
+    const result = toIntInRange(req.body?.result, -200, 200);
+    if (result === null) return res.status(400).json({ error: 'Некорректный результат' });
+
+    const percentValue = toPercentValue(req.body?.percent_value);
+    if (percentValue === null) return res.status(400).json({ error: 'Некорректное значение процента' });
+
+    const skillIdRaw = String(req.body?.skill_id || '').trim();
+    const skillId = skillIdRaw ? skillIdRaw.slice(0, 32) : null;
+    const skillLabelRaw = String(req.body?.skill_label || '').trim();
+    const skillLabel = skillLabelRaw ? skillLabelRaw.slice(0, 64) : null;
+
+    const resultInsert = await query(
+      'INSERT INTO market_trade_logs (user_id, item_id, item_name, trade_type, season, region_id, category, markup_percent, base_cp, roll, bonus, result, percent_value, final_cp, skill_id, skill_label) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [
+        req.user.userId,
+        itemId,
+        itemName,
+        tradeType,
+        season,
+        regionId,
+        category,
+        markupPercent,
+        baseCp,
+        roll,
+        bonus,
+        result,
+        percentValue,
+        finalCp,
+        skillId,
+        skillLabel,
+      ]
+    );
+
+    const insertedId = typeof resultInsert.insertId === 'bigint' ? Number(resultInsert.insertId) : resultInsert.insertId;
+
+    const rows = await query(
+      'SELECT l.id, l.created_at, l.trade_type, l.item_id, l.item_name, l.season, l.region_id, r.name AS region_name, l.category, l.markup_percent, l.base_cp, l.roll, l.bonus, l.result, l.percent_value, l.final_cp, l.skill_id, l.skill_label, u.login AS user_login, u.nickname AS user_nickname FROM market_trade_logs l LEFT JOIN users u ON u.id = l.user_id LEFT JOIN market_regions r ON r.id = l.region_id WHERE l.id = ? LIMIT 1',
+      [insertedId]
+    );
+
+    res.status(201).json(rows?.[0] || { id: insertedId });
+  } catch (error) {
+    console.error('Create market trade log error:', error);
+    res.status(500).json({ error: 'Ошибка при записи сделки' });
   }
 });
 
@@ -1412,6 +2132,56 @@ app.delete('/api/spell-classes/:id(\\d+)', authenticateToken, requireStaff, asyn
   }
 });
 
+app.get('/api/sources', async (req, res) => {
+  try {
+    const rows = await query('SELECT id, name FROM sources ORDER BY name ASC', []);
+    res.json(Array.isArray(rows) ? rows : []);
+  } catch (error) {
+    console.error('List sources error:', error);
+    res.status(503).json({ error: 'База данных недоступна' });
+  }
+});
+
+app.get('/api/sources/admin', authenticateToken, requireStaff, async (req, res) => {
+  try {
+    const rows = await query('SELECT id, name FROM sources ORDER BY name ASC', []);
+    res.json(Array.isArray(rows) ? rows : []);
+  } catch (error) {
+    console.error('List sources admin error:', error);
+    res.status(503).json({ error: 'База данных недоступна' });
+  }
+});
+
+app.post('/api/sources', authenticateToken, requireStaff, async (req, res) => {
+  try {
+    const raw = String(req.body?.name || '').trim();
+    if (!raw) return res.status(400).json({ error: 'Название источника обязательно' });
+
+    const result = await query('INSERT INTO sources (name) VALUES (?)', [raw]);
+    const insertedId = typeof result.insertId === 'bigint' ? Number(result.insertId) : result.insertId;
+    res.status(201).json({ id: insertedId, name: raw });
+  } catch (error) {
+    if (error?.code === 'ER_DUP_ENTRY') {
+      return res.status(409).json({ error: 'Источник уже существует' });
+    }
+    console.error('Create source error:', error);
+    res.status(500).json({ error: 'Ошибка при добавлении источника' });
+  }
+});
+
+app.delete('/api/sources/:id(\\d+)', authenticateToken, requireStaff, async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) return res.status(400).json({ error: 'Некорректный id' });
+
+    await query('DELETE FROM sources WHERE id = ? LIMIT 1', [id]);
+    res.json({ ok: true });
+  } catch (error) {
+    console.error('Delete source error:', error);
+    res.status(500).json({ error: 'Ошибка при удалении источника' });
+  }
+});
+
 app.get('/api/spells/:id(\\d+)', async (req, res) => {
   try {
     const id = Number(req.params.id);
@@ -1587,6 +2357,11 @@ app.post('/api/spells', authenticateToken, requireStaff, async (req, res) => {
       return res.status(400).json({ error: `Неизвестные классы: ${invalidClasses.join(', ')}` });
     }
 
+    const invalidSources = await validateSourcesExist(source);
+    if (invalidSources.length > 0) {
+      return res.status(400).json({ error: `Неизвестные источники: ${invalidSources.join(', ')}` });
+    }
+
     if (!name) {
       return res.status(400).json({ error: 'Название заклинания обязательно' });
     }
@@ -1709,6 +2484,13 @@ app.put('/api/spells/:id(\\d+)', authenticateToken, requireStaff, async (req, re
       return res.status(400).json({ error: `Неизвестные классы: ${invalidClasses.join(', ')}` });
     }
 
+    if (req.body.source !== undefined) {
+      const invalidSources = await validateSourcesExist(merged.source);
+      if (invalidSources.length > 0) {
+        return res.status(400).json({ error: `Неизвестные источники: ${invalidSources.join(', ')}` });
+      }
+    }
+
     await query(
       'UPDATE spells SET name = ?, name_en = ?, level = ?, school = ?, theme = ?, casting_time = ?, range_text = ?, components = ?, duration = ?, classes = ?, subclasses = ?, source = ?, source_pages = ?, description = ?, description_eot = ? WHERE id = ?',
       [
@@ -1754,7 +2536,7 @@ app.delete('/api/spells/:id(\\d+)', authenticateToken, requireStaff, async (req,
 app.get('/api/traits', async (req, res) => {
   try {
     const rows = await query(
-      'SELECT id, name, name_en, source, source_pages, description, description_eot, created_at, updated_at FROM traits ORDER BY name ASC',
+      'SELECT id, name, name_en, requirements, source, description, description_eot, created_at, updated_at FROM traits ORDER BY name ASC',
       []
     );
     res.json(rows);
@@ -1770,7 +2552,7 @@ app.get('/api/traits/:id(\\d+)', async (req, res) => {
     if (!Number.isFinite(id)) return res.status(400).json({ error: 'Некорректный id' });
 
     const rows = await query(
-      'SELECT id, name, name_en, source, source_pages, description, description_eot, created_at, updated_at FROM traits WHERE id = ? LIMIT 1',
+      'SELECT id, name, name_en, requirements, source, description, description_eot, created_at, updated_at FROM traits WHERE id = ? LIMIT 1',
       [id]
     );
 
@@ -1904,7 +2686,7 @@ app.delete('/api/traits/:id(\\d+)/like', authenticateToken, async (req, res) => 
 app.get('/api/traits/admin', authenticateToken, requireStaff, async (req, res) => {
   try {
     const rows = await query(
-      'SELECT id, name, name_en, source, source_pages, description, description_eot, created_at, updated_at FROM traits ORDER BY name ASC',
+      'SELECT id, name, name_en, requirements, source, description, description_eot, created_at, updated_at FROM traits ORDER BY name ASC',
       []
     );
     res.json(rows);
@@ -1916,19 +2698,24 @@ app.get('/api/traits/admin', authenticateToken, requireStaff, async (req, res) =
 
 app.post('/api/traits', authenticateToken, requireStaff, async (req, res) => {
   try {
-    const { name, name_en, source, source_pages, description, description_eot } = req.body;
+    const { name, name_en, requirements, source, description, description_eot } = req.body;
+
+    const invalidSources = await validateSourcesExist(source);
+    if (invalidSources.length > 0) {
+      return res.status(400).json({ error: `Неизвестные источники: ${invalidSources.join(', ')}` });
+    }
 
     if (!name || !String(name).trim()) {
       return res.status(400).json({ error: 'Название черты обязательно' });
     }
 
     const result = await query(
-      'INSERT INTO traits (name, name_en, source, source_pages, description, description_eot) VALUES (?, ?, ?, ?, ?, ?)',
+      'INSERT INTO traits (name, name_en, requirements, source, description, description_eot) VALUES (?, ?, ?, ?, ?, ?)',
       [
         String(name).trim(),
         name_en ? String(name_en).trim() : null,
+        requirements ? String(requirements).trim() : null,
         source ? String(source).trim() : null,
-        source_pages ? String(source_pages).trim() : null,
         description ? String(description) : null,
         description_eot ? String(description_eot) : null,
       ]
@@ -1940,8 +2727,8 @@ app.post('/api/traits', authenticateToken, requireStaff, async (req, res) => {
       id: insertedId,
       name: String(name).trim(),
       name_en: name_en ? String(name_en).trim() : null,
+      requirements: requirements ? String(requirements).trim() : null,
       source: source ? String(source).trim() : null,
-      source_pages: source_pages ? String(source_pages).trim() : null,
       description: description ? String(description) : null,
       description_eot: description_eot ? String(description_eot) : null,
     });
@@ -1957,7 +2744,7 @@ app.put('/api/traits/:id(\\d+)', authenticateToken, requireStaff, async (req, re
     if (!Number.isFinite(id)) return res.status(400).json({ error: 'Некорректный id' });
 
     const rows = await query(
-      'SELECT id, name, name_en, source, source_pages, description, description_eot FROM traits WHERE id = ? LIMIT 1',
+      'SELECT id, name, name_en, requirements, source, description, description_eot FROM traits WHERE id = ? LIMIT 1',
       [id]
     );
     const existing = rows && rows[0];
@@ -1976,8 +2763,8 @@ app.put('/api/traits/:id(\\d+)', authenticateToken, requireStaff, async (req, re
     const merged = {
       name: nextName,
       name_en: normOpt(req.body.name_en) === undefined ? existing.name_en : normOpt(req.body.name_en),
+      requirements: normOpt(req.body.requirements) === undefined ? existing.requirements : normOpt(req.body.requirements),
       source: normOpt(req.body.source) === undefined ? existing.source : normOpt(req.body.source),
-      source_pages: normOpt(req.body.source_pages) === undefined ? existing.source_pages : normOpt(req.body.source_pages),
       description:
         req.body.description === undefined
           ? existing.description
@@ -1992,9 +2779,16 @@ app.put('/api/traits/:id(\\d+)', authenticateToken, requireStaff, async (req, re
             : String(req.body.description_eot),
     };
 
+    if (req.body.source !== undefined) {
+      const invalidSources = await validateSourcesExist(merged.source);
+      if (invalidSources.length > 0) {
+        return res.status(400).json({ error: `Неизвестные источники: ${invalidSources.join(', ')}` });
+      }
+    }
+
     await query(
-      'UPDATE traits SET name = ?, name_en = ?, source = ?, source_pages = ?, description = ?, description_eot = ? WHERE id = ?',
-      [merged.name, merged.name_en, merged.source, merged.source_pages, merged.description, merged.description_eot, id]
+      'UPDATE traits SET name = ?, name_en = ?, requirements = ?, source = ?, description = ?, description_eot = ? WHERE id = ?',
+      [merged.name, merged.name_en, merged.requirements, merged.source, merged.description, merged.description_eot, id]
     );
 
     res.json({ id, ...merged });
@@ -2025,7 +2819,7 @@ const toBool = (value) => value === true || value === 'true' || value === 1 || v
 app.get('/api/wondrous-items', async (req, res) => {
   try {
     const rows = await query(
-      'SELECT id, name, name_en, item_type, rarity, recommended_cost, rarity_eot, recommended_cost_eot, attunement_required, attunement_by, source, source_pages, description, description_eot, created_at, updated_at FROM wondrous_items ORDER BY name ASC',
+      'SELECT id, name, name_en, item_type, rarity, recommended_cost, rarity_eot, recommended_cost_eot, attunement_required, attunement_by, source, description, description_eot, created_at, updated_at FROM wondrous_items ORDER BY name ASC',
       []
     );
     res.json(rows);
@@ -2041,7 +2835,7 @@ app.get('/api/wondrous-items/:id(\\d+)', async (req, res) => {
     if (!Number.isFinite(id)) return res.status(400).json({ error: 'Некорректный id' });
 
     const rows = await query(
-      'SELECT id, name, name_en, item_type, rarity, recommended_cost, rarity_eot, recommended_cost_eot, attunement_required, attunement_by, source, source_pages, description, description_eot, created_at, updated_at FROM wondrous_items WHERE id = ? LIMIT 1',
+      'SELECT id, name, name_en, item_type, rarity, recommended_cost, rarity_eot, recommended_cost_eot, attunement_required, attunement_by, source, description, description_eot, created_at, updated_at FROM wondrous_items WHERE id = ? LIMIT 1',
       [id]
     );
 
@@ -2181,7 +2975,7 @@ app.delete('/api/wondrous-items/:id(\\d+)/like', authenticateToken, async (req, 
 app.get('/api/wondrous-items/admin', authenticateToken, requireStaff, async (req, res) => {
   try {
     const rows = await query(
-      'SELECT id, name, name_en, item_type, rarity, recommended_cost, rarity_eot, recommended_cost_eot, attunement_required, attunement_by, source, source_pages, description, description_eot, created_at, updated_at FROM wondrous_items ORDER BY name ASC',
+      'SELECT id, name, name_en, item_type, rarity, recommended_cost, rarity_eot, recommended_cost_eot, attunement_required, attunement_by, source, description, description_eot, created_at, updated_at FROM wondrous_items ORDER BY name ASC',
       []
     );
     res.json(rows);
@@ -2204,7 +2998,6 @@ app.post('/api/wondrous-items', authenticateToken, requireStaff, async (req, res
       attunement_required,
       attunement_by,
       source,
-      source_pages,
       description,
       description_eot,
     } = req.body;
@@ -2225,11 +3018,16 @@ app.post('/api/wondrous-items', authenticateToken, requireStaff, async (req, res
       return res.status(400).json({ error: 'Некорректная редкость предмета (EoT)' });
     }
 
+    const invalidSources = await validateSourcesExist(source);
+    if (invalidSources.length > 0) {
+      return res.status(400).json({ error: `Неизвестные источники: ${invalidSources.join(', ')}` });
+    }
+
     const requiresAttunement = toBool(attunement_required);
     const attuneBy = requiresAttunement ? String(attunement_by || '').trim() || null : null;
 
     const result = await query(
-      'INSERT INTO wondrous_items (name, name_en, item_type, rarity, recommended_cost, rarity_eot, recommended_cost_eot, attunement_required, attunement_by, source, source_pages, description, description_eot) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      'INSERT INTO wondrous_items (name, name_en, item_type, rarity, recommended_cost, rarity_eot, recommended_cost_eot, attunement_required, attunement_by, source, description, description_eot) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
       [
         String(name).trim(),
         name_en ? String(name_en).trim() : null,
@@ -2241,7 +3039,6 @@ app.post('/api/wondrous-items', authenticateToken, requireStaff, async (req, res
         requiresAttunement ? 1 : 0,
         attuneBy,
         source ? String(source).trim() : null,
-        source_pages ? String(source_pages).trim() : null,
         description ? String(description) : null,
         description_eot ? String(description_eot) : null,
       ]
@@ -2261,7 +3058,6 @@ app.post('/api/wondrous-items', authenticateToken, requireStaff, async (req, res
       attunement_required: requiresAttunement ? 1 : 0,
       attunement_by: attuneBy,
       source: source ? String(source).trim() : null,
-      source_pages: source_pages ? String(source_pages).trim() : null,
       description: description ? String(description) : null,
       description_eot: description_eot ? String(description_eot) : null,
     });
@@ -2277,7 +3073,7 @@ app.put('/api/wondrous-items/:id(\\d+)', authenticateToken, requireStaff, async 
     if (!Number.isFinite(id)) return res.status(400).json({ error: 'Некорректный id' });
 
     const rows = await query(
-      'SELECT id, name, name_en, item_type, rarity, recommended_cost, rarity_eot, recommended_cost_eot, attunement_required, attunement_by, source, source_pages, description, description_eot FROM wondrous_items WHERE id = ? LIMIT 1',
+      'SELECT id, name, name_en, item_type, rarity, recommended_cost, rarity_eot, recommended_cost_eot, attunement_required, attunement_by, source, description, description_eot FROM wondrous_items WHERE id = ? LIMIT 1',
       [id]
     );
     const existing = rows && rows[0];
@@ -2330,7 +3126,6 @@ app.put('/api/wondrous-items/:id(\\d+)', authenticateToken, requireStaff, async 
       attunement_required: nextAttunementRequired ? 1 : 0,
       attunement_by: nextAttunementBy,
       source: normOpt(req.body.source) === undefined ? existing.source : normOpt(req.body.source),
-      source_pages: normOpt(req.body.source_pages) === undefined ? existing.source_pages : normOpt(req.body.source_pages),
       description:
         req.body.description === undefined
           ? existing.description
@@ -2345,8 +3140,15 @@ app.put('/api/wondrous-items/:id(\\d+)', authenticateToken, requireStaff, async 
             : String(req.body.description_eot),
     };
 
+    if (req.body.source !== undefined) {
+      const invalidSources = await validateSourcesExist(merged.source);
+      if (invalidSources.length > 0) {
+        return res.status(400).json({ error: `Неизвестные источники: ${invalidSources.join(', ')}` });
+      }
+    }
+
     await query(
-      'UPDATE wondrous_items SET name = ?, name_en = ?, item_type = ?, rarity = ?, recommended_cost = ?, rarity_eot = ?, recommended_cost_eot = ?, attunement_required = ?, attunement_by = ?, source = ?, source_pages = ?, description = ?, description_eot = ? WHERE id = ?',
+      'UPDATE wondrous_items SET name = ?, name_en = ?, item_type = ?, rarity = ?, recommended_cost = ?, rarity_eot = ?, recommended_cost_eot = ?, attunement_required = ?, attunement_by = ?, source = ?, description = ?, description_eot = ? WHERE id = ?',
       [
         merged.name,
         merged.name_en,
@@ -2358,7 +3160,6 @@ app.put('/api/wondrous-items/:id(\\d+)', authenticateToken, requireStaff, async 
         merged.attunement_required,
         merged.attunement_by,
         merged.source,
-        merged.source_pages,
         merged.description,
         merged.description_eot,
         id,
@@ -2401,6 +3202,21 @@ async function start() {
   } catch (error) {
     console.error('❌ DB schema init failed:', error);
   }
+
+  const cleanupTradeLogs = async () => {
+    try {
+      await query('DELETE FROM market_trade_logs WHERE created_at < (NOW() - INTERVAL 48 HOUR)', []);
+    } catch (error) {
+      console.error('Cleanup trade logs error:', error);
+    }
+  };
+
+  await cleanupTradeLogs();
+  const tradeLogCleanupJob = cron.schedule('0 * * * *', cleanupTradeLogs, {
+    scheduled: false,
+    timezone: 'UTC',
+  });
+  tradeLogCleanupJob.start();
 
   app.listen(PORT, () => {
     console.log(`🚀 Сервер запущен на порту ${PORT}`);

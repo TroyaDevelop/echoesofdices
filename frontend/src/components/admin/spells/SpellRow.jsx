@@ -12,6 +12,8 @@ export default function SpellRow({
   onDelete,
   editState,
   classOptions,
+  sourceListId,
+  sourceOptions,
   themeOptions,
   onSaveEdit,
   onCancelEdit,
@@ -57,6 +59,8 @@ export default function SpellRow({
             classOptions={classOptions}
             editSource={editState.editSource}
             onEditSourceChange={editState.setEditSource}
+            sourceListId={sourceListId}
+            sourceOptions={sourceOptions}
             editSourcePages={editState.editSourcePages}
             onEditSourcePagesChange={editState.setEditSourcePages}
             editDescription={editState.editDescription}

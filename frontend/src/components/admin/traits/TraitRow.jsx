@@ -6,10 +6,15 @@ export default function TraitRow({
   onStartEdit,
   onDelete,
   editState,
+  sourceListId,
+  sourceOptions,
   onSaveEdit,
   onCancelEdit,
 }) {
-  const sourceBadge = [trait.source, trait.source_pages].filter(Boolean).join(' ');
+  const sourceBadge = String(trait.source || '')
+    .split(/[,;/]+/)
+    .map((item) => String(item || '').trim())
+    .filter(Boolean)[0] || '';
 
   return (
     <div className="p-4 flex items-start justify-between gap-4">
@@ -30,10 +35,12 @@ export default function TraitRow({
             onEditNameChange={editState.setEditName}
             editNameEn={editState.editNameEn}
             onEditNameEnChange={editState.setEditNameEn}
+            editRequirements={editState.editRequirements}
+            onEditRequirementsChange={editState.setEditRequirements}
             editSource={editState.editSource}
             onEditSourceChange={editState.setEditSource}
-            editSourcePages={editState.editSourcePages}
-            onEditSourcePagesChange={editState.setEditSourcePages}
+            sourceListId={sourceListId}
+            sourceOptions={sourceOptions}
             editDescription={editState.editDescription}
             onEditDescriptionChange={editState.setEditDescription}
             editHasEotVariant={editState.editHasEotVariant}
