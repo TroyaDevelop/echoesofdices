@@ -122,17 +122,16 @@ export default function MarketPage() {
   const [logsLoading, setLogsLoading] = useState(false);
   const [logsError, setLogsError] = useState('');
   const [profile, setProfile] = useState(null);
-  const [isAuthenticated, setIsAuthenticated] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(() => {
+    try {
+      return Boolean(localStorage.getItem('token'));
+    } catch {
+      return false;
+    }
+  });
   const [userRole, setUserRole] = useState('');
 
   const load = async () => {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      setIsAuthenticated(false);
-      setLoading(false);
-      return;
-    }
-    setIsAuthenticated(true);
     setError('');
     setLoading(true);
     try {
@@ -443,9 +442,7 @@ export default function MarketPage() {
 
         {error ? <div className="text-red-200 bg-red-500/10 border border-red-500/30 rounded-xl p-4">{error}</div> : null}
 
-        {!isAuthenticated ? (
-          <div className="text-slate-300">Для доступа к рынку нужно войти в аккаунт.</div>
-        ) : loading ? (
+        {loading ? (
           <div className="text-slate-300">Загрузка…</div>
         ) : viewTab === 'logs' ? (
           <div className="space-y-4">
@@ -529,7 +526,7 @@ export default function MarketPage() {
                     showMarkup={showMarkup}
                     openInfoId={openInfoId}
                     setOpenInfoId={setOpenInfoId}
-                    onTrade={handleOpenTrade}
+                    onTrade={isAuthenticated ? handleOpenTrade : undefined}
                   />
                 ))}
               </>
