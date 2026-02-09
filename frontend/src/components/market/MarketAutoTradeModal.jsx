@@ -56,6 +56,8 @@ const percentForBuy = (result, roll) => {
   return 1 - ((capped - 10) * 0.6) / 9;
 };
 
+const rollDie = (sides) => Math.floor(Math.random() * sides) + 1;
+
 const Coin = ({ label, value, className }) => {
   if (!value) return null;
   return (
@@ -93,6 +95,8 @@ export default function MarketAutoTradeModal({
   const [skillId, setSkillId] = useState('');
   const [lastTrade, setLastTrade] = useState(null);
   const [tradeType, setTradeType] = useState('sell');
+  const [rollMode, setRollMode] = useState('normal');
+  const [extraDice, setExtraDice] = useState([]);
 
   const baseCp = useMemo(() => toCopper(formatPrice(item)), [item]);
   const buyCp = useMemo(() => applyMarkupPercent(baseCp, percent), [baseCp, percent]);
@@ -103,6 +107,8 @@ export default function MarketAutoTradeModal({
   useEffect(() => {
     setLastTrade(null);
     setTradeType('sell');
+    setRollMode('normal');
+    setExtraDice([]);
   }, [item?.id]);
 
   useEffect(() => {
@@ -117,9 +123,19 @@ export default function MarketAutoTradeModal({
   const selectedBonus = selectedSkill?.bonus ?? 0;
 
   const handleTrade = () => {
-    const roll = Math.floor(Math.random() * 20) + 1;
+    const rollA = rollDie(20);
+    const rollB = rollMode === 'normal' ? null : rollDie(20);
+    const roll = rollMode === 'adv' ? Math.max(rollA, rollB) : rollMode === 'dis' ? Math.min(rollA, rollB) : rollA;
     const bonus = Math.trunc(Number(selectedBonus || 0)) || 0;
-    const result = Math.trunc(roll + bonus);
+    const extraResults = extraDice.map((die) => {
+      const sides = Number(die?.sides || 0);
+      return {
+        ...die,
+        value: sides ? rollDie(sides) : 0,
+      };
+    });
+    const extraBonus = extraResults.reduce((sum, die) => sum + Number(die.value || 0), 0);
+    const result = Math.trunc(roll + bonus + extraBonus);
     const percentValue = tradeType === 'buy' ? percentForBuy(result, roll) : percentForSell(result, roll === 20);
     const finalCp = Math.max(1, Math.round(buyCp * percentValue));
     const finalPrice = fromCopper(finalCp);
@@ -132,7 +148,11 @@ export default function MarketAutoTradeModal({
       itemName: String(item?.name || '—'),
       itemId: item?.id ?? null,
       roll,
+      rollMode,
+      rollAlt: rollMode === 'normal' ? null : rollB,
       bonus,
+      extraBonus,
+      extraDice: extraResults,
       result,
       percentValue,
       baseCp: buyCp,
@@ -219,6 +239,37 @@ export default function MarketAutoTradeModal({
                   Покупка
                 </button>
               </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setRollMode('normal')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
+                    rollMode === 'normal'
+                      ? 'bg-white/15 text-white'
+                      : 'text-slate-300 hover:text-white hover:bg-white/10'
+                  }`}
+                >
+                  Чистый
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRollMode('adv')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
+                    rollMode === 'adv' ? 'bg-white/15 text-white' : 'text-slate-300 hover:text-white hover:bg-white/10'
+                  }`}
+                >
+                  Преимущество
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRollMode('dis')}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
+                    rollMode === 'dis' ? 'bg-white/15 text-white' : 'text-slate-300 hover:text-white hover:bg-white/10'
+                  }`}
+                >
+                  Помеха
+                </button>
+              </div>
               <div className="flex flex-wrap items-center gap-3">
               <label className="text-sm text-slate-200">
                 Навык
@@ -243,14 +294,83 @@ export default function MarketAutoTradeModal({
                   Торговать
                 </button>
               </div>
+              <div className="space-y-2">
+                <div className="text-[11px] uppercase tracking-wide text-slate-400">Доп. кубы</div>
+                {extraDice.map((die) => (
+                  <div key={die.id} className="flex flex-wrap items-center gap-3">
+                    <select
+                      value={die.sides}
+                      onChange={(e) => {
+                        const next = Number(e.target.value);
+                        setExtraDice((prev) =>
+                          prev.map((item) => (item.id === die.id ? { ...item, sides: next } : item))
+                        );
+                      }}
+                      className="px-2 py-1 rounded-md border border-white/10 bg-black/30 text-slate-100"
+                    >
+                      <option value={4}>к4</option>
+                      <option value={6}>к6</option>
+                      <option value={8}>к8</option>
+                      <option value={12}>к12</option>
+                    </select>
+                    <input
+                      type="text"
+                      value={die.source}
+                      onChange={(e) => {
+                        const next = e.target.value;
+                        setExtraDice((prev) =>
+                          prev.map((item) => (item.id === die.id ? { ...item, source: next } : item))
+                        );
+                      }}
+                      placeholder="Источник"
+                      className="flex-1 min-w-[10rem] px-2 py-1 rounded-md border border-white/10 bg-black/30 text-slate-100"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setExtraDice((prev) => prev.filter((item) => item.id !== die.id))}
+                      className="px-2 py-1 rounded-md text-xs text-slate-300 hover:text-white hover:bg-white/10"
+                    >
+                      Удалить
+                    </button>
+                  </div>
+                ))}
+                {extraDice.length < 3 ? (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setExtraDice((prev) => [
+                        ...prev,
+                        { id: `${Date.now()}-${Math.random().toString(16).slice(2)}`, sides: 4, source: '' },
+                      ])
+                    }
+                    className="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-200 hover:text-white hover:bg-white/10"
+                  >
+                    Добавить куб
+                  </button>
+                ) : null}
+              </div>
             </div>
 
             {lastTrade ? (
               <div className="rounded-xl border border-emerald-400/30 bg-emerald-400/10 p-3">
                 <div className="text-sm text-emerald-200">
-                  Бросок: <span className="font-semibold">{lastTrade.roll}</span> + {lastTrade.bonus} ={' '}
+                  Бросок:{' '}
+                  <span className="font-semibold">{lastTrade.roll}</span>
+                  {lastTrade.rollMode !== 'normal' && lastTrade.rollAlt ? (
+                    <span className="text-emerald-100/80"> / {lastTrade.rollAlt}</span>
+                  ) : null}
+                  {' + '}
+                  {lastTrade.bonus}
+                  {lastTrade.extraBonus ? ` + ${lastTrade.extraBonus}` : ''} ={' '}
                   <span className="font-semibold">{lastTrade.result}</span>
                 </div>
+                {Array.isArray(lastTrade.extraDice) && lastTrade.extraDice.length ? (
+                  <div className="mt-1 text-xs text-emerald-100/80">
+                    {lastTrade.extraDice
+                      .map((die) => `${die.source || 'Доп. куб'}: к${die.sides} (${die.value})`)
+                      .join(' · ')}
+                  </div>
+                ) : null}
                 <div className="mt-2 text-sm text-emerald-200">
                   Финальная {lastTrade.tradeType === 'buy' ? 'покупка' : 'продажа'}:
                 </div>

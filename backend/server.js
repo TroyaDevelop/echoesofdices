@@ -557,11 +557,13 @@ async function ensureRuntimeSchema() {
   );
   
   await safeQuery(
-    "CREATE TABLE IF NOT EXISTS market_trade_logs (id INT PRIMARY KEY AUTO_INCREMENT, user_id INT NOT NULL, item_id INT NULL, item_name VARCHAR(255) NOT NULL, trade_type ENUM('sell','buy') NOT NULL, season ENUM('spring_summer','autumn_winter') NOT NULL DEFAULT 'spring_summer', region_id INT NULL, category VARCHAR(40) NOT NULL, markup_percent INT NOT NULL DEFAULT 0, base_cp INT UNSIGNED NOT NULL, roll TINYINT NOT NULL, bonus SMALLINT NOT NULL, result SMALLINT NOT NULL, percent_value DECIMAL(6,4) NOT NULL, final_cp INT UNSIGNED NOT NULL, skill_id VARCHAR(32) NULL, skill_label VARCHAR(64) NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, INDEX idx_market_trade_user (user_id), INDEX idx_market_trade_item (item_id), INDEX idx_market_trade_created (created_at), FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE, FOREIGN KEY (item_id) REFERENCES market_items(id) ON DELETE SET NULL)",
+    "CREATE TABLE IF NOT EXISTS market_trade_logs (id INT PRIMARY KEY AUTO_INCREMENT, user_id INT NOT NULL, item_id INT NULL, item_name VARCHAR(255) NOT NULL, trade_type ENUM('sell','buy') NOT NULL, roll_mode ENUM('normal','adv','dis') NOT NULL DEFAULT 'normal', roll_alt TINYINT NULL, season ENUM('spring_summer','autumn_winter') NOT NULL DEFAULT 'spring_summer', region_id INT NULL, category VARCHAR(40) NOT NULL, markup_percent INT NOT NULL DEFAULT 0, base_cp INT UNSIGNED NOT NULL, roll TINYINT NOT NULL, bonus SMALLINT NOT NULL, extra_bonus SMALLINT NOT NULL DEFAULT 0, extra_dice TEXT NULL, result SMALLINT NOT NULL, percent_value DECIMAL(6,4) NOT NULL, final_cp INT UNSIGNED NOT NULL, skill_id VARCHAR(32) NULL, skill_label VARCHAR(64) NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, INDEX idx_market_trade_user (user_id), INDEX idx_market_trade_item (item_id), INDEX idx_market_trade_created (created_at), FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE, FOREIGN KEY (item_id) REFERENCES market_items(id) ON DELETE SET NULL)",
     []
   );
   
   await safeQuery("ALTER TABLE market_trade_logs ADD COLUMN trade_type ENUM('sell','buy') NOT NULL", []);
+  await safeQuery("ALTER TABLE market_trade_logs ADD COLUMN roll_mode ENUM('normal','adv','dis') NOT NULL DEFAULT 'normal'", []);
+  await safeQuery('ALTER TABLE market_trade_logs ADD COLUMN roll_alt TINYINT NULL', []);
   await safeQuery("ALTER TABLE market_trade_logs ADD COLUMN season ENUM('spring_summer','autumn_winter') NOT NULL DEFAULT 'spring_summer'", []);
   await safeQuery('ALTER TABLE market_trade_logs ADD COLUMN region_id INT NULL', []);
   await safeQuery('ALTER TABLE market_trade_logs ADD COLUMN category VARCHAR(40) NOT NULL', []);
@@ -569,6 +571,8 @@ async function ensureRuntimeSchema() {
   await safeQuery('ALTER TABLE market_trade_logs ADD COLUMN base_cp INT UNSIGNED NOT NULL', []);
   await safeQuery('ALTER TABLE market_trade_logs ADD COLUMN roll TINYINT NOT NULL', []);
   await safeQuery('ALTER TABLE market_trade_logs ADD COLUMN bonus SMALLINT NOT NULL', []);
+  await safeQuery('ALTER TABLE market_trade_logs ADD COLUMN extra_bonus SMALLINT NOT NULL DEFAULT 0', []);
+  await safeQuery('ALTER TABLE market_trade_logs ADD COLUMN extra_dice TEXT NULL', []);
   await safeQuery('ALTER TABLE market_trade_logs ADD COLUMN result SMALLINT NOT NULL', []);
   await safeQuery('ALTER TABLE market_trade_logs ADD COLUMN percent_value DECIMAL(6,4) NOT NULL', []);
   await safeQuery('ALTER TABLE market_trade_logs ADD COLUMN final_cp INT UNSIGNED NOT NULL', []);
@@ -1751,7 +1755,7 @@ app.get('/api/market/trades', authenticateToken, requireStaff, async (req, res) 
     const limit = Number.isFinite(limitRaw) ? Math.min(Math.max(Math.trunc(limitRaw), 1), 500) : 200;
 
     const rows = await query(
-      'SELECT l.id, l.created_at, l.trade_type, l.item_id, l.item_name, l.season, l.region_id, r.name AS region_name, l.category, l.markup_percent, l.base_cp, l.roll, l.bonus, l.result, l.percent_value, l.final_cp, l.skill_id, l.skill_label, u.login AS user_login, u.nickname AS user_nickname FROM market_trade_logs l LEFT JOIN users u ON u.id = l.user_id LEFT JOIN market_regions r ON r.id = l.region_id ORDER BY l.created_at DESC, l.id DESC LIMIT ?',
+      'SELECT l.id, l.created_at, l.trade_type, l.roll_mode, l.roll_alt, l.item_id, l.item_name, l.season, l.region_id, r.name AS region_name, l.category, l.markup_percent, l.base_cp, l.roll, l.bonus, l.extra_bonus, l.extra_dice, l.result, l.percent_value, l.final_cp, l.skill_id, l.skill_label, u.login AS user_login, u.nickname AS user_nickname FROM market_trade_logs l LEFT JOIN users u ON u.id = l.user_id LEFT JOIN market_regions r ON r.id = l.region_id ORDER BY l.created_at DESC, l.id DESC LIMIT ?',
       [limit]
     );
 
@@ -1801,8 +1805,27 @@ app.post('/api/market/trades', authenticateToken, async (req, res) => {
     const roll = toIntInRange(req.body?.roll, 1, 20);
     if (roll === null) return res.status(400).json({ error: 'Некорректный бросок' });
 
+    const rollModeRaw = String(req.body?.roll_mode || 'normal').trim().toLowerCase();
+    const rollMode = rollModeRaw === 'adv' || rollModeRaw === 'dis' ? rollModeRaw : 'normal';
+
+    const rollAltRaw = req.body?.roll_alt;
+    const rollAlt =
+      rollAltRaw === null || rollAltRaw === undefined || rollAltRaw === '' ? null : toIntInRange(rollAltRaw, 1, 20);
+    if (rollAltRaw !== undefined && rollAltRaw !== null && rollAltRaw !== '' && rollAlt === null) {
+      return res.status(400).json({ error: 'Некорректный альтернативный бросок' });
+    }
+
     const bonus = toIntInRange(req.body?.bonus, -50, 50);
     if (bonus === null) return res.status(400).json({ error: 'Некорректный бонус' });
+
+    const extraBonus = toIntInRange(req.body?.extra_bonus ?? 0, 0, 200);
+    if (extraBonus === null) return res.status(400).json({ error: 'Некорректный бонус доп. кубов' });
+
+    const extraDiceRaw = req.body?.extra_dice;
+    const extraDiceStr = extraDiceRaw ? String(extraDiceRaw).trim() : '';
+    if (extraDiceStr && extraDiceStr.length > 2000) {
+      return res.status(400).json({ error: 'Слишком много данных по доп. кубам' });
+    }
 
     const result = toIntInRange(req.body?.result, -200, 200);
     if (result === null) return res.status(400).json({ error: 'Некорректный результат' });
@@ -1816,12 +1839,14 @@ app.post('/api/market/trades', authenticateToken, async (req, res) => {
     const skillLabel = skillLabelRaw ? skillLabelRaw.slice(0, 64) : null;
 
     const resultInsert = await query(
-      'INSERT INTO market_trade_logs (user_id, item_id, item_name, trade_type, season, region_id, category, markup_percent, base_cp, roll, bonus, result, percent_value, final_cp, skill_id, skill_label) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      'INSERT INTO market_trade_logs (user_id, item_id, item_name, trade_type, roll_mode, roll_alt, season, region_id, category, markup_percent, base_cp, roll, bonus, extra_bonus, extra_dice, result, percent_value, final_cp, skill_id, skill_label) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
       [
         req.user.userId,
         itemId,
         itemName,
         tradeType,
+        rollMode,
+        rollAlt,
         season,
         regionId,
         category,
@@ -1829,6 +1854,8 @@ app.post('/api/market/trades', authenticateToken, async (req, res) => {
         baseCp,
         roll,
         bonus,
+        extraBonus,
+        extraDiceStr || null,
         result,
         percentValue,
         finalCp,
@@ -1840,7 +1867,7 @@ app.post('/api/market/trades', authenticateToken, async (req, res) => {
     const insertedId = typeof resultInsert.insertId === 'bigint' ? Number(resultInsert.insertId) : resultInsert.insertId;
 
     const rows = await query(
-      'SELECT l.id, l.created_at, l.trade_type, l.item_id, l.item_name, l.season, l.region_id, r.name AS region_name, l.category, l.markup_percent, l.base_cp, l.roll, l.bonus, l.result, l.percent_value, l.final_cp, l.skill_id, l.skill_label, u.login AS user_login, u.nickname AS user_nickname FROM market_trade_logs l LEFT JOIN users u ON u.id = l.user_id LEFT JOIN market_regions r ON r.id = l.region_id WHERE l.id = ? LIMIT 1',
+      'SELECT l.id, l.created_at, l.trade_type, l.roll_mode, l.roll_alt, l.item_id, l.item_name, l.season, l.region_id, r.name AS region_name, l.category, l.markup_percent, l.base_cp, l.roll, l.bonus, l.extra_bonus, l.extra_dice, l.result, l.percent_value, l.final_cp, l.skill_id, l.skill_label, u.login AS user_login, u.nickname AS user_nickname FROM market_trade_logs l LEFT JOIN users u ON u.id = l.user_id LEFT JOIN market_regions r ON r.id = l.region_id WHERE l.id = ? LIMIT 1',
       [insertedId]
     );
 

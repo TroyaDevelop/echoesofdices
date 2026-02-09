@@ -105,6 +105,22 @@ const formatLogTime = (value) => {
   });
 };
 
+const parseExtraDice = (value) => {
+  if (!value) return [];
+  try {
+    const parsed = typeof value === 'string' ? JSON.parse(value) : value;
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+};
+
+const rollModeLabel = (value) => {
+  if (value === 'adv') return 'преим.';
+  if (value === 'dis') return 'помех.';
+  return '';
+};
+
 export default function MarketPage() {
   const [items, setItems] = useState([]);
   const [regions, setRegions] = useState([]);
@@ -343,6 +359,8 @@ export default function MarketPage() {
         item_id: entry.itemId,
         item_name: entry.itemName,
         trade_type: entry.tradeType,
+        roll_mode: entry.rollMode,
+        roll_alt: entry.rollAlt,
         season: entry.season,
         region_id: entry.regionId,
         category: entry.category,
@@ -350,6 +368,8 @@ export default function MarketPage() {
         base_cp: entry.baseCp,
         roll: entry.roll,
         bonus: entry.bonus,
+        extra_bonus: entry.extraBonus,
+        extra_dice: entry.extraDice ? JSON.stringify(entry.extraDice) : null,
         result: entry.result,
         percent_value: entry.percentValue,
         final_cp: entry.finalCp,
@@ -481,8 +501,20 @@ export default function MarketPage() {
                             {(log.user_nickname || log.user_login || '').trim() || '—'}
                           </td>
                           <td className="py-2 pr-4 whitespace-nowrap">{formatCoinsShort(log.base_cp ?? log.baseCp)}</td>
-                          <td className="py-2 pr-4 whitespace-nowrap">
-                            {log.roll} + {log.bonus} = {log.result}
+                             <td className="py-2 pr-4 whitespace-nowrap">
+                               {log.roll}
+                               {log.roll_alt ? ` / ${log.roll_alt}` : ''}
+                               {rollModeLabel(log.roll_mode) ? ` (${rollModeLabel(log.roll_mode)})` : ''}
+                               {' + '}
+                               {log.bonus}
+                               {log.extra_bonus ? ` + ${log.extra_bonus}` : ''} = {log.result}
+                              {parseExtraDice(log.extra_dice).length ? (
+                                <span className="ml-2 text-[11px] text-slate-400">
+                                  {parseExtraDice(log.extra_dice)
+                                    .map((die) => `${die.source || 'Доп. куб'}: к${die.sides} (${die.value})`)
+                                    .join(' · ')}
+                                </span>
+                              ) : null}
                           </td>
                           <td className="py-2 pr-4 whitespace-nowrap">{formatCoinsShort(log.final_cp ?? log.finalCp)}</td>
                         </tr>
