@@ -3,8 +3,9 @@ export default function UsersSection({
   users,
   shouldScroll,
   formatDate,
-  onToggleEditor,
+  onChangeRole,
   onAskDelete,
+  onManageAwards,
 }) {
   return (
     <section className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
@@ -32,29 +33,31 @@ export default function UsersSection({
             <tbody className="text-gray-800">
               {users.map((user) => {
                 const role = String(user.role || '').toLowerCase();
-                const isEditor = role === 'editor';
 
                 return (
                   <tr key={user.id} className="border-t border-gray-100">
                     <td className="py-2 pr-4 font-medium">{user.login}</td>
                     <td className="py-2 pr-4">{user.nickname || '—'}</td>
                     <td className="py-2 pr-4">
-                      <span className="px-2 py-1 rounded bg-gray-50 border border-gray-200 text-gray-700">{role || '—'}</span>
+                      <select
+                        value={role}
+                        onChange={(e) => onChangeRole(user, e.target.value)}
+                        className="px-2 py-1 rounded border border-gray-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      >
+                        <option value="user">Пользователь</option>
+                        <option value="editor">Редактор</option>
+                        <option value="admin">Администратор</option>
+                      </select>
                     </td>
                     <td className="py-2 pr-4">{formatDate(user.created_at)}</td>
                     <td className="py-2 pr-4">
                       <div className="flex items-center justify-end gap-2">
                         <button
                           type="button"
-                          disabled={false}
-                          onClick={() => onToggleEditor(user)}
-                          className={`px-3 py-1.5 rounded-lg border text-sm ${
-                            isEditor
-                              ? 'bg-white border-red-200 text-red-700 hover:bg-red-50'
-                              : 'bg-white border-emerald-200 text-emerald-700 hover:bg-emerald-50'
-                          }`}
+                          onClick={() => onManageAwards(user)}
+                          className="px-3 py-1.5 rounded-lg border border-amber-200 text-sm text-amber-700 hover:bg-amber-50"
                         >
-                          {isEditor ? 'Забрать editor' : 'Выдать editor'}
+                          Награды
                         </button>
                         <button
                           type="button"

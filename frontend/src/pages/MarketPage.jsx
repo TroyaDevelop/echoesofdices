@@ -306,7 +306,7 @@ export default function MarketPage() {
     return map;
   }, [markups]);
 
-  const isAdmin = useMemo(() => userRole === 'editor', [userRole]);
+  const isAdmin = useMemo(() => userRole === 'editor' || userRole === 'admin', [userRole]);
 
   useEffect(() => {
     if (!isAdmin && viewTab === 'logs') {

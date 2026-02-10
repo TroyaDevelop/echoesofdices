@@ -57,7 +57,7 @@ export default function PublicLayout({ children }) {
 
   const canSeeAdmin = useMemo(() => {
     const role = String(user?.role || '').toLowerCase();
-    return role === 'editor';
+    return role === 'editor' || role === 'admin';
   }, [user]);
 
   const handleLogout = () => {
@@ -151,7 +151,7 @@ export default function PublicLayout({ children }) {
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-slate-950 via-slate-950 to-purple-950 text-slate-100">
-      {/* Mobile top bar */}
+      {}
       <div className="md:hidden border-b border-white/10 bg-black/30 backdrop-blur">
         <div className="px-4 py-3 flex items-center gap-3">
           <button
@@ -172,7 +172,7 @@ export default function PublicLayout({ children }) {
         </div>
       </div>
 
-      {/* Mobile drawer */}
+      {}
       <div
         className={`fixed inset-0 z-50 md:hidden transition ${mobileMenuOpen ? '' : 'pointer-events-none'}`}
         aria-hidden={!mobileMenuOpen}
@@ -212,7 +212,7 @@ export default function PublicLayout({ children }) {
       </div>
 
       <div className="flex flex-1 min-h-0">
-        {/* Desktop sidebar */}
+        {}
         <aside className="hidden md:flex md:flex-col w-64 border-r border-white/10 bg-black/20 backdrop-blur h-screen sticky top-0">
           <div className="px-4 py-5">
             <Link to="/news" className="text-xl font-bold tracking-wide">

@@ -23,7 +23,7 @@ export default function AdminLoginPage() {
       } catch {
       }
       const role = String(data?.user?.role || '').toLowerCase();
-      if (role === 'editor') {
+      if (role === 'editor' || role === 'admin') {
         navigate('/admin', { replace: true });
       } else {
         navigate('/news', { replace: true });

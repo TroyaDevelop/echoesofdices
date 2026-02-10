@@ -25,9 +25,13 @@ const apiClient = async (path, options = {}) => {
   const token = getToken();
 
   const headers = {
-    'Content-Type': 'application/json',
     ...(options.headers || {}),
   };
+
+  
+  if (!(options.body instanceof FormData)) {
+    headers['Content-Type'] = 'application/json';
+  }
 
   if (token) headers.Authorization = `Bearer ${token}`;
 
@@ -66,6 +70,13 @@ export const authAPI = {
 export const userProfileAPI = {
   get: () => apiClient('/users/me', { method: 'GET' }),
   update: (data) => apiClient('/users/me', { method: 'PUT', body: JSON.stringify(data || {}) }),
+  listCharacters: () => apiClient('/users/me/characters', { method: 'GET' }),
+  createCharacter: (data) => apiClient('/users/me/characters', { method: 'POST', body: JSON.stringify(data || {}) }),
+  getCharacter: (id) => apiClient(`/users/me/characters/${id}`, { method: 'GET' }),
+  updateCharacter: (id, data) => apiClient(`/users/me/characters/${id}`, { method: 'PUT', body: JSON.stringify(data || {}) }),
+  deleteCharacter: (id) => apiClient(`/users/me/characters/${id}`, { method: 'DELETE' }),
+  getAwards: () => apiClient('/users/me/awards', { method: 'GET' }),
+  getUserAwards: (userId) => apiClient(`/users/${userId}/awards`, { method: 'GET' }),
 };
 
 export const adminAPI = {
@@ -78,6 +89,15 @@ export const adminAPI = {
   deleteUser: (id) => apiClient(`/admin/users/${id}`, { method: 'DELETE' }),
   createRegistrationKey: () => apiClient('/admin/registration-keys', { method: 'POST' }),
   listRegistrationKeys: () => apiClient('/admin/registration-keys', { method: 'GET' }),
+  
+  listAwards: () => apiClient('/admin/awards', { method: 'GET' }),
+  createAward: (formData) => apiClient('/admin/awards', { method: 'POST', body: formData }),
+  updateAward: (id, formData) => apiClient(`/admin/awards/${id}`, { method: 'PUT', body: formData }),
+  deleteAward: (id) => apiClient(`/admin/awards/${id}`, { method: 'DELETE' }),
+  grantAward: (userId, awardId) =>
+    apiClient(`/admin/users/${userId}/awards`, { method: 'POST', body: JSON.stringify({ award_id: awardId }) }),
+  revokeAward: (userId, awardId) =>
+    apiClient(`/admin/users/${userId}/awards/${awardId}`, { method: 'DELETE' }),
 };
 
 export const newsAPI = {
@@ -117,6 +137,9 @@ export const spellsAPI = {
   getLikes: (id) => apiClient(`/spells/${id}/likes`, { method: 'GET' }),
   like: (id) => apiClient(`/spells/${id}/like`, { method: 'POST' }),
   unlike: (id) => apiClient(`/spells/${id}/like`, { method: 'DELETE' }),
+  favorite: (id) => apiClient(`/spells/${id}/favorite`, { method: 'POST' }),
+  unfavorite: (id) => apiClient(`/spells/${id}/favorite`, { method: 'DELETE' }),
+  listFavorites: () => apiClient('/spells/favorites', { method: 'GET' }),
   listComments: (id) => apiClient(`/spells/${id}/comments`, { method: 'GET' }),
   addComment: (id, content) =>
     apiClient(`/spells/${id}/comments`, {

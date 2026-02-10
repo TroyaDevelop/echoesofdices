@@ -6,6 +6,7 @@ import ConfirmDeleteModal from '../../components/admin/users/ConfirmDeleteModal.
 import RegistrationKeysSection from '../../components/admin/users/RegistrationKeysSection.jsx';
 import UsersHeader from '../../components/admin/users/UsersHeader.jsx';
 import UsersSection from '../../components/admin/users/UsersSection.jsx';
+import UserAwardsModal from '../../components/admin/awards/UserAwardsModal.jsx';
 import { adminAPI } from '../../lib/api.js';
 
 const formatDate = (value) => {
@@ -31,6 +32,7 @@ export default function AdminUsersPage() {
   const [error, setError] = useState('');
   const [creatingKey, setCreatingKey] = useState(false);
   const [deleteModal, setDeleteModal] = useState({ open: false, user: null, busy: false });
+  const [awardsUser, setAwardsUser] = useState(null);
 
   const loadAll = async () => {
     setError('');
@@ -55,7 +57,7 @@ export default function AdminUsersPage() {
       setCurrentUserRole(role);
       const id = parsed?.id;
       setCurrentUserId(Number.isFinite(Number(id)) ? Number(id) : null);
-      if (role !== 'editor') {
+      if (role !== 'admin') {
         setLoading(false);
         return;
       }
@@ -81,12 +83,11 @@ export default function AdminUsersPage() {
     }
   };
 
-  const toggleEditor = async (u) => {
+  const toggleEditor = async (u, newRole) => {
     setError('');
     try {
-      const nextRole = String(u.role).toLowerCase() === 'editor' ? 'user' : 'editor';
-      await adminAPI.setUserRole(u.id, nextRole);
-      setUsers((prev) => prev.map((x) => (x.id === u.id ? { ...x, role: nextRole } : x)));
+      await adminAPI.setUserRole(u.id, newRole);
+      setUsers((prev) => prev.map((x) => (x.id === u.id ? { ...x, role: newRole } : x)));
     } catch (e) {
       console.error(e);
       setError(e.message || 'Ошибка изменения роли');
@@ -137,9 +138,9 @@ export default function AdminUsersPage() {
 
         {error && <div className="text-red-700 bg-red-50 border border-red-200 rounded-xl p-4">{error}</div>}
 
-        {currentUserRole !== 'editor' ? <AccessNotice /> : null}
+        {currentUserRole !== 'admin' ? <AccessNotice /> : null}
 
-        {currentUserRole === 'editor' ? (
+        {currentUserRole === 'admin' ? (
           <RegistrationKeysSection
             activeKeysCount={activeKeys.length}
             creatingKey={creatingKey}
@@ -151,14 +152,15 @@ export default function AdminUsersPage() {
           />
         ) : null}
 
-        {currentUserRole === 'editor' ? (
+        {currentUserRole === 'admin' ? (
           <UsersSection
             loading={loading}
             users={visibleUsers}
             shouldScroll={shouldScrollUsers}
             formatDate={formatDate}
-            onToggleEditor={toggleEditor}
+            onChangeRole={toggleEditor}
             onAskDelete={askDelete}
+            onManageAwards={setAwardsUser}
           />
         ) : null}
         <ConfirmDeleteModal
@@ -168,6 +170,10 @@ export default function AdminUsersPage() {
           onCancel={cancelDelete}
           onConfirm={confirmDelete}
         />
+
+        {awardsUser ? (
+          <UserAwardsModal user={awardsUser} onClose={() => setAwardsUser(null)} />
+        ) : null}
       </div>
     </AdminLayout>
   );

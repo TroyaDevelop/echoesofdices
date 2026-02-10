@@ -98,7 +98,7 @@ export default function TraitDetailPage() {
       const raw = localStorage.getItem('user');
       const parsed = raw ? JSON.parse(raw) : null;
       const role = parsed ? String(parsed?.role || '').toLowerCase() : '';
-      return role === 'editor';
+      return role === 'editor' || role === 'admin';
     } catch {
       return false;
     }
@@ -247,13 +247,15 @@ export default function TraitDetailPage() {
 
               <div className="h-px bg-black/10 my-4" />
 
-              <LikeButton
-                liked={likes.liked}
-                count={likes.count}
-                busy={likeBusy}
-                canLike={canLike}
-                onToggle={toggleLike}
-              />
+              <div className="flex items-center justify-end mb-3">
+                <LikeButton
+                  liked={likes.liked}
+                  count={likes.count}
+                  busy={likeBusy}
+                  canLike={canLike}
+                  onToggle={toggleLike}
+                />
+              </div>
 
               <CommentsSection
                 comments={comments}

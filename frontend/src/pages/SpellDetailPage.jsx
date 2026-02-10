@@ -6,6 +6,7 @@ import SpellHeader from '../components/spells/SpellHeader.jsx';
 import SpellMetaGrid from '../components/spells/SpellMetaGrid.jsx';
 import SpellDescription from '../components/spells/SpellDescription.jsx';
 import LikeButton from '../components/spells/LikeButton.jsx';
+import FavoriteButton from '../components/spells/FavoriteButton.jsx';
 import CommentsSection from '../components/spells/CommentsSection.jsx';
 import ConfirmModal from '../components/spells/ConfirmModal.jsx';
 
@@ -26,6 +27,8 @@ export default function SpellDetailPage() {
   const [error, setError] = useState('');
   const [likes, setLikes] = useState({ count: 0, liked: false });
   const [likeBusy, setLikeBusy] = useState(false);
+  const [favorited, setFavorited] = useState(false);
+  const [favBusy, setFavBusy] = useState(false);
 
   const [comments, setComments] = useState([]);
   const [commentText, setCommentText] = useState('');
@@ -67,6 +70,7 @@ export default function SpellDetailPage() {
             count: Number(likesData.count || 0),
             liked: Boolean(likesData.liked),
           });
+          if (likesData.favorited !== undefined) setFavorited(Boolean(likesData.favorited));
         }
 
         setComments(Array.isArray(commentsData) ? commentsData : []);
@@ -126,7 +130,7 @@ export default function SpellDetailPage() {
       const raw = localStorage.getItem('user');
       const parsed = raw ? JSON.parse(raw) : null;
       const role = parsed ? String(parsed?.role || '').toLowerCase() : '';
-      return role === 'editor';
+      return role === 'editor' || role === 'admin';
     } catch {
       return false;
     }
@@ -179,6 +183,31 @@ export default function SpellDetailPage() {
       setError(e.message || 'Ошибка лайка');
     } finally {
       setLikeBusy(false);
+    }
+  };
+
+  const toggleFavorite = async () => {
+    if (!spell) return;
+    if (!canLike) {
+      navigate('/login');
+      return;
+    }
+    if (favBusy) return;
+    setFavBusy(true);
+    setError('');
+    try {
+      if (favorited) {
+        await spellsAPI.unfavorite(spell.id);
+        setFavorited(false);
+      } else {
+        await spellsAPI.favorite(spell.id);
+        setFavorited(true);
+      }
+    } catch (e) {
+      console.error(e);
+      setError(e.message || 'Ошибка избранного');
+    } finally {
+      setFavBusy(false);
     }
   };
 
@@ -278,13 +307,21 @@ export default function SpellDetailPage() {
 
               <div className="h-px bg-black/10 my-4" />
 
-              <LikeButton
-                liked={likes.liked}
-                count={likes.count}
-                busy={likeBusy}
-                canLike={canLike}
-                onToggle={toggleLike}
-              />
+              <div className="flex items-center justify-end gap-1 mt-2">
+                <LikeButton
+                  liked={likes.liked}
+                  count={likes.count}
+                  busy={likeBusy}
+                  canLike={canLike}
+                  onToggle={toggleLike}
+                />
+                <FavoriteButton
+                  favorited={favorited}
+                  busy={favBusy}
+                  canFavorite={canLike}
+                  onToggle={toggleFavorite}
+                />
+              </div>
 
               <CommentsSection
                 comments={comments}

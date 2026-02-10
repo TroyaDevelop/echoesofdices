@@ -30,7 +30,7 @@ export default function AdminLayout({ children }) {
     try {
       const parsedUser = JSON.parse(userData);
       const role = String(parsedUser?.role || '').toLowerCase();
-      if (role !== 'editor') {
+      if (role !== 'editor' && role !== 'admin') {
         logoutAndRedirect('/news');
         return () => {};
       }
@@ -57,8 +57,10 @@ export default function AdminLayout({ children }) {
     };
   }, [navigate]);
 
+  const isAdmin = useMemo(() => String(user?.role || '').toLowerCase() === 'admin', [user]);
+
   const navigation = useMemo(() => {
-    return [
+    const nav = [
       {
         label: 'Основное',
         items: [
@@ -206,6 +208,7 @@ export default function AdminLayout({ children }) {
           {
             name: 'Пользователи',
             href: '/admin/users',
+            adminOnly: true,
             icon: (
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
@@ -220,7 +223,15 @@ export default function AdminLayout({ children }) {
         ],
       },
     ];
-  }, [user]);
+    
+    if (!isAdmin) {
+      return nav.map(section => ({
+        ...section,
+        items: section.items.filter(item => !item.adminOnly),
+      })).filter(section => section.items.length > 0);
+    }
+    return nav;
+  }, [user, isAdmin]);
 
   const handleLogout = () => {
     localStorage.removeItem('token');

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import AdminLayout from '../../components/admin/AdminLayout.jsx';
+import AwardsPanel from '../../components/admin/awards/AwardsPanel.jsx';
 import SpellClassesPanel from '../../components/admin/spells/SpellClassesPanel.jsx';
 import { loreAPI, sourcesAPI, spellClassesAPI } from '../../lib/api.js';
 
@@ -137,7 +138,7 @@ export default function AdminUtilitiesPage() {
 
         {error && <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">{error}</div>}
 
-        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 xl:grid-cols-2 2xl:grid-cols-4 gap-6">
           <div className="bg-white rounded-lg shadow-sm border p-4 space-y-3">
             <div className="flex items-center justify-between gap-3 flex-wrap">
               <div className="text-lg font-semibold text-gray-900">Локации</div>
@@ -244,6 +245,8 @@ export default function AdminUtilitiesPage() {
             onRemove={handleRemoveClass}
             busy={classBusy}
           />
+
+          <AwardsPanel />
         </div>
       </div>
     </AdminLayout>
