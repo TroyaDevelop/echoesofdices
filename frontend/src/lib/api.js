@@ -43,11 +43,14 @@ const apiClient = async (path, options = {}) => {
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
 
-    if (res.status === 401 || res.status === 403) {
+    if (res.status === 401) {
       clearAuthState();
     }
 
-    throw new Error(body.error || body.message || 'API Error');
+    const error = new Error(body.error || body.message || 'API Error');
+    error.status = res.status;
+    error.payload = body;
+    throw error;
   }
 
   return res.json();
@@ -75,6 +78,7 @@ export const userProfileAPI = {
   getCharacter: (id) => apiClient(`/users/me/characters/${id}`, { method: 'GET' }),
   updateCharacter: (id, data) => apiClient(`/users/me/characters/${id}`, { method: 'PUT', body: JSON.stringify(data || {}) }),
   deleteCharacter: (id) => apiClient(`/users/me/characters/${id}`, { method: 'DELETE' }),
+  uploadCharacterImage: (formData) => apiClient('/users/me/character-image', { method: 'POST', body: formData }),
   getAwards: () => apiClient('/users/me/awards', { method: 'GET' }),
   getUserAwards: (userId) => apiClient(`/users/${userId}/awards`, { method: 'GET' }),
 };

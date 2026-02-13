@@ -109,3 +109,15 @@ export async function deleteMyCharacterHandler(req: Request, res: Response) {
     res.status(err.status || 500).json({ error: err.message || 'Ошибка при удалении листа персонажа' });
   }
 }
+
+export async function uploadMyCharacterImageHandler(req: Request, res: Response) {
+  try {
+    if (!req.file?.filename) {
+      return res.status(400).json({ error: 'Файл изображения не загружен' });
+    }
+    return res.json({ image_url: `/uploads/characters/${req.file.filename}` });
+  } catch (error) {
+    const err = error as HttpError;
+    return res.status(err.status || 500).json({ error: err.message || 'Ошибка загрузки изображения' });
+  }
+}

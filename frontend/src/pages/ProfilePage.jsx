@@ -12,6 +12,19 @@ const formatJoinDate = (value) => {
   return date.toLocaleDateString('ru-RU', { day: '2-digit', month: 'long', year: 'numeric' });
 };
 
+const shortDateTime = (value) => {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleString('ru-RU', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+};
+
 const TABS = [
   { key: 'profile', label: 'Профиль' },
   { key: 'sheet', label: 'Лист персонажа' },
@@ -266,7 +279,16 @@ export default function ProfilePage() {
                         {characters.map((ch) => (
                           <div
                             key={ch.id}
-                            className="text-left rounded-xl border border-white/10 bg-black/20 hover:bg-white/5 transition-colors p-4"
+                            role="button"
+                            tabIndex={0}
+                            onClick={() => setActiveCharacterId(ch.id)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault();
+                                setActiveCharacterId(ch.id);
+                              }
+                            }}
+                            className="text-left rounded-xl border border-white/10 bg-black/20 hover:bg-white/5 transition-colors p-4 cursor-pointer focus:outline-none focus:ring-2 focus:ring-purple-400/60"
                           >
                             <div className="flex items-start justify-between gap-3">
                               <div>
@@ -277,22 +299,25 @@ export default function ProfilePage() {
                                   {[ch.race, ch.class_name].filter(Boolean).join(', ') || '—'}
                                 </div>
                                 <div className="text-xs text-slate-500 mt-2">Уровень: {ch.character_level || 1}</div>
+                                <div className="text-xs text-slate-500 mt-1">{ch.background || 'Без предыстории'}{ch.alignment ? ` • ${ch.alignment}` : ''}</div>
+                                <div className="text-xs text-slate-500 mt-1">
+                                  Хиты: {ch.hp_current ?? 0}/{ch.hp_max ?? 0} • КД: {ch.armor_class ?? '—'}
+                                </div>
+                                {shortDateTime(ch.updated_at) ? (
+                                  <div className="text-[11px] text-slate-600 mt-2">Обновлён: {shortDateTime(ch.updated_at)}</div>
+                                ) : null}
                               </div>
                               <button
                                 type="button"
-                                onClick={() => deleteCharacter(ch.id)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  deleteCharacter(ch.id);
+                                }}
                                 className="text-xs text-red-300 hover:text-red-200"
                               >
                                 Удалить
                               </button>
                             </div>
-                            <button
-                              type="button"
-                              onClick={() => setActiveCharacterId(ch.id)}
-                              className="mt-3 w-full px-3 py-2 rounded-lg text-sm font-medium bg-white/5 text-slate-200 hover:bg-white/10"
-                            >
-                              Открыть лист
-                            </button>
                           </div>
                         ))}
                       </div>

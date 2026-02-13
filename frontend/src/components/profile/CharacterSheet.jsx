@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { userProfileAPI } from '../../lib/api.js';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { spellsAPI, userProfileAPI } from '../../lib/api.js';
+import { API_URL } from '../../lib/config.js';
 
 
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, Math.trunc(v)));
@@ -17,6 +18,26 @@ const profBonusForLevel = (lvl) => {
   return 2;
 };
 const nextProf = (v) => ((Number(v) || 0) + 1) % 3;
+const MAX_HIT_DICE_ROWS = 3;
+const normalizeCharacterImageUrl = (value) => {
+  const url = String(value || '').trim();
+  if (!url) return '';
+  if (/^(https?:)?\/\//i.test(url) || /^data:/i.test(url) || /^blob:/i.test(url)) return url;
+  if (url.startsWith('/')) return url;
+  return `/${url}`;
+};
+const resolveCharacterImageSrc = (value) => {
+  const normalized = normalizeCharacterImageUrl(value);
+  if (!normalized) return '';
+  if (/^(https?:)?\/\//i.test(normalized) || /^data:/i.test(normalized) || /^blob:/i.test(normalized)) return normalized;
+  if (!normalized.startsWith('/uploads/')) return normalized;
+  try {
+    const apiUrl = new URL(API_URL, typeof window !== 'undefined' ? window.location.origin : 'http://localhost');
+    return `${apiUrl.origin}${normalized}`;
+  } catch {
+    return normalized;
+  }
+};
 const profDot = (v) =>
   v === 2
     ? 'border-emerald-200 bg-emerald-400 ring-2 ring-emerald-200/70'
@@ -87,7 +108,6 @@ export default function CharacterSheet({ character, owner, onSaved }) {
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
-  const [saved, setSaved] = useState(false);
 
   
   const [charName, setCharName] = useState('');
@@ -129,8 +149,7 @@ export default function CharacterSheet({ character, owner, onSaved }) {
   const [hpMax, setHpMax] = useState('');
   const [hpCur, setHpCur] = useState('');
   const [tempHp, setTempHp] = useState('');
-  const [hitDiceType, setHitDiceType] = useState('');
-  const [hitDiceCount, setHitDiceCount] = useState('');
+  const [hitDiceList, setHitDiceList] = useState([{ type: '', count: '' }]);
   const [speed, setSpeed] = useState('');
   const [initBonus, setInitBonus] = useState('');
   const [inspiration, setInspiration] = useState(false);
@@ -143,6 +162,14 @@ export default function CharacterSheet({ character, owner, onSaved }) {
 
   
   const [spellAbility, setSpellAbility] = useState('');
+  const [spellsQuery, setSpellsQuery] = useState('');
+  const [spellsCatalog, setSpellsCatalog] = useState([]);
+  const [spellsLoaded, setSpellsLoaded] = useState(false);
+  const [spellsLoading, setSpellsLoading] = useState(false);
+  const [spellsError, setSpellsError] = useState('');
+  const [knownSpells, setKnownSpells] = useState([]);
+  const [characterImageUrl, setCharacterImageUrl] = useState('');
+  const [imageUploading, setImageUploading] = useState(false);
   const [conditions, setConditions] = useState('');
   const [personality, setPersonality] = useState('');
   const [ideals, setIdeals] = useState('');
@@ -160,10 +187,69 @@ export default function CharacterSheet({ character, owner, onSaved }) {
   const [deathSaveFailure, setDeathSaveFailure] = useState(0);
 
   const [panel, setPanel] = useState('attacks');
+  const [textareaHeights, setTextareaHeights] = useState({});
+
+  const hydratingRef = useRef(false);
+  const autoSaveReadyRef = useRef(false);
+  const lastSavedPayloadRef = useRef('');
+  const autoSaveKeyRef = useRef('');
+  const savingRef = useRef(false);
+  const imageInputRef = useRef(null);
+
+  const textareaHeightsStorageKey = useMemo(() => {
+    const id = character?.id;
+    if (!id) return '';
+    return `character_sheet_textarea_heights:${id}`;
+  }, [character?.id]);
+
+  useEffect(() => {
+    if (!textareaHeightsStorageKey || typeof window === 'undefined') {
+      setTextareaHeights({});
+      return;
+    }
+    try {
+      const raw = window.localStorage.getItem(textareaHeightsStorageKey);
+      const parsed = raw ? JSON.parse(raw) : {};
+      setTextareaHeights(parsed && typeof parsed === 'object' ? parsed : {});
+    } catch {
+      setTextareaHeights({});
+    }
+  }, [textareaHeightsStorageKey]);
+
+  useEffect(() => {
+    if (!textareaHeightsStorageKey || typeof window === 'undefined') return;
+    try {
+      window.localStorage.setItem(textareaHeightsStorageKey, JSON.stringify(textareaHeights));
+    } catch {}
+  }, [textareaHeightsStorageKey, textareaHeights]);
+
+  useEffect(() => {
+    if (panel === 'features' || panel === 'goals') {
+      setPanel('attacks');
+    }
+  }, [panel]);
+
+  const saveTextareaHeight = useCallback((key, target) => {
+    const height = target?.style?.height;
+    if (!height) return;
+    setTextareaHeights((prev) => (prev[key] === height ? prev : { ...prev, [key]: height }));
+  }, []);
+
+  const bindTextareaSize = useCallback(
+    (key) => ({
+      style: textareaHeights[key] ? { height: textareaHeights[key] } : undefined,
+      onMouseUp: (e) => saveTextareaHeight(key, e.currentTarget),
+      onTouchEnd: (e) => saveTextareaHeight(key, e.currentTarget),
+      onBlur: (e) => saveTextareaHeight(key, e.currentTarget),
+    }),
+    [saveTextareaHeight, textareaHeights],
+  );
 
   
   useEffect(() => {
     if (!character) return;
+    hydratingRef.current = true;
+    autoSaveReadyRef.current = false;
     setCharName(init('character_name'));
     setRace(init('race'));
     setClassName(init('class_name'));
@@ -191,8 +277,31 @@ export default function CharacterSheet({ character, owner, onSaved }) {
     setHpMax(initNum('hp_max'));
     setHpCur(initNum('hp_current'));
     setTempHp(initNum('temp_hp'));
-    setHitDiceType(init('hit_dice_type'));
-    setHitDiceCount(initNum('hit_dice_count'));
+    try {
+      const raw = character.hit_dice_json;
+      const parsed = raw ? JSON.parse(raw) : [];
+      const list = Array.isArray(parsed) ? parsed : [];
+      const normalized = list
+        .map((item) => {
+          if (!item || typeof item !== 'object') return null;
+          const type = String(item.type || '').trim();
+          const count = item.count === '' || item.count === null || item.count === undefined ? '' : String(item.count);
+          return type || count !== '' ? { type, count } : null;
+        })
+        .filter(Boolean)
+        .slice(0, MAX_HIT_DICE_ROWS);
+      if (normalized.length > 0) {
+        setHitDiceList(normalized);
+      } else {
+        const fallbackType = init('hit_dice_type');
+        const fallbackCount = initNum('hit_dice_count');
+        setHitDiceList(fallbackType || fallbackCount ? [{ type: fallbackType, count: fallbackCount }] : [{ type: '', count: '' }]);
+      }
+    } catch {
+      const fallbackType = init('hit_dice_type');
+      const fallbackCount = initNum('hit_dice_count');
+      setHitDiceList(fallbackType || fallbackCount ? [{ type: fallbackType, count: fallbackCount }] : [{ type: '', count: '' }]);
+    }
     setSpeed(initNum('speed'));
     setInitBonus(initNum('initiative_bonus'));
     setInspiration(Boolean(Number(character.inspiration)));
@@ -201,6 +310,49 @@ export default function CharacterSheet({ character, owner, onSaved }) {
     setGoldGp(initNum('gold_gp'));
     setGoldPp(initNum('gold_pp'));
     setSpellAbility(init('spellcasting_ability'));
+    setSpellsQuery('');
+    setSpellsError('');
+
+    try {
+      const raw = character.character_images_json;
+      const parsed = raw ? JSON.parse(raw) : [];
+      const list = Array.isArray(parsed) ? parsed : [];
+      const normalized = list
+        .map((url) => normalizeCharacterImageUrl(url))
+        .filter(Boolean);
+      if (normalized.length > 0) {
+        setCharacterImageUrl(normalized[0]);
+      } else {
+        const single = normalizeCharacterImageUrl(init('character_image_url'));
+        setCharacterImageUrl(single || '');
+      }
+    } catch {
+      const single = normalizeCharacterImageUrl(init('character_image_url'));
+      setCharacterImageUrl(single || '');
+    }
+    try {
+      const raw = character.spells_json;
+      const parsed = raw ? JSON.parse(raw) : [];
+      const list = Array.isArray(parsed) ? parsed : [];
+      const normalized = list
+        .map((item) => {
+          if (typeof item === 'number' || typeof item === 'string') {
+            const id = Number(item);
+            return Number.isFinite(id) ? { id, name: '' } : null;
+          }
+          if (item && typeof item === 'object') {
+            const id = Number(item.id ?? item.spell_id ?? item.spellId);
+            if (!Number.isFinite(id)) return null;
+            const name = item.name || item.title || '';
+            return { id, name: String(name) };
+          }
+          return null;
+        })
+        .filter(Boolean);
+      setKnownSpells(normalized);
+    } catch {
+      setKnownSpells([]);
+    }
     setConditions(init('conditions'));
     setPersonality(init('personality'));
     setIdeals(init('ideals'));
@@ -220,6 +372,10 @@ export default function CharacterSheet({ character, owner, onSaved }) {
     } catch {
       setAttacks([]);
     }
+
+    queueMicrotask(() => {
+      hydratingRef.current = false;
+    });
   }, [character, init, initNum, initInt]);
 
   
@@ -295,6 +451,33 @@ export default function CharacterSheet({ character, owner, onSaved }) {
     }, {});
   }, []);
 
+  useEffect(() => {
+    if (panel !== 'spells' || spellsLoaded) return;
+    let isActive = true;
+    setSpellsLoading(true);
+    setSpellsError('');
+    spellsAPI.list()
+      .then((data) => {
+        if (!isActive) return;
+        setSpellsCatalog(Array.isArray(data) ? data : []);
+        setSpellsLoaded(true);
+      })
+      .catch((e) => {
+        if (!isActive) return;
+        setSpellsError(e.message || 'Ошибка загрузки заклинаний');
+      })
+      .finally(() => {
+        if (isActive) setSpellsLoading(false);
+      });
+    return () => { isActive = false; };
+  }, [panel, spellsLoaded]);
+
+  useEffect(() => {
+    if (!spellsCatalog.length || !knownSpells.length) return;
+    const map = new Map(spellsCatalog.map((s) => [Number(s.id), s.name || s.title || '']));
+    setKnownSpells((prev) => prev.map((s) => (s.name ? s : { ...s, name: map.get(s.id) || '' })));
+  }, [spellsCatalog]);
+
   
   const addAttack = () => setAttacks((p) => [...p, { name: '', bonus: '', damage: '' }]);
   const removeAttack = (i) => setAttacks((p) => p.filter((_, idx) => idx !== i));
@@ -309,78 +492,269 @@ export default function CharacterSheet({ character, owner, onSaved }) {
     setDeathSaveFailure((prev) => (prev === index + 1 ? index : index + 1));
   };
 
-  
-  const handleSave = async (e) => {
-    e.preventDefault();
-    if (saving) return;
-    setSaving(true);
+  const addHitDie = () => {
+    setHitDiceList((prev) => {
+      if (prev.length >= MAX_HIT_DICE_ROWS) return prev;
+      return [...prev, { type: '', count: '' }];
+    });
+  };
+
+  const updateHitDieType = (index, value) => {
+    setHitDiceList((prev) => prev.map((row, i) => (i === index ? { ...row, type: value } : row)));
+  };
+
+  const updateHitDieCount = (index, value) => {
+    setHitDiceList((prev) => prev.map((row, i) => (i === index ? { ...row, count: value } : row)));
+  };
+
+  const removeHitDie = (index) => {
+    setHitDiceList((prev) => {
+      const next = prev.filter((_, i) => i !== index);
+      return next.length > 0 ? next : [{ type: '', count: '' }];
+    });
+  };
+
+  const uploadCharacterImageFile = async (file) => {
+    if (!file || !character?.id) return;
+    setImageUploading(true);
     setError('');
-    setSaved(false);
     try {
-      const numOrNull = (v) => {
-        if (v === '' || v === null || v === undefined) return null;
-        const n = Number(v);
-        return Number.isFinite(n) ? n : null;
-      };
-      const payload = {
-        character_name: charName || null,
-        race: race || null,
-        class_name: className || null,
-        background: background || null,
-        alignment: alignment || null,
-        character_level: numOrNull(level) ?? 1,
-        xp_current: numOrNull(xpCurrent),
-        xp_max: numOrNull(xpMax),
-        strength: numOrNull(str),
-        dexterity: numOrNull(dex),
-        constitution: numOrNull(con),
-        intelligence: numOrNull(int_),
-        wisdom: numOrNull(wis),
-        charisma: numOrNull(cha),
-        ...Object.fromEntries(SAVES.map((s) => [s.key, saves[s.key] ?? 0])),
-        ...Object.fromEntries(SKILLS.map((s) => [s.key, skills[s.key] ?? 0])),
-        armor_class: numOrNull(ac),
-        hp_max: numOrNull(hpMax),
-        hp_current: numOrNull(hpCur),
-        temp_hp: numOrNull(tempHp),
-        hit_dice_type: hitDiceType || null,
-        hit_dice_count: numOrNull(hitDiceCount),
-        speed: numOrNull(speed),
-        initiative_bonus: numOrNull(initBonus),
-        inspiration: inspiration ? 1 : 0,
-        gold_cp: numOrNull(goldCp),
-        gold_sp: numOrNull(goldSp),
-        gold_gp: numOrNull(goldGp),
-        gold_pp: numOrNull(goldPp),
-        spellcasting_ability: spellAbility || null,
-        conditions: conditions || null,
-        personality: personality || null,
-        ideals: ideals || null,
-        bonds: bonds || null,
-        flaws: flaws || null,
-        other_proficiencies: otherProf || null,
-        features_traits: features || null,
-        notes: notes || null,
-        equipment: equipment || null,
-        death_save_success: deathSaveSuccess,
-        death_save_failure: deathSaveFailure,
-        attacks_json: JSON.stringify(attacks.filter((a) => a.name || a.bonus || a.damage)),
-      };
-      if (!character?.id) throw new Error('Лист персонажа не выбран');
-      const next = await userProfileAPI.updateCharacter(character.id, payload);
-      setSaved(true);
-      if (onSaved) onSaved(next);
+      const formData = new FormData();
+      formData.append('image', file);
+      const result = await userProfileAPI.uploadCharacterImage(formData);
+      const imageUrl = normalizeCharacterImageUrl(result?.image_url);
+      if (imageUrl) {
+        setCharacterImageUrl(imageUrl);
+      }
     } catch (e) {
-      console.error(e);
-      setError(e.message || 'Ошибка сохранения');
+      setError(e.message || 'Ошибка загрузки изображения');
     } finally {
-      setSaving(false);
+      setImageUploading(false);
     }
   };
+
+  const openCharacterImagePicker = () => {
+    if (imageUploading) return;
+    imageInputRef.current?.click();
+  };
+
+  const buildPayload = useCallback(() => {
+    const numOrNull = (v) => {
+      if (v === '' || v === null || v === undefined) return null;
+      const n = Number(v);
+      return Number.isFinite(n) ? n : null;
+    };
+
+    return {
+      character_name: charName || null,
+      race: race || null,
+      class_name: className || null,
+      background: background || null,
+      alignment: alignment || null,
+      character_level: numOrNull(level) ?? 1,
+      xp_current: numOrNull(xpCurrent),
+      xp_max: numOrNull(xpMax),
+      strength: numOrNull(str),
+      dexterity: numOrNull(dex),
+      constitution: numOrNull(con),
+      intelligence: numOrNull(int_),
+      wisdom: numOrNull(wis),
+      charisma: numOrNull(cha),
+      ...Object.fromEntries(SAVES.map((s) => [s.key, saves[s.key] ?? 0])),
+      ...Object.fromEntries(SKILLS.map((s) => [s.key, skills[s.key] ?? 0])),
+      armor_class: numOrNull(ac),
+      hp_max: numOrNull(hpMax),
+      hp_current: numOrNull(hpCur),
+      temp_hp: numOrNull(tempHp),
+      hit_dice_type: hitDiceList[0]?.type || null,
+      hit_dice_count: numOrNull(hitDiceList[0]?.count),
+      hit_dice_json: JSON.stringify(
+        hitDiceList
+          .map((row) => ({ type: String(row.type || '').trim(), count: numOrNull(row.count) }))
+          .filter((row) => row.type || row.count !== null),
+      ),
+      speed: numOrNull(speed),
+      initiative_bonus: numOrNull(initBonus),
+      inspiration: inspiration ? 1 : 0,
+      gold_cp: numOrNull(goldCp),
+      gold_sp: numOrNull(goldSp),
+      gold_gp: numOrNull(goldGp),
+      gold_pp: numOrNull(goldPp),
+      spellcasting_ability: spellAbility || null,
+      spells_json: JSON.stringify(knownSpells.map((s) => s.id)),
+      character_image_url: normalizeCharacterImageUrl(characterImageUrl) || null,
+      character_images_json: null,
+      conditions: conditions || null,
+      personality: personality || null,
+      ideals: ideals || null,
+      bonds: bonds || null,
+      flaws: flaws || null,
+      other_proficiencies: otherProf || null,
+      features_traits: features || null,
+      notes: notes || null,
+      equipment: equipment || null,
+      death_save_success: deathSaveSuccess,
+      death_save_failure: deathSaveFailure,
+      attacks_json: JSON.stringify(attacks.filter((a) => a.name || a.bonus || a.damage)),
+    };
+  }, [
+    ac,
+    alignment,
+    attacks,
+    bonds,
+    cha,
+    charName,
+    characterImageUrl,
+    className,
+    con,
+    conditions,
+    deathSaveFailure,
+    deathSaveSuccess,
+    dex,
+    equipment,
+    features,
+    flaws,
+    goldCp,
+    goldGp,
+    goldPp,
+    goldSp,
+    hitDiceList,
+    hpCur,
+    hpMax,
+    ideals,
+    initBonus,
+    inspiration,
+    int_,
+    knownSpells,
+    level,
+    notes,
+    otherProf,
+    personality,
+    race,
+    saves,
+    speed,
+    spellAbility,
+    skills,
+    str,
+    tempHp,
+    wis,
+    xpCurrent,
+    xpMax,
+    background,
+  ]);
+
+  const saveCharacter = useCallback(async ({ notifyParent = false } = {}) => {
+    if (!character?.id) throw new Error('Лист персонажа не выбран');
+    const payload = buildPayload();
+    const payloadKey = JSON.stringify(payload);
+    setSaving(true);
+    savingRef.current = true;
+    setError('');
+    try {
+      const next = await userProfileAPI.updateCharacter(character.id, payload);
+      lastSavedPayloadRef.current = payloadKey;
+      if (notifyParent && onSaved) onSaved(next);
+      return next;
+    } finally {
+      setSaving(false);
+      savingRef.current = false;
+    }
+  }, [buildPayload, character?.id, onSaved]);
+
+  const addKnownSpell = (spell) => {
+    if (!spell?.id) return;
+    const id = Number(spell.id);
+    if (!Number.isFinite(id)) return;
+    setKnownSpells((prev) => (prev.some((s) => s.id === id) ? prev : [...prev, { id, name: spell.name || '' }]));
+    setSpellsQuery('');
+  };
+
+  const removeKnownSpell = (id) => {
+    setKnownSpells((prev) => prev.filter((s) => s.id !== id));
+  };
+
+  
+  const autoSaveKey = useMemo(() => JSON.stringify(buildPayload()), [buildPayload]);
+
+  useEffect(() => {
+    autoSaveKeyRef.current = autoSaveKey;
+  }, [autoSaveKey]);
+
+  useEffect(() => {
+    if (!character?.id || hydratingRef.current) return;
+    if (!autoSaveReadyRef.current) {
+      autoSaveReadyRef.current = true;
+      lastSavedPayloadRef.current = autoSaveKey;
+      autoSaveKeyRef.current = autoSaveKey;
+    }
+
+    const interval = setInterval(async () => {
+      if (hydratingRef.current) return;
+      if (savingRef.current) return;
+
+      const currentKey = autoSaveKeyRef.current;
+      if (!currentKey || currentKey === lastSavedPayloadRef.current) return;
+
+      try {
+        await saveCharacter({ notifyParent: false });
+      } catch (e) {
+        console.error(e);
+        setError(e.message || 'Ошибка автосохранения');
+      }
+    }, 10000);
+
+    return () => clearInterval(interval);
+  }, [autoSaveKey, character?.id, saveCharacter]);
 
   
   const spellDC = spellAbility ? 8 + profBonus + abilityMod(abilityState[spellAbility]) : null;
   const spellAtk = spellAbility ? profBonus + abilityMod(abilityState[spellAbility]) : null;
+
+  const filteredSpells = useMemo(() => {
+    const q = spellsQuery.trim().toLowerCase();
+    if (!q) return [];
+    const used = new Set(knownSpells.map((s) => s.id));
+    return (spellsCatalog || [])
+      .filter((s) => !used.has(Number(s.id)))
+      .filter((s) => {
+        const name = String(s.name || '').toLowerCase();
+        const nameEn = String(s.name_en || '').toLowerCase();
+        return name.includes(q) || nameEn.includes(q);
+      })
+      .slice(0, 8);
+  }, [spellsQuery, spellsCatalog, knownSpells]);
+
+  const knownSpellDetails = useMemo(() => {
+    const map = new Map(spellsCatalog.map((s) => [Number(s.id), s]));
+    return knownSpells.map((s) => {
+      const id = Number(s.id);
+      const catalog = map.get(id);
+      const name = s.name || catalog?.name || catalog?.title || `#${id}`;
+      const lvl = Number(catalog?.level);
+      return { id, name, level: Number.isFinite(lvl) ? lvl : null };
+    });
+  }, [knownSpells, spellsCatalog]);
+
+  const groupedKnownSpells = useMemo(() => {
+    const groups = new Map();
+    for (const spell of knownSpellDetails) {
+      const key = spell.level === null ? 'unknown' : String(spell.level);
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(spell);
+    }
+    const keys = Array.from(groups.keys()).sort((a, b) => {
+      if (a === 'unknown') return 1;
+      if (b === 'unknown') return -1;
+      return Number(a) - Number(b);
+    });
+    return keys.map((key) => {
+      const lvl = key === 'unknown' ? null : Number(key);
+      const title = lvl === null ? 'Уровень ?' : (lvl === 0 ? 'Заговоры' : `Уровень ${lvl}`);
+      const items = groups.get(key) || [];
+      items.sort((a, b) => a.name.localeCompare(b.name, 'ru', { sensitivity: 'base' }));
+      return { key, title, items };
+    });
+  }, [knownSpellDetails]);
 
   const renderAbility = (a) => {
     const val = abilityState[a.key];
@@ -419,137 +793,168 @@ export default function CharacterSheet({ character, owner, onSaved }) {
   };
 
   return (
-    <form onSubmit={handleSave} className="cs">
+    <form onSubmit={(e) => e.preventDefault()} className="cs">
+      <input
+        ref={imageInputRef}
+        type="file"
+        accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) uploadCharacterImageFile(file);
+          e.target.value = '';
+        }}
+        className="cs-hidden-file"
+      />
       {error ? <div className="cs-toast cs-toast--err">{error}</div> : null}
-      {saved ? <div className="cs-toast cs-toast--ok">Сохранено!</div> : null}
 
       <div className="cs-header">
         <div className="cs-id">
+          <button type="button" onClick={openCharacterImagePicker} className="cs-char-image-wrap cs-char-image-trigger" title="Нажмите, чтобы загрузить изображение" disabled={imageUploading}>
+            {characterImageUrl ? (
+              <img src={resolveCharacterImageSrc(characterImageUrl)} alt="Персонаж" className="cs-char-image" />
+            ) : (
+              <div className="cs-char-image cs-char-image--empty">Нет фото</div>
+            )}
+          </button>
           <div className="cs-id-block">
             <input value={charName} onChange={(e) => setCharName(e.target.value)} className="cs-name" placeholder="Имя персонажа" />
             <div className="cs-subtitle">
               <input value={race} onChange={(e) => setRace(e.target.value)} className="cs-sub-input" placeholder="Раса" />
-              <span className="cs-sep">—</span>
               <input value={className} onChange={(e) => setClassName(e.target.value)} className="cs-sub-input" placeholder="Класс" />
               <input value={background} onChange={(e) => setBackground(e.target.value)} className="cs-sub-input cs-sub-input--dim" placeholder="Подкласс" />
             </div>
             <div className="cs-subtitle cs-subtitle--single">
+              <input value={background} onChange={(e) => setBackground(e.target.value)} className="cs-sub-input" placeholder="Предыстория" />
+            </div>
+            <div className="cs-subtitle cs-subtitle--single">
               <input value={alignment} onChange={(e) => setAlignment(e.target.value)} className="cs-sub-input" placeholder="Мировоззрение" />
+            </div>
+            <div className="cs-hp">
+              <div className="cs-hp-top">
+                <span className="cs-hp-lbl">хиты</span>
+                <div className="cs-hp-bar"><span style={{ width: `${hpPercent}%` }} /></div>
+              </div>
+              <div className="cs-hp-nums">
+                <input
+                  type="number"
+                  min={0}
+                  max={hpMaxNum ?? undefined}
+                  value={hpCur}
+                  onChange={(e) => handleHpCurChange(e.target.value)}
+                  className="cs-hp-input"
+                  placeholder="0"
+                />
+                <span>/</span>
+                <input
+                  type="number"
+                  min={0}
+                  value={hpMax}
+                  onChange={(e) => handleHpMaxChange(e.target.value)}
+                  className="cs-hp-input"
+                  placeholder="38"
+                />
+              </div>
+              <div className="cs-hp-temp">
+                <span>временные хиты</span>
+                <input type="number" min={0} value={tempHp} onChange={(e) => setTempHp(e.target.value)} className="cs-hp-input cs-hp-input--temp" placeholder="0" />
+              </div>
             </div>
           </div>
         </div>
 
-        <div className="cs-stats-row">
+        <div className="cs-stats-col">
+          <div className="cs-stat">
+            <div className="cs-stat-val cs-stat-val--ro">{fmtBonus(profBonus)}</div>
+            <div className="cs-stat-lbl">БОНУС МАСТЕРСТВА</div>
+          </div>
           <div className="cs-stat cs-stat--shield">
-            <input type="number" min={0} value={ac} onChange={(e) => setAc(e.target.value)} className="cs-stat-val" placeholder="13" />
+            <input type="number" min={0} value={ac} onChange={(e) => setAc(e.target.value)} className="cs-stat-val" placeholder="10" />
             <div className="cs-stat-lbl">КД</div>
           </div>
           <div className="cs-stat">
             <input type="number" min={0} value={speed} onChange={(e) => setSpeed(e.target.value)} className="cs-stat-val" placeholder="30" />
-            <div className="cs-stat-lbl">скорость</div>
-          </div>
-          <button type="button" className={`cs-stat cs-stat--toggle ${inspiration ? 'is-on' : ''}`} onClick={() => setInspiration((v) => !v)}>
-            <div className="cs-stat-val">{inspiration ? 'ДА' : 'НЕТ'}</div>
-            <div className="cs-stat-lbl">вдохновение</div>
-          </button>
-          <div className="cs-stat">
-            <div className="cs-stat-val cs-stat-val--ro">{fmtBonus(profBonus)}</div>
-            <div className="cs-stat-lbl">бонус мастерства</div>
+            <div className="cs-stat-lbl">СКОРОСТЬ</div>
           </div>
           <div className="cs-stat">
             <input type="number" min={0} value={initBonus} onChange={(e) => setInitBonus(e.target.value)} className="cs-stat-val" placeholder="0" />
-            <div className="cs-stat-lbl">инициатива</div>
+            <div className="cs-stat-lbl">ИНИЦИАТИВА</div>
           </div>
-          <div className="cs-stat cs-stat--hitdice">
-            <div className="cs-hitdice-row">
-              <select value={hitDiceType} onChange={(e) => setHitDiceType(e.target.value)} className="cs-hitdice-select">
-                <option value="">—</option>
-                <option value="k6">к6</option>
-                <option value="k8">к8</option>
-                <option value="k10">к10</option>
-                <option value="k12">к12</option>
-              </select>
-              <input type="number" min={0} max={20} value={hitDiceCount} onChange={(e) => setHitDiceCount(e.target.value)} className="cs-hitdice-input" placeholder="0" />
-            </div>
-            <div className="cs-stat-lbl">кости хитов</div>
-          </div>
-          <div className="cs-stat-row2">
-            <div className="cs-stat cs-stat--lvl">
-              <div className="cs-lvl-row">
-                <span className="cs-lvl-badge">
-                  <input type="number" min={1} max={20} value={level} onChange={(e) => setLevel(e.target.value)} className="cs-lvl-input" />
-                  <span>уровень</span>
-                </span>
-                <div className="cs-xp-row">
-                  <input type="number" min={0} value={xpCurrent} onChange={(e) => setXpCurrent(e.target.value)} className="cs-xp-num" placeholder="0" />
-                  <span>/</span>
-                  <input type="number" min={0} value={xpMax} onChange={(e) => setXpMax(e.target.value)} className="cs-xp-num" placeholder="23000" />
-                </div>
-              </div>
-              <div className="cs-xp-bar"><span style={{ width: `${xpPercent}%` }} /></div>
-            </div>
-            <div className="cs-stat cs-stat--wide">
-              <div className="cs-death">
-                <div className="cs-death-label">Спасброски от смерти</div>
-                <div className="cs-death-row">
-                  <span>успехи</span>
-                  {[0, 1, 2].map((i) => (
-                    <button
-                      key={`s${i}`}
-                      type="button"
-                      onClick={() => toggleDeathSave('success', i)}
-                      className={`cs-death-dot ${deathSaveSuccess > i ? 'is-on' : ''}`}
-                      aria-label={`Успех ${i + 1}`}
-                    />
-                  ))}
-                </div>
-                <div className="cs-death-row">
-                  <span>провалы</span>
-                  {[0, 1, 2].map((i) => (
-                    <button
-                      key={`f${i}`}
-                      type="button"
-                      onClick={() => toggleDeathSave('failure', i)}
-                      className={`cs-death-dot ${deathSaveFailure > i ? 'is-on is-fail' : ''}`}
-                      aria-label={`Провал ${i + 1}`}
-                    />
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
+          <button type="button" className={`cs-stat cs-stat--toggle ${inspiration ? 'is-on' : ''}`} onClick={() => setInspiration((v) => !v)}>
+            <div className="cs-stat-val">{inspiration ? 'ДА' : 'НЕТ'}</div>
+            <div className="cs-stat-lbl">ВДОХНОВЕНИЕ</div>
+          </button>
         </div>
 
-        <div className="cs-hp-col">
-          <div className="cs-hp">
-            <div className="cs-hp-top">
-              <span className="cs-hp-lbl">хиты</span>
-              <div className="cs-hp-bar"><span style={{ width: `${hpPercent}%` }} /></div>
+        <div className="cs-meta-col">
+          <div className="cs-stat cs-stat--lvl">
+            <div className="cs-lvl-row">
+              <span className="cs-lvl-badge">
+                <input type="number" min={1} max={20} value={level} onChange={(e) => setLevel(e.target.value)} className="cs-lvl-input" />
+                <span>уровень</span>
+              </span>
+              <div className="cs-xp-row">
+                <input type="number" min={0} value={xpCurrent} onChange={(e) => setXpCurrent(e.target.value)} className="cs-xp-num" placeholder="0" />
+                <span>/</span>
+                <input type="number" min={0} value={xpMax} onChange={(e) => setXpMax(e.target.value)} className="cs-xp-num" placeholder="23000" />
+              </div>
             </div>
-            <div className="cs-hp-nums">
-              <input
-                type="number"
-                min={0}
-                max={hpMaxNum ?? undefined}
-                value={hpCur}
-                onChange={(e) => handleHpCurChange(e.target.value)}
-                className="cs-hp-input"
-                placeholder="0"
-              />
-              <span>/</span>
-              <input
-                type="number"
-                min={0}
-                value={hpMax}
-                onChange={(e) => handleHpMaxChange(e.target.value)}
-                className="cs-hp-input"
-                placeholder="38"
-              />
+            <div className="cs-xp-bar"><span style={{ width: `${xpPercent}%` }} /></div>
+          </div>
+
+          <div className="cs-stat cs-stat--wide">
+            <div className="cs-death">
+              <div className="cs-death-label">Спасброски от смерти</div>
+              <div className="cs-death-row">
+                <span>успехи</span>
+                {[0, 1, 2].map((i) => (
+                  <button
+                    key={`s${i}`}
+                    type="button"
+                    onClick={() => toggleDeathSave('success', i)}
+                    className={`cs-death-dot ${deathSaveSuccess > i ? 'is-on' : ''}`}
+                    aria-label={`Успех ${i + 1}`}
+                  />
+                ))}
+              </div>
+              <div className="cs-death-row">
+                <span>провалы</span>
+                {[0, 1, 2].map((i) => (
+                  <button
+                    key={`f${i}`}
+                    type="button"
+                    onClick={() => toggleDeathSave('failure', i)}
+                    className={`cs-death-dot ${deathSaveFailure > i ? 'is-on is-fail' : ''}`}
+                    aria-label={`Провал ${i + 1}`}
+                  />
+                ))}
+              </div>
             </div>
-            <div className="cs-hp-temp">
-              <span>временные хиты</span>
-              <input type="number" min={0} value={tempHp} onChange={(e) => setTempHp(e.target.value)} className="cs-hp-input cs-hp-input--temp" placeholder="0" />
+          </div>
+
+          <div className="cs-stat cs-stat--hitdice cs-stat--hitdice-col">
+            <div className="cs-hitdice-list">
+              {hitDiceList.map((row, i) => (
+                <div key={`hd${i}`} className="cs-hitdice-row">
+                  <select value={row.type} onChange={(e) => updateHitDieType(i, e.target.value)} className="cs-hitdice-select">
+                    <option value="">—</option>
+                    <option value="k6">к6</option>
+                    <option value="k8">к8</option>
+                    <option value="k10">к10</option>
+                    <option value="k12">к12</option>
+                  </select>
+                  <input type="number" min={0} max={20} value={row.count} onChange={(e) => updateHitDieCount(i, e.target.value)} className="cs-hitdice-input" placeholder="0" />
+                  {hitDiceList.length > 1 ? (
+                    <button type="button" onClick={() => removeHitDie(i)} className="cs-hitdice-remove">×</button>
+                  ) : null}
+                </div>
+              ))}
+              {hitDiceList.length < MAX_HIT_DICE_ROWS ? (
+                <button type="button" onClick={addHitDie} className="cs-hitdice-add">+ еще</button>
+              ) : (
+                <span className="cs-hitdice-limit">макс 3</span>
+              )}
             </div>
+            <div className="cs-stat-lbl">кости хитов</div>
           </div>
         </div>
       </div>
@@ -571,7 +976,7 @@ export default function CharacterSheet({ character, owner, onSaved }) {
 
           <div className="cs-block">
             <div className="cs-section-head">ПРОЧИЕ ВЛАДЕНИЯ И ЯЗЫКИ</div>
-            <textarea rows={3} value={otherProf} onChange={(e) => setOtherProf(e.target.value)} className="cs-ta" placeholder="Языки, инструменты, оружие…" />
+            <textarea {...bindTextareaSize('otherProf')} rows={3} value={otherProf} onChange={(e) => setOtherProf(e.target.value)} className="cs-ta" placeholder="Языки, инструменты, оружие…" />
           </div>
         </div>
 
@@ -579,10 +984,8 @@ export default function CharacterSheet({ character, owner, onSaved }) {
           <div className="cs-tabs">
             {[
               { key: 'attacks', label: 'АТАКИ' },
-              { key: 'features', label: 'СПОСОБНОСТИ' },
               { key: 'equipment', label: 'СНАРЯЖЕНИЕ' },
               { key: 'personality', label: 'ЛИЧНОСТЬ' },
-              { key: 'goals', label: 'ЦЕЛИ' },
               { key: 'notes', label: 'ЗАМЕТКИ' },
               { key: 'spells', label: 'ЗАКЛИНАНИЯ' },
             ].map((t) => (
@@ -611,7 +1014,6 @@ export default function CharacterSheet({ character, owner, onSaved }) {
                 </div>
               </>
             )}
-            {panel === 'features' && <textarea rows={12} value={features} onChange={(e) => setFeatures(e.target.value)} className="cs-ta" placeholder="Умения и способности" />}
             {panel === 'equipment' && (
               <div className="cs-stack">
                 <div className="cs-money-market">
@@ -628,19 +1030,18 @@ export default function CharacterSheet({ character, owner, onSaved }) {
                     <input type="number" min={0} value={goldCp} onChange={(e) => setGoldCp(e.target.value)} className="cs-money-input cs-money-input--copper" placeholder="0" />
                   </label>
                 </div>
-                <textarea rows={12} value={equipment} onChange={(e) => setEquipment(e.target.value)} className="cs-ta" placeholder="Снаряжение" />
+                <textarea {...bindTextareaSize('equipment')} rows={12} value={equipment} onChange={(e) => setEquipment(e.target.value)} className="cs-ta" placeholder="Снаряжение" />
               </div>
             )}
             {panel === 'personality' && (
               <div className="cs-stack">
-                <textarea rows={5} value={personality} onChange={(e) => setPersonality(e.target.value)} className="cs-ta" placeholder="Черты характера" />
-                <textarea rows={3} value={ideals} onChange={(e) => setIdeals(e.target.value)} className="cs-ta" placeholder="Идеалы" />
-                <textarea rows={3} value={bonds} onChange={(e) => setBonds(e.target.value)} className="cs-ta" placeholder="Привязанности" />
-                <textarea rows={3} value={flaws} onChange={(e) => setFlaws(e.target.value)} className="cs-ta" placeholder="Слабости" />
+                <textarea {...bindTextareaSize('personality')} rows={5} value={personality} onChange={(e) => setPersonality(e.target.value)} className="cs-ta" placeholder="Черты характера" />
+                <textarea {...bindTextareaSize('ideals')} rows={3} value={ideals} onChange={(e) => setIdeals(e.target.value)} className="cs-ta" placeholder="Идеалы" />
+                <textarea {...bindTextareaSize('bonds')} rows={3} value={bonds} onChange={(e) => setBonds(e.target.value)} className="cs-ta" placeholder="Привязанности" />
+                <textarea {...bindTextareaSize('flaws')} rows={3} value={flaws} onChange={(e) => setFlaws(e.target.value)} className="cs-ta" placeholder="Слабости" />
               </div>
             )}
-            {panel === 'goals' && <textarea rows={12} value={ideals} onChange={(e) => setIdeals(e.target.value)} className="cs-ta" placeholder="Цели и задачи" />}
-            {panel === 'notes' && <textarea rows={12} value={notes} onChange={(e) => setNotes(e.target.value)} className="cs-ta" placeholder="Заметки" />}
+            {panel === 'notes' && <textarea {...bindTextareaSize('notes')} rows={12} value={notes} onChange={(e) => setNotes(e.target.value)} className="cs-ta" placeholder="Заметки" />}
             {panel === 'spells' && (
               <div className="cs-stack">
                 <select value={spellAbility} onChange={(e) => setSpellAbility(e.target.value)} className="cs-select">
@@ -654,21 +1055,61 @@ export default function CharacterSheet({ character, owner, onSaved }) {
                     <div className="cs-spell-box"><div className="cs-spell-v">{fmtBonus(abilityMod(abilityState[spellAbility]))}</div><div className="cs-spell-l">Мод.</div></div>
                   </div>
                 )}
+
+                <div className="cs-spell-search">
+                  <input
+                    value={spellsQuery}
+                    onChange={(e) => setSpellsQuery(e.target.value)}
+                    className="cs-spell-input"
+                    placeholder="Поиск заклинания..."
+                  />
+                  {spellsLoading && spellsQuery.trim() ? <div className="cs-spell-hint">Загрузка…</div> : null}
+                  {spellsError ? <div className="cs-spell-error">{spellsError}</div> : null}
+                  {filteredSpells.length > 0 && (
+                    <div className="cs-spell-results">
+                      {filteredSpells.map((s) => (
+                        <button key={s.id} type="button" onClick={() => addKnownSpell(s)} className="cs-spell-result">
+                          <span>{s.name}</span>
+                          <span className="cs-spell-add">+</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="cs-spell-list">
+                  <div className="cs-section-head">ВАШИ ЗАКЛИНАНИЯ</div>
+                  {knownSpells.length === 0 ? (
+                    <div className="cs-spell-empty">Пока нет добавленных заклинаний.</div>
+                  ) : (
+                    <div className="cs-spell-groups">
+                      {groupedKnownSpells.map((group) => (
+                        <div key={group.key} className="cs-spell-group">
+                          <div className="cs-spell-group-title">{group.title}</div>
+                          <div className="cs-spell-items">
+                            {group.items.map((s) => (
+                              <div key={s.id} className="cs-spell-item">
+                                <span>{s.name}</span>
+                                <button type="button" onClick={() => removeKnownSpell(s.id)} className="cs-spell-remove">Удалить</button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </div>
 
           <div className="cs-block">
             <div className="cs-section-head">УМЕНИЯ И СПОСОБНОСТИ <span className="cs-collapse">∧</span></div>
-            <textarea rows={5} value={features} onChange={(e) => setFeatures(e.target.value)} className="cs-ta" placeholder="Расовые, классовые умения…" />
+            <textarea {...bindTextareaSize('featuresBottom')} rows={5} value={features} onChange={(e) => setFeatures(e.target.value)} className="cs-ta" placeholder="Расовые, классовые умения…" />
           </div>
         </div>
       </div>
 
-      <div className="cs-footer">
-        <button type="submit" disabled={saving} className="cs-save">{saving ? 'Сохранение…' : 'Сохранить лист'}</button>
-        {saved && <span className="cs-saved-mark">✓ Сохранено</span>}
-      </div>
     </form>
   );
 }

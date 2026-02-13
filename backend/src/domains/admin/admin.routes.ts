@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { authenticateToken, requireAdminOnly } from '../../middlewares/auth';
-import { uploadAwardImage } from '../../middlewares/upload';
+import { optimizeAwardImage, uploadAwardImage } from '../../middlewares/upload';
 import {
   createAwardHandler,
   createKeyHandler,
@@ -25,8 +25,8 @@ adminRouter.post('/registration-keys', authenticateToken, requireAdminOnly, crea
 adminRouter.get('/registration-keys', authenticateToken, requireAdminOnly, listKeysHandler);
 
 adminRouter.get('/awards', authenticateToken, requireAdminOnly, listAwardsHandler);
-adminRouter.post('/awards', authenticateToken, requireAdminOnly, uploadAwardImage.single('image'), createAwardHandler);
-adminRouter.put('/awards/:id(\\d+)', authenticateToken, requireAdminOnly, uploadAwardImage.single('image'), updateAwardHandler);
+adminRouter.post('/awards', authenticateToken, requireAdminOnly, uploadAwardImage.single('image'), optimizeAwardImage, createAwardHandler);
+adminRouter.put('/awards/:id(\\d+)', authenticateToken, requireAdminOnly, uploadAwardImage.single('image'), optimizeAwardImage, updateAwardHandler);
 adminRouter.delete('/awards/:id(\\d+)', authenticateToken, requireAdminOnly, deleteAwardHandler);
 
 adminRouter.post('/users/:userId(\\d+)/awards', authenticateToken, requireAdminOnly, grantAwardHandler);

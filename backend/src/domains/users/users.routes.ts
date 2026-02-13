@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { authenticateToken } from '../../middlewares/auth';
+import { optimizeCharacterImage, uploadCharacterImage } from '../../middlewares/upload';
 import {
 	createMyCharacterHandler,
 	deleteMyCharacterHandler,
@@ -9,6 +10,7 @@ import {
 	listMyCharactersHandler,
 	listUserAwardsById,
 	putMe,
+	uploadMyCharacterImageHandler,
 	updateMyCharacterHandler,
 } from './users.controller';
 
@@ -21,5 +23,6 @@ usersRouter.post('/me/characters', authenticateToken, createMyCharacterHandler);
 usersRouter.get('/me/characters/:id(\\d+)', authenticateToken, getMyCharacterHandler);
 usersRouter.put('/me/characters/:id(\\d+)', authenticateToken, updateMyCharacterHandler);
 usersRouter.delete('/me/characters/:id(\\d+)', authenticateToken, deleteMyCharacterHandler);
+usersRouter.post('/me/character-image', authenticateToken, uploadCharacterImage.single('image'), optimizeCharacterImage, uploadMyCharacterImageHandler);
 usersRouter.get('/:id(\\d+)/awards', listUserAwardsById);
 usersRouter.get('/me/awards', authenticateToken, listMyAwardsHandler);

@@ -44,8 +44,12 @@ export default function AdminLayout({ children }) {
     let isActive = true;
     authAPI.verify().catch((e) => {
       if (!isActive) return;
-      console.error(e);
-      logoutAndRedirect();
+      const status = Number(e?.status);
+      if (status === 401 || status === 403) {
+        logoutAndRedirect();
+        return;
+      }
+      console.warn('Session check skipped due temporary error:', e?.message || e);
     });
 
     const onAuthLogout = () => logoutAndRedirect();
