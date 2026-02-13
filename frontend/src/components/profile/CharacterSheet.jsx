@@ -665,6 +665,15 @@ export default function CharacterSheet({ character, owner, onSaved }) {
     }
   }, [buildPayload, character?.id, onSaved]);
 
+  const handleManualSave = useCallback(async () => {
+    try {
+      await saveCharacter({ notifyParent: true });
+    } catch (e) {
+      console.error(e);
+      setError(e.message || 'Ошибка сохранения');
+    }
+  }, [saveCharacter]);
+
   const addKnownSpell = (spell) => {
     if (!spell?.id) return;
     const id = Number(spell.id);
@@ -705,7 +714,7 @@ export default function CharacterSheet({ character, owner, onSaved }) {
         console.error(e);
         setError(e.message || 'Ошибка автосохранения');
       }
-    }, 3000);
+    }, 10000);
 
     return () => clearInterval(interval);
   }, [autoSaveKey, character?.id, saveCharacter]);
@@ -1112,6 +1121,12 @@ export default function CharacterSheet({ character, owner, onSaved }) {
             <textarea {...bindTextareaSize('featuresBottom')} rows={5} value={features} onChange={(e) => setFeatures(e.target.value)} className="cs-ta" placeholder="Расовые, классовые умения…" />
           </div>
         </div>
+      </div>
+
+      <div className="cs-save-actions">
+        <button type="button" onClick={handleManualSave} disabled={saving} className="cs-save-btn">
+          {saving ? 'Сохранение…' : 'Сохранить лист'}
+        </button>
       </div>
 
     </form>

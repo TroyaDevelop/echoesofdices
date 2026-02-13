@@ -714,6 +714,31 @@ body {
 }
 .cs-spell-remove:hover { background: rgba(239,68,68,.25); }
 
+.cs-save-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 10px;
+}
+.cs-save-btn {
+  border: 1px solid rgba(139,92,246,.55);
+  background: rgba(88,28,135,.35);
+  color: #f1f1f8;
+  padding: 8px 12px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.cs-save-btn:hover {
+  background: rgba(88,28,135,.5);
+}
+.cs-save-btn:disabled {
+  opacity: .65;
+  cursor: not-allowed;
+}
+
 /* ── Responsive ── */
 @media (max-width: 920px) {
   .cs-header { grid-template-columns: 1fr; }
