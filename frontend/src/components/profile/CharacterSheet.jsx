@@ -113,6 +113,7 @@ export default function CharacterSheet({ character, owner, onSaved }) {
   const [charName, setCharName] = useState('');
   const [race, setRace] = useState('');
   const [className, setClassName] = useState('');
+  const [subclassName, setSubclassName] = useState('');
   const [background, setBackground] = useState('');
   const [alignment, setAlignment] = useState('');
   const [level, setLevel] = useState('1');
@@ -253,6 +254,7 @@ export default function CharacterSheet({ character, owner, onSaved }) {
     setCharName(init('character_name'));
     setRace(init('race'));
     setClassName(init('class_name'));
+    setSubclassName(init('subclass_name'));
     setBackground(init('background'));
     setAlignment(init('alignment'));
     setLevel(initNum('character_level', '1'));
@@ -549,6 +551,7 @@ export default function CharacterSheet({ character, owner, onSaved }) {
       character_name: charName || null,
       race: race || null,
       class_name: className || null,
+      subclass_name: subclassName || null,
       background: background || null,
       alignment: alignment || null,
       character_level: numOrNull(level) ?? 1,
@@ -631,6 +634,7 @@ export default function CharacterSheet({ character, owner, onSaved }) {
     otherProf,
     personality,
     race,
+    subclassName,
     saves,
     speed,
     spellAbility,
@@ -701,7 +705,7 @@ export default function CharacterSheet({ character, owner, onSaved }) {
         console.error(e);
         setError(e.message || 'Ошибка автосохранения');
       }
-    }, 10000);
+    }, 3000);
 
     return () => clearInterval(interval);
   }, [autoSaveKey, character?.id, saveCharacter]);
@@ -821,7 +825,7 @@ export default function CharacterSheet({ character, owner, onSaved }) {
             <div className="cs-subtitle">
               <input value={race} onChange={(e) => setRace(e.target.value)} className="cs-sub-input" placeholder="Раса" />
               <input value={className} onChange={(e) => setClassName(e.target.value)} className="cs-sub-input" placeholder="Класс" />
-              <input value={background} onChange={(e) => setBackground(e.target.value)} className="cs-sub-input cs-sub-input--dim" placeholder="Подкласс" />
+              <input value={subclassName} onChange={(e) => setSubclassName(e.target.value)} className="cs-sub-input cs-sub-input--dim" placeholder="Подкласс" />
             </div>
             <div className="cs-subtitle cs-subtitle--single">
               <input value={background} onChange={(e) => setBackground(e.target.value)} className="cs-sub-input" placeholder="Предыстория" />
