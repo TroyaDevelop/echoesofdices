@@ -1,5 +1,5 @@
 
-.PHONY: echoes-up echoes-down echoes-build echoes-log echoes-backup echoes-restore echoes-uo
+.PHONY: echoes-up echoes-down echoes-build echoes-log echoes-backup echoes-restore echoes-uo echoes-deploy echoes-prune
 
 -include .env
 
@@ -28,6 +28,14 @@ echoes-down:
 
 echoes-build:
 	$(COMPOSE) -f $(ACTIVE_COMPOSE_FILE) build
+
+echoes-prune:
+	@echo "Cleaning up dangling Docker images and build cache..."
+	docker image prune -f
+	docker builder prune -f
+	@echo "Docker cleanup done."
+
+echoes-deploy: echoes-build echoes-up echoes-prune
 
 echoes-log:
 	$(COMPOSE) -f $(ACTIVE_COMPOSE_FILE) logs -f --tail=200
