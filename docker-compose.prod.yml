@@ -13,6 +13,8 @@ services:
       DB_PASSWORD: "echoes_password"
       ECHOESROOT_LOGIN: "${ECHOESROOT_LOGIN}"
       ECHOESROOT_PASSWORD: "${ECHOESROOT_PASSWORD}"
+    volumes:
+      - ./backend/uploads:/app/uploads
     depends_on:
       - mariadb
     restart: unless-stopped

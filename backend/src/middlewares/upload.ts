@@ -50,5 +50,5 @@ const createImageOptimizer = ({ folder, prefix, quality = 75 }: { folder: string
 export const uploadAwardImage = createUpload(4);
 export const optimizeAwardImage = createImageOptimizer({ folder: awardsUploadsDir, prefix: 'award', quality: 72 });
 
-export const uploadCharacterImage = createUpload(6);
+export const uploadCharacterImage = createUpload(15);
 export const optimizeCharacterImage = createImageOptimizer({ folder: charactersUploadsDir, prefix: 'character', quality: 70 });
