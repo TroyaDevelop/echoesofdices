@@ -313,6 +313,19 @@ CREATE TABLE IF NOT EXISTS market_trade_logs (
     FOREIGN KEY (item_id) REFERENCES market_items(id) ON DELETE SET NULL
 );
 
+CREATE TABLE IF NOT EXISTS market_trade_events (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    trade_log_id INT NOT NULL,
+    event_type VARCHAR(64) NOT NULL DEFAULT 'market.trade.created',
+    payload_json JSON NOT NULL,
+    consumed_at TIMESTAMP NULL,
+    consumed_by VARCHAR(64) NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_market_trade_events_consumed (consumed_at, id),
+    INDEX idx_market_trade_events_trade (trade_log_id),
+    FOREIGN KEY (trade_log_id) REFERENCES market_trade_logs(id) ON DELETE CASCADE
+);
+
 ALTER TABLE market_items
     ADD CONSTRAINT fk_market_items_region
     FOREIGN KEY (region_id) REFERENCES market_regions(id)

@@ -19,6 +19,7 @@ import { sourcesRouter } from './domains/sources/sources.routes';
 import { traitsRouter } from './domains/traits/traits.routes';
 import { wondrousRouter } from './domains/wondrous/wondrous.routes';
 import { healthRouter } from './domains/health/health.routes';
+import { botIntegrationRouter } from './domains/botIntegration/botIntegration.routes';
 
 const app = express();
 
@@ -39,6 +40,7 @@ app.use('/api/sources', sourcesRouter);
 app.use('/api/traits', traitsRouter);
 app.use('/api/wondrous-items', wondrousRouter);
 app.use('/api/health', healthRouter);
+app.use('/api/bot-integration', botIntegrationRouter);
 
 app.use(errorHandler);
 app.use(notFoundHandler);

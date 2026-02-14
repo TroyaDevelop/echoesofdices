@@ -91,6 +91,13 @@ export async function findTradeLogById(id: number) {
   return rows && rows[0];
 }
 
+export async function insertTradeEvent(tradeLogId: number, payload: any) {
+  return query<any>(
+    'INSERT INTO market_trade_events (trade_log_id, event_type, payload_json) VALUES (?, ?, ?)',
+    [tradeLogId, 'market.trade.created', JSON.stringify(payload || {})]
+  );
+}
+
 export async function insertItem(payload: any) {
   return query<any>(
     'INSERT INTO market_items (name, category, damage, armor_class, armor_type, weapon_type, short_description, weight, region_id, region, price_gp, price_sp, price_cp) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, ?, ?, ?)',

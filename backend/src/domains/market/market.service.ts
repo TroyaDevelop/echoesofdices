@@ -23,6 +23,7 @@ import {
   findRegionById,
   findTradeLogById,
   insertItem,
+  insertTradeEvent,
   insertTradeLog,
   listItems,
   listMarkups,
@@ -183,6 +184,37 @@ export async function createMarketTradeLog(body: any, userId: number) {
 
   const insertedId = typeof resultInsert.insertId === 'bigint' ? Number(resultInsert.insertId) : resultInsert.insertId;
   const row = await findTradeLogById(insertedId);
+  const eventPayload = row
+    ? {
+        trade_log_id: Number(row.id),
+        created_at: row.created_at,
+        user: {
+          login: row.user_login,
+          nickname: row.user_nickname,
+        },
+        trade_type: row.trade_type,
+        item_name: row.item_name,
+        season: row.season,
+        region: row.region_name,
+        category: row.category,
+        markup_percent: Number(row.markup_percent || 0),
+        base_cp: Number(row.base_cp || 0),
+        roll_mode: row.roll_mode,
+        roll: Number(row.roll || 0),
+        roll_alt: row.roll_alt === null || row.roll_alt === undefined ? null : Number(row.roll_alt),
+        bonus: Number(row.bonus || 0),
+        extra_bonus: Number(row.extra_bonus || 0),
+        result: Number(row.result || 0),
+        percent_value: Number(row.percent_value || 0),
+        final_cp: Number(row.final_cp || 0),
+      }
+    : {
+        trade_log_id: Number(insertedId),
+        trade_type: tradeType,
+        item_name: itemName,
+        final_cp: finalCp,
+      };
+  await insertTradeEvent(Number(insertedId), eventPayload);
   return row || { id: insertedId };
 }
 
