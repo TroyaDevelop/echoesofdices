@@ -530,3 +530,33 @@ export async function updateScreenEncounterMonsterHp(idRaw: unknown, monsterInst
   await updateEncounterMonsters(Math.trunc(id), JSON.stringify(monsters));
   return getScreenEncounterById(id);
 }
+
+export async function removeScreenEncounterParticipant(idRaw: unknown, monsterInstanceIdRaw: unknown) {
+  const id = Number(idRaw);
+  if (!Number.isFinite(id) || id <= 0) throw new HttpError(400, 'Некорректный id энкаунтера');
+
+  const monsterInstanceId = String(monsterInstanceIdRaw || '').trim();
+  if (!monsterInstanceId) throw new HttpError(400, 'Некорректный id существа');
+
+  const row = await findEncounterById(Math.trunc(id));
+  if (!row) throw new HttpError(404, 'Энкаунтер не найден');
+
+  const encounter = deserializeEncounter(row);
+  const monsters = encounter.monsters.filter((monster) => monster.monster_instance_id !== monsterInstanceId);
+
+  if (monsters.length === encounter.monsters.length) {
+    throw new HttpError(404, 'Существо в энкаунтере не найдено');
+  }
+
+  const initiativeOrder = makeInitiativeOrder(monsters);
+
+  await updateEncounter(
+    Math.trunc(id),
+    encounter.name,
+    JSON.stringify(monsters),
+    encounter.status === 'active' ? 'active' : 'draft',
+    JSON.stringify(initiativeOrder)
+  );
+
+  return getScreenEncounterById(id);
+}

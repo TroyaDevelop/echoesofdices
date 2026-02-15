@@ -5,6 +5,7 @@ import {
   finishScreenEncounterHandler,
   getScreenEncounterByIdHandler,
   listScreenEncountersHandler,
+  removeScreenEncounterParticipantHandler,
   rebroadcastScreenEncounterOrderHandler,
   startScreenEncounterHandler,
   updateScreenEncounterHandler,
@@ -22,3 +23,4 @@ screenRouter.post('/encounters/:id(\\d+)/start', authenticateToken, requireMaste
 screenRouter.post('/encounters/:id(\\d+)/rebroadcast-order', authenticateToken, requireMasterOrAdmin, rebroadcastScreenEncounterOrderHandler);
 screenRouter.delete('/encounters/:id(\\d+)/finish', authenticateToken, requireMasterOrAdmin, finishScreenEncounterHandler);
 screenRouter.patch('/encounters/:id(\\d+)/monsters/:monsterId/hp', authenticateToken, requireMasterOrAdmin, updateScreenEncounterMonsterHpHandler);
+screenRouter.delete('/encounters/:id(\\d+)/monsters/:monsterId', authenticateToken, requireMasterOrAdmin, removeScreenEncounterParticipantHandler);

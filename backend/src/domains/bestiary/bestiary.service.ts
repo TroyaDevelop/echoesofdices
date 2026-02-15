@@ -95,7 +95,7 @@ export async function createBestiaryEntryRecord(body: any) {
 
 export async function updateBestiaryEntryRecord(id: number, body: any) {
   if (!Number.isFinite(id) || id <= 0) throw new HttpError(400, 'Некорректный id');
-  const existing = await findBestiaryEntryById(id);
+  const existing = await findBestiaryEntryById(id, true);
   if (!existing) throw new HttpError(404, 'Существо не найдено');
 
   const payload = normalizeEntryPayload(body, existing);

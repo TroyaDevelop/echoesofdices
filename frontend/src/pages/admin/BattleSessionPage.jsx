@@ -111,6 +111,22 @@ export default function AdminBattleSessionPage() {
     }
   };
 
+  const handleRemoveParticipant = async (participant) => {
+    setError('');
+    if (!encounter?.id) return;
+    if (!participant?.monster_instance_id) return;
+    if (!window.confirm(`Удалить участника "${participant.name || 'без имени'}" из боя?`)) return;
+
+    try {
+      const data = await screenAPI.removeParticipant(encounter.id, participant.monster_instance_id);
+      setEncounter(data || null);
+      setParticipants(Array.isArray(data?.monsters) ? data.monsters : []);
+    } catch (e) {
+      console.error(e);
+      setError(e.message || 'Ошибка удаления участника из боя');
+    }
+  };
+
   return (
     <AdminLayout>
       <div className="space-y-6">
@@ -183,6 +199,13 @@ export default function AdminBattleSessionPage() {
                           className="rounded-lg border border-gray-300 px-3 py-2 text-sm hover:bg-gray-50"
                         >
                           Обновить HP
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveParticipant(participant)}
+                          className="rounded-lg border border-red-200 px-3 py-2 text-sm text-red-700 hover:bg-red-50"
+                        >
+                          Удалить из боя
                         </button>
                       </div>
                     </div>

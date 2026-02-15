@@ -5,6 +5,7 @@ import {
   finishScreenEncounter,
   getScreenEncounterById,
   listScreenEncounters,
+  removeScreenEncounterParticipant,
   rebroadcastScreenEncounterOrder,
   startScreenEncounter,
   updateScreenEncounter,
@@ -88,5 +89,15 @@ export async function updateScreenEncounterMonsterHpHandler(req: Request, res: R
   } catch (error) {
     const err = error as HttpError;
     res.status(err.status || 500).json({ error: err.message || 'Ошибка обновления HP существа' });
+  }
+}
+
+export async function removeScreenEncounterParticipantHandler(req: Request, res: Response) {
+  try {
+    const data = await removeScreenEncounterParticipant(req.params.id, req.params.monsterId);
+    res.json(data);
+  } catch (error) {
+    const err = error as HttpError;
+    res.status(err.status || 500).json({ error: err.message || 'Ошибка удаления существа из боя' });
   }
 }

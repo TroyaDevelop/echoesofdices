@@ -257,4 +257,8 @@ export const screenAPI = {
       method: 'PATCH',
       body: JSON.stringify({ hp_current: hpCurrent }),
     }),
+  removeParticipant: (encounterId, monsterInstanceId) =>
+    apiClient(`/screen/encounters/${encounterId}/monsters/${encodeURIComponent(monsterInstanceId)}`, {
+      method: 'DELETE',
+    }),
 };
