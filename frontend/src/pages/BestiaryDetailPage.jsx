@@ -65,7 +65,7 @@ export default function BestiaryDetailPage() {
       } catch (e) {
         if (!isActive) return;
         console.error(e);
-        setError(e.message || 'Ошибка загрузки монстра');
+        setError(e.message || 'Ошибка загрузки существа');
       } finally {
         if (!isActive) return;
         setLoading(false);
@@ -114,7 +114,7 @@ export default function BestiaryDetailPage() {
         {loading ? (
           <div className="text-slate-300">Загрузка…</div>
         ) : !monster ? (
-          <div className="text-slate-300">Монстр не найден.</div>
+          <div className="text-slate-300">Существо не найдено.</div>
         ) : (
           <div className="parchment-card rounded-lg border border-black/20 text-slate-900 shadow-2xl overflow-hidden">
             <SpellHeader
@@ -161,6 +161,7 @@ export default function BestiaryDetailPage() {
 
               <Section title="Особенности" content={monster?.traits_text} />
               <Section title="Действия" content={monster?.actions_text} />
+              <Section title="Бонусные действия" content={monster?.bonus_actions_text} />
               <Section title="Реакции" content={monster?.reactions_text} />
               <Section title="Легендарные действия" content={monster?.legendary_actions_text} />
               <Section title="Использование заклинаний" content={monster?.spellcasting_text} />

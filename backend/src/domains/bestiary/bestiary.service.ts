@@ -26,7 +26,7 @@ const toFlag = (value: any) => value === true || value === 1 || String(value).to
 
 const normalizeEntryPayload = (body: any, fallback?: any) => {
   const name = body?.name !== undefined ? String(body.name).trim() : String(fallback?.name || '').trim();
-  if (!name) throw new HttpError(400, 'Название монстра обязательно');
+  if (!name) throw new HttpError(400, 'Название существа обязательно');
 
   return {
     name,
@@ -60,6 +60,7 @@ const normalizeEntryPayload = (body: any, fallback?: any) => {
     source_pages: body?.source_pages !== undefined ? toTrimmed(body.source_pages) : fallback?.source_pages ?? null,
     traits_text: body?.traits_text !== undefined ? toTrimmed(body.traits_text) : fallback?.traits_text ?? null,
     actions_text: body?.actions_text !== undefined ? toTrimmed(body.actions_text) : fallback?.actions_text ?? null,
+    bonus_actions_text: body?.bonus_actions_text !== undefined ? toTrimmed(body.bonus_actions_text) : fallback?.bonus_actions_text ?? null,
     reactions_text: body?.reactions_text !== undefined ? toTrimmed(body.reactions_text) : fallback?.reactions_text ?? null,
     legendary_actions_text:
       body?.legendary_actions_text !== undefined ? toTrimmed(body.legendary_actions_text) : fallback?.legendary_actions_text ?? null,
@@ -81,7 +82,7 @@ export async function listBestiaryAdminData() {
 export async function getBestiaryById(id: number, includeHidden = false) {
   if (!Number.isFinite(id) || id <= 0) throw new HttpError(400, 'Некорректный id');
   const row = await findBestiaryEntryById(id, includeHidden);
-  if (!row) throw new HttpError(404, 'Монстр не найден');
+  if (!row) throw new HttpError(404, 'Существо не найдено');
   return row;
 }
 
@@ -95,7 +96,7 @@ export async function createBestiaryEntryRecord(body: any) {
 export async function updateBestiaryEntryRecord(id: number, body: any) {
   if (!Number.isFinite(id) || id <= 0) throw new HttpError(400, 'Некорректный id');
   const existing = await findBestiaryEntryById(id);
-  if (!existing) throw new HttpError(404, 'Монстр не найден');
+  if (!existing) throw new HttpError(404, 'Существо не найдено');
 
   const payload = normalizeEntryPayload(body, existing);
   await updateBestiaryEntry(id, payload);
@@ -105,5 +106,5 @@ export async function updateBestiaryEntryRecord(id: number, body: any) {
 export async function deleteBestiaryEntryRecord(id: number) {
   if (!Number.isFinite(id) || id <= 0) throw new HttpError(400, 'Некорректный id');
   await deleteBestiaryEntry(id);
-  return { message: 'Монстр удален' };
+  return { message: 'Существо удалено' };
 }

@@ -15,6 +15,8 @@ const splitSourceTokens = (value) =>
 
 const createSectionState = (initial = {}) => ({
   hasTraits: initial.hasTraits ?? true,
+  hasBonusActions: initial.hasBonusActions ?? false,
+  hasReactions: initial.hasReactions ?? true,
   hasLegendary: initial.hasLegendary ?? false,
   hasSpellcasting: initial.hasSpellcasting ?? false,
   hasVillainActions: initial.hasVillainActions ?? false,
@@ -51,6 +53,7 @@ const emptyMonster = {
   source_pages: '',
   traits_text: '',
   actions_text: '',
+  bonus_actions_text: '',
   reactions_text: '',
   legendary_actions_text: '',
   spellcasting_text: '',
@@ -89,7 +92,8 @@ const normalizeMonsterPayload = (state, sectionState) => ({
   source_pages: normalize(state.source_pages) || null,
   traits_text: sectionState.hasTraits ? normalizeSpellDescriptionForSave(state.traits_text) : null,
   actions_text: normalizeSpellDescriptionForSave(state.actions_text),
-  reactions_text: normalizeSpellDescriptionForSave(state.reactions_text),
+  bonus_actions_text: sectionState.hasBonusActions ? normalizeSpellDescriptionForSave(state.bonus_actions_text) : null,
+  reactions_text: sectionState.hasReactions ? normalizeSpellDescriptionForSave(state.reactions_text) : null,
   legendary_actions_text: sectionState.hasLegendary ? normalizeSpellDescriptionForSave(state.legendary_actions_text) : null,
   spellcasting_text: sectionState.hasSpellcasting ? normalizeSpellDescriptionForSave(state.spellcasting_text) : null,
   villain_actions_text: sectionState.hasVillainActions ? normalizeSpellDescriptionForSave(state.villain_actions_text) : null,
@@ -182,8 +186,23 @@ function MonsterForm({
         </div>
 
         <div className="space-y-2">
-          <div className="text-sm font-medium text-gray-800">Реакции</div>
-          <SpellDescriptionEditor value={formState.reactions_text} onChange={(value) => onFieldChange('reactions_text', value)} placeholder="Реакции" />
+          <label className="flex items-center gap-2 text-sm font-medium text-gray-800">
+            <input type="checkbox" checked={sectionState.hasBonusActions} onChange={(event) => onSectionChange('hasBonusActions', event.target.checked)} />
+            Бонусные действия
+          </label>
+          {sectionState.hasBonusActions ? (
+            <SpellDescriptionEditor value={formState.bonus_actions_text} onChange={(value) => onFieldChange('bonus_actions_text', value)} placeholder="Бонусные действия" />
+          ) : null}
+        </div>
+
+        <div className="space-y-2">
+          <label className="flex items-center gap-2 text-sm font-medium text-gray-800">
+            <input type="checkbox" checked={sectionState.hasReactions} onChange={(event) => onSectionChange('hasReactions', event.target.checked)} />
+            Реакции
+          </label>
+          {sectionState.hasReactions ? (
+            <SpellDescriptionEditor value={formState.reactions_text} onChange={(value) => onFieldChange('reactions_text', value)} placeholder="Реакции" />
+          ) : null}
         </div>
 
         <div className="space-y-2">
@@ -327,7 +346,7 @@ export default function AdminBestiaryPage() {
 
     const payload = normalizeMonsterPayload(monsterForm, createSections);
     if (!payload.name) {
-      setError('Название монстра обязательно');
+      setError('Название существа обязательно');
       return;
     }
 
@@ -338,7 +357,7 @@ export default function AdminBestiaryPage() {
       await load();
     } catch (e2) {
       console.error(e2);
-      setError(e2.message || 'Ошибка добавления монстра');
+      setError(e2.message || 'Ошибка добавления существа');
     }
   };
 
@@ -375,6 +394,7 @@ export default function AdminBestiaryPage() {
       source_pages: String(item.source_pages || ''),
       traits_text: String(item.traits_text || ''),
       actions_text: String(item.actions_text || ''),
+      bonus_actions_text: String(item.bonus_actions_text || ''),
       reactions_text: String(item.reactions_text || ''),
       legendary_actions_text: String(item.legendary_actions_text || ''),
       spellcasting_text: String(item.spellcasting_text || ''),
@@ -384,6 +404,8 @@ export default function AdminBestiaryPage() {
     setEditSections(
       createSectionState({
         hasTraits: Boolean(normalize(item.traits_text)),
+        hasBonusActions: Boolean(normalize(item.bonus_actions_text)),
+        hasReactions: Boolean(normalize(item.reactions_text)),
         hasLegendary: Boolean(normalize(item.legendary_actions_text)),
         hasSpellcasting: Boolean(normalize(item.spellcasting_text)),
         hasVillainActions: Boolean(normalize(item.villain_actions_text)),
@@ -408,7 +430,7 @@ export default function AdminBestiaryPage() {
 
     const payload = normalizeMonsterPayload(editForm, editSections);
     if (!payload.name) {
-      setError('Название монстра обязательно');
+      setError('Название существа обязательно');
       return;
     }
 
@@ -418,19 +440,19 @@ export default function AdminBestiaryPage() {
       await load();
     } catch (e) {
       console.error(e);
-      setError(e.message || 'Ошибка обновления монстра');
+      setError(e.message || 'Ошибка обновления существа');
     }
   };
 
   const handleDeleteMonster = async (id) => {
-    if (!confirm('Удалить монстра?')) return;
+    if (!confirm('Удалить существо?')) return;
     setError('');
     try {
       await bestiaryAPI.remove(id);
       await load();
     } catch (e) {
       console.error(e);
-      setError(e.message || 'Ошибка удаления монстра');
+      setError(e.message || 'Ошибка удаления существа');
     }
   };
 
@@ -440,13 +462,13 @@ export default function AdminBestiaryPage() {
         <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Бестиарий</h1>
-            <p className="text-gray-600 mt-1">Монстры</p>
+            <p className="text-gray-600 mt-1">Существа</p>
           </div>
           <div className="w-full md:w-80">
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Поиск монстра…"
+              placeholder="Поиск существа…"
               className="w-full rounded-lg border border-gray-300 px-3 py-2"
             />
           </div>
@@ -455,7 +477,7 @@ export default function AdminBestiaryPage() {
         {error ? <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">{error}</div> : null}
 
         <MonsterForm
-          title="Добавить монстра"
+          title="Добавить существо"
           formState={monsterForm}
           sectionState={createSections}
           onFieldChange={updateMonsterField}
@@ -463,7 +485,7 @@ export default function AdminBestiaryPage() {
           sourceListId={sourceListId}
           sourceOptions={sourceItems}
           onSubmit={handleCreateMonster}
-          submitLabel="Добавить монстра"
+          submitLabel="Добавить существо"
         />
 
         <datalist id={sourceListId}>
@@ -473,11 +495,11 @@ export default function AdminBestiaryPage() {
         </datalist>
 
         <div className="bg-white rounded-lg border shadow-sm">
-          <div className="px-4 py-3 border-b font-semibold text-gray-900">Монстры ({filteredSorted.length})</div>
+          <div className="px-4 py-3 border-b font-semibold text-gray-900">Существа ({filteredSorted.length})</div>
           {loading ? (
             <div className="p-4 text-gray-700">Загрузка…</div>
           ) : filteredSorted.length === 0 ? (
-            <div className="p-4 text-gray-700">Монстров пока нет.</div>
+            <div className="p-4 text-gray-700">Существ пока нет.</div>
           ) : (
             <div className="divide-y max-h-[30rem] overflow-y-auto">
               {filteredSorted.map((item) => (

@@ -227,7 +227,7 @@ export default function AdminLayout({ children }) {
         items: access.screen
           ? [
           {
-            name: 'Конструктор боёв',
+            name: 'Конструктор боёв(бета)',
             href: '/admin/screen/encounters',
             icon: (
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
