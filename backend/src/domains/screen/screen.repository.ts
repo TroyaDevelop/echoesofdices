@@ -1,5 +1,18 @@
 import { query } from '../../db/pool';
 
+let screenEncounterEventsSchemaReady = false;
+
+async function ensureScreenEncounterEventsSchema() {
+  if (screenEncounterEventsSchemaReady) return;
+
+  await query(
+    "CREATE TABLE IF NOT EXISTS screen_encounter_events (id BIGINT PRIMARY KEY AUTO_INCREMENT, encounter_id INT NOT NULL, event_type VARCHAR(64) NOT NULL DEFAULT 'screen.encounter.started', payload_json LONGTEXT NOT NULL, consumed_at TIMESTAMP NULL, consumed_by VARCHAR(64) NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, INDEX idx_screen_encounter_events_consumed (consumed_at, id), INDEX idx_screen_encounter_events_encounter (encounter_id), FOREIGN KEY (encounter_id) REFERENCES screen_encounters(id) ON DELETE CASCADE)",
+    []
+  );
+
+  screenEncounterEventsSchemaReady = true;
+}
+
 export async function listEncountersRows(limit: number) {
   return query<any[]>(
     "SELECT e.id, e.name, e.status, e.monsters_json, e.initiative_order_json, e.created_by, e.started_by, e.started_at, e.created_at, e.updated_at, COALESCE(NULLIF(TRIM(us.nickname), ''), us.login, COALESCE(NULLIF(TRIM(uc.nickname), ''), uc.login)) AS master_name FROM screen_encounters e LEFT JOIN users uc ON uc.id = e.created_by LEFT JOIN users us ON us.id = e.started_by ORDER BY e.updated_at DESC, e.id DESC LIMIT ?",
@@ -101,6 +114,7 @@ export async function listBestiaryByIds(ids: number[]) {
 }
 
 export async function insertEncounterEvent(encounterId: number, payload: any) {
+  await ensureScreenEncounterEventsSchema();
   return query<any>('INSERT INTO screen_encounter_events (encounter_id, event_type, payload_json) VALUES (?, ?, ?)', [
     encounterId,
     'screen.encounter.started',
@@ -109,6 +123,7 @@ export async function insertEncounterEvent(encounterId: number, payload: any) {
 }
 
 export async function listPendingEncounterEvents(afterId: number, limit: number) {
+  await ensureScreenEncounterEventsSchema();
   return query<any[]>(
     'SELECT id AS event_id, encounter_id, event_type, payload_json, created_at FROM screen_encounter_events WHERE consumed_at IS NULL AND id > ? ORDER BY id ASC LIMIT ?',
     [afterId, limit]
@@ -117,6 +132,7 @@ export async function listPendingEncounterEvents(afterId: number, limit: number)
 
 export async function acknowledgeEncounterEvents(eventIds: number[], consumer: string) {
   if (!eventIds.length) return;
+  await ensureScreenEncounterEventsSchema();
   const placeholders = eventIds.map(() => '?').join(', ');
   await query(
     `UPDATE screen_encounter_events SET consumed_at = CURRENT_TIMESTAMP, consumed_by = ? WHERE consumed_at IS NULL AND id IN (${placeholders})`,
