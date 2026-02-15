@@ -202,11 +202,6 @@ export default function SpellDescriptionEditor({
       </BubbleMenu>
 
       <EditorContent editor={editor} />
-
-      <div className="mt-1 text-xs text-gray-500">
-        Выделите текст, чтобы применить жирный/курсив.
-        {enableTables ? ' Таблицы — кнопками выше.' : null}
-      </div>
     </div>
   );
 }

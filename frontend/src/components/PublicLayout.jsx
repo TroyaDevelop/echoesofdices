@@ -76,14 +76,17 @@ export default function PublicLayout({ children }) {
   const NavItems = ({ onNavigate }) => (
     <>
       <div className="px-3 pt-2 pb-1 text-[11px] uppercase tracking-wider text-slate-400/80">Компендиум</div>
+      <NavLink to="/bestiary" className={navLinkClass} onClick={onNavigate}>
+        Бестиарий
+      </NavLink>
+      <NavLink to="/wondrous-items" className={navLinkClass} onClick={onNavigate}>
+        Чудесные предметы
+      </NavLink>
       <NavLink to="/spells" className={navLinkClass} onClick={onNavigate}>
         Заклинания
       </NavLink>
       <NavLink to="/traits" className={navLinkClass} onClick={onNavigate}>
         Черты
-      </NavLink>
-      <NavLink to="/wondrous-items" className={navLinkClass} onClick={onNavigate}>
-        Чудесные предметы
       </NavLink>
       <NavLink to="/market" className={navLinkClass} onClick={onNavigate}>
         Рынок

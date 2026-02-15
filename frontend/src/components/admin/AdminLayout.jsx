@@ -87,16 +87,22 @@ export default function AdminLayout({ children }) {
       {
         label: 'Компендиум',
         items: [
-          {
-            name: 'Заклинания',
-            href: '/admin/spells',
+           {
+            name: 'Бестиарий',
+            href: '/admin/bestiary',
             icon: (
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"
                   strokeWidth="2"
-                  d="M12 2l1.09 3.09L16 6l-2.91 1.09L12 10l-1.09-2.91L8 6l2.91-.91L12 2zm7 9l.73 2.07L22 14l-2.27.93L19 17l-.73-2.07L16 14l2.27-.93L19 11zM4 13l.73 2.07L7 16l-2.27.93L4 19l-.73-2.07L1 16l2.27-.93L4 13z"
+                  d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.868v4.264a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"
+                ></path>
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M20 12a8 8 0 11-16 0 8 8 0 0116 0z"
                 ></path>
               </svg>
             ),
@@ -116,6 +122,20 @@ export default function AdminLayout({ children }) {
             ),
           },
           {
+            name: 'Заклинания',
+            href: '/admin/spells',
+            icon: (
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M12 2l1.09 3.09L16 6l-2.91 1.09L12 10l-1.09-2.91L8 6l2.91-.91L12 2zm7 9l.73 2.07L22 14l-2.27.93L19 17l-.73-2.07L16 14l2.27-.93L19 11zM4 13l.73 2.07L7 16l-2.27.93L4 19l-.73-2.07L1 16l2.27-.93L4 13z"
+                ></path>
+              </svg>
+            ),
+          },
+          {
             name: 'Черты',
             href: '/admin/traits',
             icon: (
@@ -129,6 +149,7 @@ export default function AdminLayout({ children }) {
               </svg>
             ),
           },
+         
           {
             name: 'Рынок',
             href: '/admin/market',

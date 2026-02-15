@@ -182,6 +182,44 @@ export async function ensureRuntimeSchema(): Promise<void> {
   );
 
   await query(
+    "CREATE TABLE IF NOT EXISTS bestiary_entries (id INT PRIMARY KEY AUTO_INCREMENT, name VARCHAR(255) NOT NULL, name_en VARCHAR(255), size VARCHAR(80), creature_type VARCHAR(120), alignment VARCHAR(120), armor_class VARCHAR(60), hit_points VARCHAR(60), speed VARCHAR(120), strength TINYINT UNSIGNED, dexterity TINYINT UNSIGNED, constitution TINYINT UNSIGNED, intelligence TINYINT UNSIGNED, wisdom TINYINT UNSIGNED, charisma TINYINT UNSIGNED, saving_throws VARCHAR(255), skills VARCHAR(255), damage_vulnerabilities VARCHAR(255), damage_resistances VARCHAR(255), damage_immunities VARCHAR(255), condition_immunities VARCHAR(255), senses VARCHAR(255), languages VARCHAR(255), challenge_rating VARCHAR(20), proficiency_bonus VARCHAR(20), source VARCHAR(100), source_pages VARCHAR(50), traits_text LONGTEXT, actions_text LONGTEXT, reactions_text LONGTEXT, legendary_actions_text LONGTEXT, spellcasting_text LONGTEXT, villain_actions_text LONGTEXT, description LONGTEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, INDEX idx_bestiary_entries_name (name), INDEX idx_bestiary_entries_cr (challenge_rating))",
+    []
+  );
+
+  await safeQuery('ALTER TABLE bestiary_entries ADD COLUMN IF NOT EXISTS name_en VARCHAR(255)', []);
+  await safeQuery('ALTER TABLE bestiary_entries ADD COLUMN IF NOT EXISTS size VARCHAR(80)', []);
+  await safeQuery('ALTER TABLE bestiary_entries ADD COLUMN IF NOT EXISTS creature_type VARCHAR(120)', []);
+  await safeQuery('ALTER TABLE bestiary_entries ADD COLUMN IF NOT EXISTS alignment VARCHAR(120)', []);
+  await safeQuery('ALTER TABLE bestiary_entries ADD COLUMN IF NOT EXISTS armor_class VARCHAR(60)', []);
+  await safeQuery('ALTER TABLE bestiary_entries ADD COLUMN IF NOT EXISTS hit_points VARCHAR(60)', []);
+  await safeQuery('ALTER TABLE bestiary_entries ADD COLUMN IF NOT EXISTS speed VARCHAR(120)', []);
+  await safeQuery('ALTER TABLE bestiary_entries ADD COLUMN IF NOT EXISTS strength TINYINT UNSIGNED', []);
+  await safeQuery('ALTER TABLE bestiary_entries ADD COLUMN IF NOT EXISTS dexterity TINYINT UNSIGNED', []);
+  await safeQuery('ALTER TABLE bestiary_entries ADD COLUMN IF NOT EXISTS constitution TINYINT UNSIGNED', []);
+  await safeQuery('ALTER TABLE bestiary_entries ADD COLUMN IF NOT EXISTS intelligence TINYINT UNSIGNED', []);
+  await safeQuery('ALTER TABLE bestiary_entries ADD COLUMN IF NOT EXISTS wisdom TINYINT UNSIGNED', []);
+  await safeQuery('ALTER TABLE bestiary_entries ADD COLUMN IF NOT EXISTS charisma TINYINT UNSIGNED', []);
+  await safeQuery('ALTER TABLE bestiary_entries ADD COLUMN IF NOT EXISTS saving_throws VARCHAR(255)', []);
+  await safeQuery('ALTER TABLE bestiary_entries ADD COLUMN IF NOT EXISTS skills VARCHAR(255)', []);
+  await safeQuery('ALTER TABLE bestiary_entries ADD COLUMN IF NOT EXISTS damage_vulnerabilities VARCHAR(255)', []);
+  await safeQuery('ALTER TABLE bestiary_entries ADD COLUMN IF NOT EXISTS damage_resistances VARCHAR(255)', []);
+  await safeQuery('ALTER TABLE bestiary_entries ADD COLUMN IF NOT EXISTS damage_immunities VARCHAR(255)', []);
+  await safeQuery('ALTER TABLE bestiary_entries ADD COLUMN IF NOT EXISTS condition_immunities VARCHAR(255)', []);
+  await safeQuery('ALTER TABLE bestiary_entries ADD COLUMN IF NOT EXISTS senses VARCHAR(255)', []);
+  await safeQuery('ALTER TABLE bestiary_entries ADD COLUMN IF NOT EXISTS languages VARCHAR(255)', []);
+  await safeQuery('ALTER TABLE bestiary_entries ADD COLUMN IF NOT EXISTS challenge_rating VARCHAR(20)', []);
+  await safeQuery('ALTER TABLE bestiary_entries ADD COLUMN IF NOT EXISTS proficiency_bonus VARCHAR(20)', []);
+  await safeQuery('ALTER TABLE bestiary_entries ADD COLUMN IF NOT EXISTS source VARCHAR(100)', []);
+  await safeQuery('ALTER TABLE bestiary_entries ADD COLUMN IF NOT EXISTS source_pages VARCHAR(50)', []);
+  await safeQuery('ALTER TABLE bestiary_entries ADD COLUMN IF NOT EXISTS traits_text LONGTEXT', []);
+  await safeQuery('ALTER TABLE bestiary_entries ADD COLUMN IF NOT EXISTS actions_text LONGTEXT', []);
+  await safeQuery('ALTER TABLE bestiary_entries ADD COLUMN IF NOT EXISTS reactions_text LONGTEXT', []);
+  await safeQuery('ALTER TABLE bestiary_entries ADD COLUMN IF NOT EXISTS legendary_actions_text LONGTEXT', []);
+  await safeQuery('ALTER TABLE bestiary_entries ADD COLUMN IF NOT EXISTS spellcasting_text LONGTEXT', []);
+  await safeQuery('ALTER TABLE bestiary_entries ADD COLUMN IF NOT EXISTS villain_actions_text LONGTEXT', []);
+  await safeQuery('ALTER TABLE bestiary_entries ADD COLUMN IF NOT EXISTS description LONGTEXT', []);
+
+  await query(
     'CREATE TABLE IF NOT EXISTS trait_likes (id INT PRIMARY KEY AUTO_INCREMENT, trait_id INT NOT NULL, user_id INT NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, UNIQUE KEY uniq_trait_user (trait_id, user_id), INDEX idx_trait_likes_trait (trait_id), FOREIGN KEY (trait_id) REFERENCES traits(id) ON DELETE CASCADE, FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE)',
     []
   );

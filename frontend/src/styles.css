@@ -285,6 +285,22 @@ body {
   font-weight: 600;
 }
 
+.bestiary-section-content .spell-description p {
+  margin: 0 0 0.2rem 0;
+}
+
+.bestiary-section-content .spell-description p:last-child {
+  margin-bottom: 0;
+}
+
+.bestiary-section-content .spell-description ul {
+  margin: 0 0 0.2rem 0;
+}
+
+.bestiary-section-content .spell-description li {
+  margin: 0.15rem 0;
+}
+
 .news-content p {
   margin: 0 0 0.75rem 0;
 }

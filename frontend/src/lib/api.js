@@ -234,3 +234,12 @@ export const marketAPI = {
   listTradeLogs: (limit = 200) => apiClient(`/market/trades?limit=${encodeURIComponent(limit)}`, { method: 'GET' }),
   logTrade: (data) => apiClient('/market/trades', { method: 'POST', body: JSON.stringify(data) }),
 };
+
+export const bestiaryAPI = {
+  list: () => apiClient('/bestiary', { method: 'GET' }),
+  getById: (id) => apiClient(`/bestiary/${id}`, { method: 'GET' }),
+  listAdmin: () => apiClient('/bestiary/admin', { method: 'GET' }),
+  create: (data) => apiClient('/bestiary', { method: 'POST', body: JSON.stringify(data || {}) }),
+  update: (id, data) => apiClient(`/bestiary/${id}`, { method: 'PUT', body: JSON.stringify(data || {}) }),
+  remove: (id) => apiClient(`/bestiary/${id}`, { method: 'DELETE' }),
+};

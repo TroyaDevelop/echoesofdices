@@ -10,7 +10,7 @@
     "build:js": "API_URL=${API_URL:-http://localhost:5017/api}; esbuild src/main.jsx --bundle --minify --sourcemap --outdir=dist/assets --jsx=automatic --jsx-import-source=react --loader:.png=file --loader:.jpg=file --loader:.jpeg=file --loader:.svg=file --define:process.env.NODE_ENV=\\\"production\\\" --define:__API_URL__=\\\"$API_URL\\\"",
     "build": "npm run clean && npm run prepare:dist && npm run build:css && npm run build:js",
     "dev:css": "postcss src/styles.css -o dist/assets/styles.css --watch",
-    "dev:js": "FRONTEND_PORT=${FRONTEND_PORT:-3018}; API_URL=${API_URL:-http://localhost:5017/api}; esbuild src/main.jsx --bundle --sourcemap --outdir=dist/assets --servedir=dist --serve=$FRONTEND_PORT --watch --jsx=automatic --jsx-import-source=react --loader:.png=file --loader:.jpg=file --loader:.jpeg=file --loader:.svg=file --define:__API_URL__=\\\"$API_URL\\\"",
+    "dev:js": "FRONTEND_PORT=${FRONTEND_PORT:-3017}; API_URL=${API_URL:-http://localhost:5017/api}; esbuild src/main.jsx --bundle --sourcemap --outdir=dist/assets --servedir=dist --serve=$FRONTEND_PORT --watch --jsx=automatic --jsx-import-source=react --loader:.png=file --loader:.jpg=file --loader:.jpeg=file --loader:.svg=file --define:__API_URL__=\\\"$API_URL\\\"",
     "dev": "npm run clean && npm run prepare:dist && concurrently -n css,js -c magenta,cyan \"npm run dev:css\" \"npm run dev:js\""
   },
   "dependencies": {
