@@ -12,14 +12,14 @@ import {
   listUsersHandler,
   revokeAwardHandler,
   updateAwardHandler,
-  updateRoleHandler,
+  updateFlagsHandler,
 } from './admin.controller';
 
 export const adminRouter = Router();
 
 adminRouter.get('/users', authenticateToken, requireAdminOnly, listUsersHandler);
 adminRouter.delete('/users/:id(\\d+)', authenticateToken, requireAdminOnly, deleteUserHandler);
-adminRouter.patch('/users/:id(\\d+)/role', authenticateToken, requireAdminOnly, updateRoleHandler);
+adminRouter.patch('/users/:id(\\d+)/flags', authenticateToken, requireAdminOnly, updateFlagsHandler);
 
 adminRouter.post('/registration-keys', authenticateToken, requireAdminOnly, createKeyHandler);
 adminRouter.get('/registration-keys', authenticateToken, requireAdminOnly, listKeysHandler);

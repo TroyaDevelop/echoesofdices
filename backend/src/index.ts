@@ -21,6 +21,7 @@ import { wondrousRouter } from './domains/wondrous/wondrous.routes';
 import { bestiaryRouter } from './domains/bestiary/bestiary.routes';
 import { healthRouter } from './domains/health/health.routes';
 import { botIntegrationRouter } from './domains/botIntegration/botIntegration.routes';
+import { screenRouter } from './domains/screen/screen.routes';
 
 const app = express();
 
@@ -43,6 +44,7 @@ app.use('/api/wondrous-items', wondrousRouter);
 app.use('/api/bestiary', bestiaryRouter);
 app.use('/api/health', healthRouter);
 app.use('/api/bot-integration', botIntegrationRouter);
+app.use('/api/screen', screenRouter);
 
 app.use(errorHandler);
 app.use(notFoundHandler);
@@ -50,14 +52,14 @@ app.use(notFoundHandler);
 async function start() {
   try {
     await ensureRuntimeSchema();
-  } catch {
-    return;
+  } catch (error) {
+    console.error('[BOOT] Failed to ensure runtime schema:', error);
   }
 
   startTradeLogCleanup();
 
   app.listen(PORT, () => {
-    return;
+    console.log(`[BOOT] API server is listening on port ${PORT}`);
   });
 }
 

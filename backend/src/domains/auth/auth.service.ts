@@ -2,6 +2,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { JWT_SECRET } from '../../config/env';
 import { HttpError } from '../../utils/httpError';
+import { extractUserFlags } from '../../utils/permissions';
 import { claimRegistrationKey, findUserByLogin, findUserLoginExists, insertUser, markRegistrationKeyUsed } from './auth.repository';
 
 export async function loginUser(login: string, password: string) {
@@ -15,14 +16,16 @@ export async function loginUser(login: string, password: string) {
   const validPassword = await bcrypt.compare(passwordValue, String(user.password));
   if (!validPassword) throw new HttpError(401, 'Неверные учетные данные');
 
-  const token = jwt.sign({ userId: user.id, login: user.login, role: user.role }, JWT_SECRET, { expiresIn: '24h' });
+  const flags = extractUserFlags(user);
+  const token = jwt.sign({ userId: user.id, login: user.login, flags }, JWT_SECRET, { expiresIn: '24h' });
 
   return {
     token,
     user: {
       id: user.id,
       login: user.login,
-      role: user.role,
+      role: 'user',
+      flags,
       nickname: user.nickname || null,
     },
   };

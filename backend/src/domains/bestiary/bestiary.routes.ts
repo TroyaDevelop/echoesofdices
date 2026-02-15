@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { authenticateToken, requireStaff } from '../../middlewares/auth';
+import { authenticateOptional, authenticateToken, requireStaff } from '../../middlewares/auth';
 import {
   createBestiaryEntryHandler,
   deleteBestiaryEntryHandler,
@@ -11,9 +11,9 @@ import {
 
 export const bestiaryRouter = Router();
 
-bestiaryRouter.get('/', listBestiaryHandler);
+bestiaryRouter.get('/', authenticateOptional, listBestiaryHandler);
 bestiaryRouter.get('/admin', authenticateToken, requireStaff, listBestiaryAdminHandler);
-bestiaryRouter.get('/:id(\\d+)', getBestiaryEntryHandler);
+bestiaryRouter.get('/:id(\\d+)', authenticateOptional, getBestiaryEntryHandler);
 
 bestiaryRouter.post('/', authenticateToken, requireStaff, createBestiaryEntryHandler);
 bestiaryRouter.put('/:id(\\d+)', authenticateToken, requireStaff, updateBestiaryEntryHandler);

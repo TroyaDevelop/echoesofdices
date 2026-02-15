@@ -2,6 +2,15 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 
 import { authAPI } from '../../lib/api.js';
+import {
+  canAccessAdminPanel,
+  canManageArticlesLore,
+  canManageCompendium,
+  canManageMarket,
+  canManageNews,
+  canManageScreen,
+  canManageUsers,
+} from '../../lib/permissions.js';
 
 export default function AdminLayout({ children }) {
   const [user, setUser] = useState(null);
@@ -29,8 +38,7 @@ export default function AdminLayout({ children }) {
 
     try {
       const parsedUser = JSON.parse(userData);
-      const role = String(parsedUser?.role || '').toLowerCase();
-      if (role !== 'editor' && role !== 'admin') {
+      if (!canAccessAdminPanel(parsedUser)) {
         logoutAndRedirect('/news');
         return () => {};
       }
@@ -61,7 +69,17 @@ export default function AdminLayout({ children }) {
     };
   }, [navigate]);
 
-  const isAdmin = useMemo(() => String(user?.role || '').toLowerCase() === 'admin', [user]);
+  const access = useMemo(
+    () => ({
+      users: canManageUsers(user),
+      news: canManageNews(user),
+      market: canManageMarket(user),
+      compendium: canManageCompendium(user),
+      articlesLore: canManageArticlesLore(user),
+      screen: canManageScreen(user),
+    }),
+    [user]
+  );
 
   const navigation = useMemo(() => {
     const nav = [
@@ -86,7 +104,8 @@ export default function AdminLayout({ children }) {
       },
       {
         label: 'Компендиум',
-        items: [
+        items: access.compendium
+          ? [
            {
             name: 'Бестиарий',
             href: '/admin/bestiary',
@@ -153,6 +172,7 @@ export default function AdminLayout({ children }) {
           {
             name: 'Рынок',
             href: '/admin/market',
+            hidden: !access.market,
             icon: (
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
@@ -164,7 +184,8 @@ export default function AdminLayout({ children }) {
               </svg>
             ),
           },
-        ],
+          ]
+          : [],
       },
       {
         label: 'Архив',
@@ -172,6 +193,7 @@ export default function AdminLayout({ children }) {
           {
             name: 'Статьи',
             href: '/admin/articles',
+            hidden: !access.articlesLore,
             icon: (
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
@@ -186,6 +208,7 @@ export default function AdminLayout({ children }) {
           {
             name: 'Лор',
             href: '/admin/lore',
+            hidden: !access.articlesLore,
             icon: (
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
@@ -200,11 +223,33 @@ export default function AdminLayout({ children }) {
         ],
       },
       {
+        label: 'Ширма',
+        items: access.screen
+          ? [
+          {
+            name: 'Конструктор боёв',
+            href: '/admin/screen/encounters',
+            icon: (
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M7 8h10M7 12h6m-6 4h10M5 3h14a2 2 0 012 2v14l-4-2-4 2-4-2-4 2V5a2 2 0 012-2z"
+                ></path>
+              </svg>
+            ),
+          },
+          ]
+          : [],
+      },
+      {
         label: 'Управление',
         items: [
           {
             name: 'Новости',
             href: '/admin/news',
+            hidden: !access.news,
             icon: (
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
@@ -233,7 +278,7 @@ export default function AdminLayout({ children }) {
           {
             name: 'Пользователи',
             href: '/admin/users',
-            adminOnly: true,
+            hidden: !access.users,
             icon: (
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
@@ -248,15 +293,14 @@ export default function AdminLayout({ children }) {
         ],
       },
     ];
-    
-    if (!isAdmin) {
-      return nav.map(section => ({
+
+    return nav
+      .map((section) => ({
         ...section,
-        items: section.items.filter(item => !item.adminOnly),
-      })).filter(section => section.items.length > 0);
-    }
-    return nav;
-  }, [user, isAdmin]);
+        items: (section.items || []).filter((item) => !item.hidden),
+      }))
+      .filter((section) => section.items.length > 0);
+  }, [access]);
 
   const handleLogout = () => {
     localStorage.removeItem('token');
@@ -389,7 +433,7 @@ export default function AdminLayout({ children }) {
                 </div>
                 <div className="ml-3 flex-1">
                   <p className="text-sm font-medium text-gray-700 group-hover:text-gray-900">{user.login}</p>
-                  <p className="text-xs text-gray-500">роль: {String(user.role || '—')}</p>
+                  <p className="text-xs text-gray-500">флаги: {Object.entries(user?.flags || {}).filter(([, on]) => Boolean(on)).map(([k]) => k).join(', ') || 'нет'}</p>
                   <button
                     onClick={handleLogout}
                     className="text-xs font-medium text-gray-500 group-hover:text-gray-700"

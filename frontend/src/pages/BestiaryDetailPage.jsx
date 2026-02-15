@@ -155,6 +155,7 @@ export default function BestiaryDetailPage() {
               <MetaLine label="Иммунитеты к состояниям" value={monster?.condition_immunities} />
               <MetaLine label="Чувства" value={monster?.senses} />
               <MetaLine label="Языки" value={monster?.languages} />
+              <MetaLine label="Среда обитания" value={monster?.habitat} />
               <MetaLine label="Опасность" value={monster?.challenge_rating} />
               <MetaLine label="Бонус мастерства" value={monster?.proficiency_bonus} />
 

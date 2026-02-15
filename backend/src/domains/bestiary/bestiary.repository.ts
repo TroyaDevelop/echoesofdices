@@ -8,6 +8,8 @@ const ENTRY_SELECT = `
     size,
     creature_type,
     alignment,
+    habitat,
+    is_hidden,
     armor_class,
     hit_points,
     speed,
@@ -41,16 +43,22 @@ const ENTRY_SELECT = `
   FROM bestiary_entries
 `;
 
-export async function listBestiaryEntries() {
-  return query<any[]>(`${ENTRY_SELECT} ORDER BY name ASC`, []);
+export async function listBestiaryEntries(includeHidden = false) {
+  if (includeHidden) {
+    return query<any[]>(`${ENTRY_SELECT} ORDER BY name ASC`, []);
+  }
+  return query<any[]>(`${ENTRY_SELECT} WHERE COALESCE(is_hidden, 0) = 0 ORDER BY name ASC`, []);
 }
 
 export async function listBestiaryEntriesAdmin() {
   return query<any[]>(`${ENTRY_SELECT} ORDER BY name ASC`, []);
 }
 
-export async function findBestiaryEntryById(id: number) {
-  const rows = await query<any[]>(`${ENTRY_SELECT} WHERE id = ? LIMIT 1`, [id]);
+export async function findBestiaryEntryById(id: number, includeHidden = false) {
+  const sql = includeHidden
+    ? `${ENTRY_SELECT} WHERE id = ? LIMIT 1`
+    : `${ENTRY_SELECT} WHERE id = ? AND COALESCE(is_hidden, 0) = 0 LIMIT 1`;
+  const rows = await query<any[]>(sql, [id]);
   return rows?.[0];
 }
 
@@ -62,6 +70,8 @@ export async function insertBestiaryEntry(payload: any) {
       size,
       creature_type,
       alignment,
+      habitat,
+      is_hidden,
       armor_class,
       hit_points,
       speed,
@@ -90,13 +100,15 @@ export async function insertBestiaryEntry(payload: any) {
       spellcasting_text,
       villain_actions_text,
       description
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       payload.name,
       payload.name_en,
       payload.size,
       payload.creature_type,
       payload.alignment,
+      payload.habitat,
+      payload.is_hidden ? 1 : 0,
       payload.armor_class,
       payload.hit_points,
       payload.speed,
@@ -137,6 +149,8 @@ export async function updateBestiaryEntry(id: number, payload: any) {
       size = ?,
       creature_type = ?,
       alignment = ?,
+      habitat = ?,
+      is_hidden = ?,
       armor_class = ?,
       hit_points = ?,
       speed = ?,
@@ -172,6 +186,8 @@ export async function updateBestiaryEntry(id: number, payload: any) {
       payload.size,
       payload.creature_type,
       payload.alignment,
+      payload.habitat,
+      payload.is_hidden ? 1 : 0,
       payload.armor_class,
       payload.hit_points,
       payload.speed,

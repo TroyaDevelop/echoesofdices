@@ -1,11 +1,14 @@
 import { query } from '../../db/pool';
 
 export async function listUsers() {
-  return query<any[]>('SELECT id, login, nickname, role, created_at, updated_at FROM users ORDER BY created_at DESC', []);
+  return query<any[]>(
+    'SELECT id, login, nickname, role, flag_admin, flag_editor, flag_master, created_at, updated_at FROM users ORDER BY created_at DESC',
+    []
+  );
 }
 
 export async function findUserById(id: number) {
-  const rows = await query<any[]>('SELECT id, role FROM users WHERE id = ? LIMIT 1', [id]);
+  const rows = await query<any[]>('SELECT id, role, flag_admin, flag_editor, flag_master FROM users WHERE id = ? LIMIT 1', [id]);
   return rows && rows[0];
 }
 
@@ -13,8 +16,14 @@ export async function deleteUserById(id: number) {
   return query<any>('DELETE FROM users WHERE id = ?', [id]);
 }
 
-export async function updateUserRole(id: number, role: string) {
-  return query<any>('UPDATE users SET role = ? WHERE id = ?', [role, id]);
+export async function updateUserFlags(id: number, flags: { admin: boolean; editor: boolean; master: boolean }) {
+  return query<any>('UPDATE users SET role = ?, flag_admin = ?, flag_editor = ?, flag_master = ? WHERE id = ?', [
+    'user',
+    flags.admin ? 1 : 0,
+    flags.editor ? 1 : 0,
+    flags.master ? 1 : 0,
+    id,
+  ]);
 }
 
 export async function createRegistrationKey(key: string, createdBy: number) {

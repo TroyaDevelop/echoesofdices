@@ -13,11 +13,17 @@ async function safeQuery(sql: string, params: any[] = []): Promise<void> {
 
 export async function ensureRuntimeSchema(): Promise<void> {
   await query(
-    "CREATE TABLE IF NOT EXISTS users (id INT PRIMARY KEY AUTO_INCREMENT, login VARCHAR(255) UNIQUE NOT NULL, password VARCHAR(255) NOT NULL, role ENUM('admin','editor','user') DEFAULT 'user', nickname VARCHAR(100), character_level TINYINT, strength SMALLINT, dexterity SMALLINT, constitution SMALLINT, intelligence SMALLINT, wisdom SMALLINT, charisma SMALLINT, skill_acrobatics TINYINT, skill_animal_handling TINYINT, skill_arcana TINYINT, skill_athletics TINYINT, skill_deception TINYINT, skill_history TINYINT, skill_insight TINYINT, skill_intimidation TINYINT, skill_investigation TINYINT, skill_medicine TINYINT, skill_nature TINYINT, skill_perception TINYINT, skill_performance TINYINT, skill_persuasion TINYINT, skill_religion TINYINT, skill_sleight_of_hand TINYINT, skill_stealth TINYINT, skill_survival TINYINT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP)",
+    "CREATE TABLE IF NOT EXISTS users (id INT PRIMARY KEY AUTO_INCREMENT, login VARCHAR(255) UNIQUE NOT NULL, password VARCHAR(255) NOT NULL, role ENUM('admin','editor','user') DEFAULT 'user', flag_admin TINYINT(1) NOT NULL DEFAULT 0, flag_editor TINYINT(1) NOT NULL DEFAULT 0, flag_master TINYINT(1) NOT NULL DEFAULT 0, nickname VARCHAR(100), character_level TINYINT, strength SMALLINT, dexterity SMALLINT, constitution SMALLINT, intelligence SMALLINT, wisdom SMALLINT, charisma SMALLINT, skill_acrobatics TINYINT, skill_animal_handling TINYINT, skill_arcana TINYINT, skill_athletics TINYINT, skill_deception TINYINT, skill_history TINYINT, skill_insight TINYINT, skill_intimidation TINYINT, skill_investigation TINYINT, skill_medicine TINYINT, skill_nature TINYINT, skill_perception TINYINT, skill_performance TINYINT, skill_persuasion TINYINT, skill_religion TINYINT, skill_sleight_of_hand TINYINT, skill_stealth TINYINT, skill_survival TINYINT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP)",
     []
   );
 
   await safeQuery("ALTER TABLE users MODIFY COLUMN role ENUM('admin','editor','user') DEFAULT 'user'", []);
+  await safeQuery('ALTER TABLE users ADD COLUMN IF NOT EXISTS flag_admin TINYINT(1) NOT NULL DEFAULT 0', []);
+  await safeQuery('ALTER TABLE users ADD COLUMN IF NOT EXISTS flag_editor TINYINT(1) NOT NULL DEFAULT 0', []);
+  await safeQuery('ALTER TABLE users ADD COLUMN IF NOT EXISTS flag_master TINYINT(1) NOT NULL DEFAULT 0', []);
+  await safeQuery("UPDATE users SET flag_admin = 1 WHERE role = 'admin'", []);
+  await safeQuery("UPDATE users SET flag_editor = 1 WHERE role = 'editor'", []);
+  await safeQuery("UPDATE users SET role = 'user' WHERE role <> 'user'", []);
 
   await safeQuery('ALTER TABLE users CHANGE COLUMN email login VARCHAR(255) NOT NULL', []);
   await safeQuery('ALTER TABLE users ADD COLUMN IF NOT EXISTS login VARCHAR(255)', []);
@@ -182,7 +188,7 @@ export async function ensureRuntimeSchema(): Promise<void> {
   );
 
   await query(
-    "CREATE TABLE IF NOT EXISTS bestiary_entries (id INT PRIMARY KEY AUTO_INCREMENT, name VARCHAR(255) NOT NULL, name_en VARCHAR(255), size VARCHAR(80), creature_type VARCHAR(120), alignment VARCHAR(120), armor_class VARCHAR(60), hit_points VARCHAR(60), speed VARCHAR(120), strength TINYINT UNSIGNED, dexterity TINYINT UNSIGNED, constitution TINYINT UNSIGNED, intelligence TINYINT UNSIGNED, wisdom TINYINT UNSIGNED, charisma TINYINT UNSIGNED, saving_throws VARCHAR(255), skills VARCHAR(255), damage_vulnerabilities VARCHAR(255), damage_resistances VARCHAR(255), damage_immunities VARCHAR(255), condition_immunities VARCHAR(255), senses VARCHAR(255), languages VARCHAR(255), challenge_rating VARCHAR(20), proficiency_bonus VARCHAR(20), source VARCHAR(100), source_pages VARCHAR(50), traits_text LONGTEXT, actions_text LONGTEXT, reactions_text LONGTEXT, legendary_actions_text LONGTEXT, spellcasting_text LONGTEXT, villain_actions_text LONGTEXT, description LONGTEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, INDEX idx_bestiary_entries_name (name), INDEX idx_bestiary_entries_cr (challenge_rating))",
+    "CREATE TABLE IF NOT EXISTS bestiary_entries (id INT PRIMARY KEY AUTO_INCREMENT, name VARCHAR(255) NOT NULL, name_en VARCHAR(255), size VARCHAR(80), creature_type VARCHAR(120), alignment VARCHAR(120), habitat VARCHAR(255), is_hidden TINYINT(1) NOT NULL DEFAULT 0, armor_class VARCHAR(60), hit_points VARCHAR(60), speed VARCHAR(120), strength TINYINT UNSIGNED, dexterity TINYINT UNSIGNED, constitution TINYINT UNSIGNED, intelligence TINYINT UNSIGNED, wisdom TINYINT UNSIGNED, charisma TINYINT UNSIGNED, saving_throws VARCHAR(255), skills VARCHAR(255), damage_vulnerabilities VARCHAR(255), damage_resistances VARCHAR(255), damage_immunities VARCHAR(255), condition_immunities VARCHAR(255), senses VARCHAR(255), languages VARCHAR(255), challenge_rating VARCHAR(20), proficiency_bonus VARCHAR(20), source VARCHAR(100), source_pages VARCHAR(50), traits_text LONGTEXT, actions_text LONGTEXT, reactions_text LONGTEXT, legendary_actions_text LONGTEXT, spellcasting_text LONGTEXT, villain_actions_text LONGTEXT, description LONGTEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, INDEX idx_bestiary_entries_name (name), INDEX idx_bestiary_entries_cr (challenge_rating))",
     []
   );
 
@@ -190,6 +196,8 @@ export async function ensureRuntimeSchema(): Promise<void> {
   await safeQuery('ALTER TABLE bestiary_entries ADD COLUMN IF NOT EXISTS size VARCHAR(80)', []);
   await safeQuery('ALTER TABLE bestiary_entries ADD COLUMN IF NOT EXISTS creature_type VARCHAR(120)', []);
   await safeQuery('ALTER TABLE bestiary_entries ADD COLUMN IF NOT EXISTS alignment VARCHAR(120)', []);
+  await safeQuery('ALTER TABLE bestiary_entries ADD COLUMN IF NOT EXISTS habitat VARCHAR(255)', []);
+  await safeQuery('ALTER TABLE bestiary_entries ADD COLUMN IF NOT EXISTS is_hidden TINYINT(1) NOT NULL DEFAULT 0', []);
   await safeQuery('ALTER TABLE bestiary_entries ADD COLUMN IF NOT EXISTS armor_class VARCHAR(60)', []);
   await safeQuery('ALTER TABLE bestiary_entries ADD COLUMN IF NOT EXISTS hit_points VARCHAR(60)', []);
   await safeQuery('ALTER TABLE bestiary_entries ADD COLUMN IF NOT EXISTS speed VARCHAR(120)', []);
@@ -373,30 +381,44 @@ export async function ensureRuntimeSchema(): Promise<void> {
   await query('ALTER TABLE wondrous_items ADD COLUMN IF NOT EXISTS description LONGTEXT', []);
   await query('ALTER TABLE wondrous_items ADD COLUMN IF NOT EXISTS description_eot LONGTEXT', []);
 
-  const anyEditor = await query<any[]>("SELECT id FROM users WHERE role IN ('editor','admin') LIMIT 1", []);
-  if (!anyEditor || !anyEditor[0]) {
+  await query(
+    "CREATE TABLE IF NOT EXISTS screen_encounters (id INT PRIMARY KEY AUTO_INCREMENT, name VARCHAR(255) NOT NULL, status ENUM('draft','active','finished') NOT NULL DEFAULT 'draft', monsters_json LONGTEXT NOT NULL, initiative_order_json LONGTEXT NULL, created_by INT NOT NULL, started_by INT NULL, started_at TIMESTAMP NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, INDEX idx_screen_encounters_status (status), INDEX idx_screen_encounters_updated (updated_at), INDEX idx_screen_encounters_started_by (started_by), FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE, FOREIGN KEY (started_by) REFERENCES users(id) ON DELETE SET NULL)",
+    []
+  );
+
+  await query('ALTER TABLE screen_encounters ADD COLUMN IF NOT EXISTS started_by INT NULL', []);
+  await query('ALTER TABLE screen_encounters ADD COLUMN IF NOT EXISTS started_at TIMESTAMP NULL', []);
+  await query('ALTER TABLE screen_encounters ADD INDEX idx_screen_encounters_started_by (started_by)', []);
+
+  await query(
+    "CREATE TABLE IF NOT EXISTS screen_encounter_events (id BIGINT PRIMARY KEY AUTO_INCREMENT, encounter_id INT NOT NULL, event_type VARCHAR(64) NOT NULL DEFAULT 'screen.encounter.started', payload_json JSON NOT NULL, consumed_at TIMESTAMP NULL, consumed_by VARCHAR(64) NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, INDEX idx_screen_encounter_events_consumed (consumed_at, id), INDEX idx_screen_encounter_events_encounter (encounter_id), FOREIGN KEY (encounter_id) REFERENCES screen_encounters(id) ON DELETE CASCADE)",
+    []
+  );
+
+  const anyAdmin = await query<any[]>('SELECT id FROM users WHERE flag_admin = 1 LIMIT 1', []);
+  if (!anyAdmin || !anyAdmin[0]) {
     const anyUser = await query<any[]>('SELECT id FROM users ORDER BY id ASC LIMIT 1', []);
     if (anyUser && anyUser[0]) {
-      await query("UPDATE users SET role = 'admin' WHERE id = ?", [anyUser[0].id]);
+      await query("UPDATE users SET flag_admin = 1, role = 'user' WHERE id = ?", [anyUser[0].id]);
     }
   }
 
   const defaultEditorLogin = String(ECHOESROOT_LOGIN || 'echoesroot').trim() || 'echoesroot';
   const defaultEditorPassword = String(ECHOESROOT_PASSWORD || 'echoesoftimespunguinandpigeon');
 
-  const existing = await query<any[]>('SELECT id, login, password, role FROM users WHERE login = ? LIMIT 1', [defaultEditorLogin]);
+  const existing = await query<any[]>('SELECT id, login, password, role, flag_admin FROM users WHERE login = ? LIMIT 1', [defaultEditorLogin]);
   const user = existing && existing[0];
   if (!user) {
     const hashed = await bcrypt.hash(defaultEditorPassword, 10);
-    await query('INSERT INTO users (login, password, role, nickname) VALUES (?, ?, ?, ?)', [defaultEditorLogin, hashed, 'admin', defaultEditorLogin]);
+    await query('INSERT INTO users (login, password, role, flag_admin, nickname) VALUES (?, ?, ?, ?, ?)', [defaultEditorLogin, hashed, 'user', 1, defaultEditorLogin]);
   } else {
     const passOk = await bcrypt.compare(defaultEditorPassword, String(user.password));
     if (!passOk) {
       const hashed = await bcrypt.hash(defaultEditorPassword, 10);
       await query('UPDATE users SET password = ? WHERE id = ?', [hashed, user.id]);
     }
-    if (String(user.role) !== 'admin') {
-      await query("UPDATE users SET role = 'admin' WHERE id = ?", [user.id]);
+    if (Number(user.flag_admin || 0) !== 1 || String(user.role) !== 'user') {
+      await query("UPDATE users SET flag_admin = 1, role = 'user' WHERE id = ?", [user.id]);
     }
   }
 }

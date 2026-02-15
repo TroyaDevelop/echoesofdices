@@ -26,6 +26,8 @@ const emptyMonster = {
   size: '',
   creature_type: '',
   alignment: '',
+  habitat: '',
+  is_hidden: false,
   armor_class: '',
   hit_points: '',
   speed: '',
@@ -62,6 +64,8 @@ const normalizeMonsterPayload = (state, sectionState) => ({
   size: normalize(state.size) || null,
   creature_type: normalize(state.creature_type) || null,
   alignment: normalize(state.alignment) || null,
+  habitat: normalize(state.habitat) || null,
+  is_hidden: Boolean(state.is_hidden),
   armor_class: normalize(state.armor_class) || null,
   hit_points: normalize(state.hit_points) || null,
   speed: normalize(state.speed) || null,
@@ -115,6 +119,16 @@ function MonsterForm({
         <input value={formState.size} onChange={(event) => onFieldChange('size', event.target.value)} className="rounded-lg border px-3 py-2" placeholder="Размер" />
         <input value={formState.creature_type} onChange={(event) => onFieldChange('creature_type', event.target.value)} className="rounded-lg border px-3 py-2" placeholder="Тип" />
         <input value={formState.alignment} onChange={(event) => onFieldChange('alignment', event.target.value)} className="rounded-lg border px-3 py-2" placeholder="Мировоззрение" />
+        <label className="md:col-span-3 inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm text-gray-700">
+          <input type="checkbox" checked={Boolean(formState.is_hidden)} onChange={(event) => onFieldChange('is_hidden', event.target.checked)} />
+          Скрыть существо из публичного бестиария (доступно только мастеру/администратору)
+        </label>
+        <input
+          value={formState.habitat}
+          onChange={(event) => onFieldChange('habitat', event.target.value)}
+          className="rounded-lg border px-3 py-2 md:col-span-3"
+          placeholder="Среда обитания"
+        />
         <input value={formState.armor_class} onChange={(event) => onFieldChange('armor_class', event.target.value)} className="rounded-lg border px-3 py-2" placeholder="Класс доспеха" />
         <input value={formState.hit_points} onChange={(event) => onFieldChange('hit_points', event.target.value)} className="rounded-lg border px-3 py-2" placeholder="Хиты" />
         <input value={formState.speed} onChange={(event) => onFieldChange('speed', event.target.value)} className="rounded-lg border px-3 py-2" placeholder="Скорость" />
@@ -336,6 +350,8 @@ export default function AdminBestiaryPage() {
       size: String(item.size || ''),
       creature_type: String(item.creature_type || ''),
       alignment: String(item.alignment || ''),
+      habitat: String(item.habitat || ''),
+      is_hidden: Boolean(item.is_hidden),
       armor_class: String(item.armor_class || ''),
       hit_points: String(item.hit_points || ''),
       speed: String(item.speed || ''),
@@ -470,7 +486,12 @@ export default function AdminBestiaryPage() {
                     <div className="min-w-0">
                       <div className="font-medium text-gray-900 truncate">{item.name}</div>
                       <div className="text-sm text-gray-500 truncate">
-                        {[normalize(item.size), normalize(item.creature_type), normalize(item.challenge_rating) ? `CR ${normalize(item.challenge_rating)}` : '']
+                        {[
+                          normalize(item.size),
+                          normalize(item.creature_type),
+                          normalize(item.challenge_rating) ? `CR ${normalize(item.challenge_rating)}` : '',
+                          item.is_hidden ? 'Скрыто' : '',
+                        ]
                           .filter(Boolean)
                           .join(' • ')}
                       </div>

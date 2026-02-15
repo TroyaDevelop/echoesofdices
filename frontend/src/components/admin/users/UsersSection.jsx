@@ -3,7 +3,7 @@ export default function UsersSection({
   users,
   shouldScroll,
   formatDate,
-  onChangeRole,
+  onChangeFlags,
   onAskDelete,
   onManageAwards,
 }) {
@@ -25,29 +25,43 @@ export default function UsersSection({
               <tr className="text-left text-gray-500">
                 <th className="py-2 pr-4">Логин</th>
                 <th className="py-2 pr-4">Ник</th>
-                <th className="py-2 pr-4">Роль</th>
+                <th className="py-2 pr-4">Флаги</th>
                 <th className="py-2 pr-4">Создан</th>
                 <th className="py-2 pr-4"></th>
               </tr>
             </thead>
             <tbody className="text-gray-800">
               {users.map((user) => {
-                const role = String(user.role || '').toLowerCase();
+                const toBool = (value) => value === true || value === 1 || String(value || '').toLowerCase() === 'true';
+                const flags = {
+                  admin: toBool(user?.flag_admin ?? user?.flags?.admin),
+                  editor: toBool(user?.flag_editor ?? user?.flags?.editor),
+                  master: toBool(user?.flag_master ?? user?.flags?.master),
+                };
+
+                const toggleFlag = (name) => {
+                  onChangeFlags(user, { ...flags, [name]: !flags[name] });
+                };
 
                 return (
                   <tr key={user.id} className="border-t border-gray-100">
                     <td className="py-2 pr-4 font-medium">{user.login}</td>
                     <td className="py-2 pr-4">{user.nickname || '—'}</td>
                     <td className="py-2 pr-4">
-                      <select
-                        value={role}
-                        onChange={(e) => onChangeRole(user, e.target.value)}
-                        className="px-2 py-1 rounded border border-gray-200 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-purple-500"
-                      >
-                        <option value="user">Пользователь</option>
-                        <option value="editor">Редактор</option>
-                        <option value="admin">Администратор</option>
-                      </select>
+                      <div className="flex items-center gap-3 text-xs">
+                        <label className="inline-flex items-center gap-1">
+                          <input type="checkbox" checked={flags.admin} onChange={() => toggleFlag('admin')} />
+                          Админ
+                        </label>
+                        <label className="inline-flex items-center gap-1">
+                          <input type="checkbox" checked={flags.editor} onChange={() => toggleFlag('editor')} />
+                          Редактор
+                        </label>
+                        <label className="inline-flex items-center gap-1">
+                          <input type="checkbox" checked={flags.master} onChange={() => toggleFlag('master')} />
+                          Мастер
+                        </label>
+                      </div>
                     </td>
                     <td className="py-2 pr-4">{formatDate(user.created_at)}</td>
                     <td className="py-2 pr-4">

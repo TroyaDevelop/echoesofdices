@@ -28,6 +28,8 @@ import AdminLorePage from './pages/admin/LorePage.jsx';
 import AdminUtilitiesPage from './pages/admin/UtilitiesPage.jsx';
 import AdminUsersPage from './pages/admin/UsersPage.jsx';
 import AdminMarketPage from './pages/admin/MarketPage.jsx';
+import AdminScreenEncountersPage from './pages/admin/ScreenEncountersPage.jsx';
+import AdminBattleSessionPage from './pages/admin/BattleSessionPage.jsx';
 
 export default function App() {
   return (
@@ -64,6 +66,8 @@ export default function App() {
       <Route path="/admin/utilities" element={<AdminUtilitiesPage />} />
       <Route path="/admin/market" element={<AdminMarketPage />} />
       <Route path="/admin/users" element={<AdminUsersPage />} />
+      <Route path="/admin/screen/encounters" element={<AdminScreenEncountersPage />} />
+      <Route path="/admin/screen/sessions/:id" element={<AdminBattleSessionPage />} />
 
       <Route path="*" element={<Navigate to="/news" replace />} />
     </Routes>

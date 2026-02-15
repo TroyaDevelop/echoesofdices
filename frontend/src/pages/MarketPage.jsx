@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import PublicLayout from '../components/PublicLayout.jsx';
 import { marketAPI, userProfileAPI } from '../lib/api.js';
+import { canManageMarket } from '../lib/permissions.js';
 import MarketFilters from '../components/market/MarketFilters.jsx';
 import MarketCategoryGroup from '../components/market/MarketCategoryGroup.jsx';
 import MarketAutoTradeModal from '../components/market/MarketAutoTradeModal.jsx';
@@ -145,7 +146,7 @@ export default function MarketPage() {
       return false;
     }
   });
-  const [userRole, setUserRole] = useState('');
+  const [canManageMarketContent, setCanManageMarketContent] = useState(false);
 
   const load = async () => {
     setError('');
@@ -176,13 +177,13 @@ export default function MarketPage() {
       try {
         const raw = localStorage.getItem('user');
         if (!raw) {
-          setUserRole('');
+          setCanManageMarketContent(false);
           return;
         }
         const parsed = JSON.parse(raw);
-        setUserRole(String(parsed?.role || '').toLowerCase());
+        setCanManageMarketContent(canManageMarket(parsed));
       } catch {
-        setUserRole('');
+        setCanManageMarketContent(false);
       }
     };
 
@@ -306,7 +307,7 @@ export default function MarketPage() {
     return map;
   }, [markups]);
 
-  const isAdmin = useMemo(() => userRole === 'editor' || userRole === 'admin', [userRole]);
+  const isAdmin = useMemo(() => canManageMarketContent, [canManageMarketContent]);
 
   useEffect(() => {
     if (!isAdmin && viewTab === 'logs') {

@@ -1,7 +1,15 @@
 import { query } from '../../db/pool';
 
 export async function findUserByLogin(login: string) {
-  const rows = await query<any[]>('SELECT id, login, password, role, nickname FROM users WHERE login = ? LIMIT 1', [login]);
+  const rows = await query<any[]>(
+    'SELECT id, login, password, role, nickname, flag_admin, flag_editor, flag_master FROM users WHERE login = ? LIMIT 1',
+    [login]
+  );
+  return rows && rows[0];
+}
+
+export async function findUserAuthById(id: number) {
+  const rows = await query<any[]>('SELECT id, login, role, flag_admin, flag_editor, flag_master FROM users WHERE id = ? LIMIT 1', [id]);
   return rows && rows[0];
 }
 

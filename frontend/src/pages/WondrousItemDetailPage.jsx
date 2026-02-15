@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 
 import { wondrousItemsAPI } from '../lib/api.js';
+import { canManageCompendium } from '../lib/permissions.js';
 import SpellHeader from '../components/spells/SpellHeader.jsx';
 import SpellDescription from '../components/spells/SpellDescription.jsx';
 import LikeButton from '../components/spells/LikeButton.jsx';
@@ -125,8 +126,7 @@ export default function WondrousItemDetailPage() {
     try {
       const raw = localStorage.getItem('user');
       const parsed = raw ? JSON.parse(raw) : null;
-      const role = parsed ? String(parsed?.role || '').toLowerCase() : '';
-      return role === 'editor' || role === 'admin';
+      return canManageCompendium(parsed);
     } catch {
       return false;
     }

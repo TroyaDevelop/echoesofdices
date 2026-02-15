@@ -1,7 +1,7 @@
 import type { Request, Response } from 'express';
 import { HttpError } from '../../utils/httpError';
 import {
-  changeRole,
+  changeFlags,
   createAwardRecord,
   createKey,
   deleteAwardRecord,
@@ -36,14 +36,14 @@ export async function deleteUserHandler(req: Request, res: Response) {
   }
 }
 
-export async function updateRoleHandler(req: Request, res: Response) {
+export async function updateFlagsHandler(req: Request, res: Response) {
   try {
     const id = Number(req.params.id);
-    const data = await changeRole(id, String(req.body?.role || ''));
+    const data = await changeFlags(id, req.body || {});
     res.json(data);
   } catch (error) {
     const err = error as HttpError;
-    res.status(err.status || 500).json({ error: err.message || 'Ошибка при обновлении роли' });
+    res.status(err.status || 500).json({ error: err.message || 'Ошибка при обновлении флагов' });
   }
 }
 

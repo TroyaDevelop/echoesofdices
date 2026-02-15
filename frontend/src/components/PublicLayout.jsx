@@ -1,5 +1,6 @@
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useEffect, useMemo, useState } from 'react';
+import { canAccessAdminPanel } from '../lib/permissions.js';
 
 const navLinkClass = ({ isActive }) =>
   `block w-full px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
@@ -56,8 +57,7 @@ export default function PublicLayout({ children }) {
   }, [mobileMenuOpen]);
 
   const canSeeAdmin = useMemo(() => {
-    const role = String(user?.role || '').toLowerCase();
-    return role === 'editor' || role === 'admin';
+    return canAccessAdminPanel(user);
   }, [user]);
 
   const handleLogout = () => {

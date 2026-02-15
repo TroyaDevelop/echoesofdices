@@ -8,6 +8,7 @@ import UsersHeader from '../../components/admin/users/UsersHeader.jsx';
 import UsersSection from '../../components/admin/users/UsersSection.jsx';
 import UserAwardsModal from '../../components/admin/awards/UserAwardsModal.jsx';
 import { adminAPI } from '../../lib/api.js';
+import { canManageUsers } from '../../lib/permissions.js';
 
 const formatDate = (value) => {
   try {
@@ -24,7 +25,7 @@ const formatDate = (value) => {
 };
 
 export default function AdminUsersPage() {
-  const [currentUserRole, setCurrentUserRole] = useState('');
+  const [canManage, setCanManage] = useState(false);
   const [currentUserId, setCurrentUserId] = useState(null);
   const [keys, setKeys] = useState([]);
   const [users, setUsers] = useState([]);
@@ -53,11 +54,10 @@ export default function AdminUsersPage() {
     try {
       const raw = localStorage.getItem('user');
       const parsed = raw ? JSON.parse(raw) : null;
-      const role = parsed ? String(parsed?.role || '').toLowerCase() : '';
-      setCurrentUserRole(role);
+      setCanManage(canManageUsers(parsed));
       const id = parsed?.id;
       setCurrentUserId(Number.isFinite(Number(id)) ? Number(id) : null);
-      if (role !== 'admin') {
+      if (!canManageUsers(parsed)) {
         setLoading(false);
         return;
       }
@@ -83,14 +83,14 @@ export default function AdminUsersPage() {
     }
   };
 
-  const toggleEditor = async (u, newRole) => {
+  const updateUserFlags = async (u, nextFlags) => {
     setError('');
     try {
-      await adminAPI.setUserRole(u.id, newRole);
-      setUsers((prev) => prev.map((x) => (x.id === u.id ? { ...x, role: newRole } : x)));
+      await adminAPI.setUserFlags(u.id, nextFlags);
+      setUsers((prev) => prev.map((x) => (x.id === u.id ? { ...x, flags: nextFlags, flag_admin: nextFlags.admin ? 1 : 0, flag_editor: nextFlags.editor ? 1 : 0, flag_master: nextFlags.master ? 1 : 0 } : x)));
     } catch (e) {
       console.error(e);
-      setError(e.message || 'Ошибка изменения роли');
+      setError(e.message || 'Ошибка изменения флагов');
     }
   };
 
@@ -138,9 +138,9 @@ export default function AdminUsersPage() {
 
         {error && <div className="text-red-700 bg-red-50 border border-red-200 rounded-xl p-4">{error}</div>}
 
-        {currentUserRole !== 'admin' ? <AccessNotice /> : null}
+        {!canManage ? <AccessNotice /> : null}
 
-        {currentUserRole === 'admin' ? (
+        {canManage ? (
           <RegistrationKeysSection
             activeKeysCount={activeKeys.length}
             creatingKey={creatingKey}
@@ -152,13 +152,13 @@ export default function AdminUsersPage() {
           />
         ) : null}
 
-        {currentUserRole === 'admin' ? (
+        {canManage ? (
           <UsersSection
             loading={loading}
             users={visibleUsers}
             shouldScroll={shouldScrollUsers}
             formatDate={formatDate}
-            onChangeRole={toggleEditor}
+            onChangeFlags={updateUserFlags}
             onAskDelete={askDelete}
             onManageAwards={setAwardsUser}
           />

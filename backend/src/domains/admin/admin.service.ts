@@ -13,7 +13,7 @@ import {
   listUsers,
   revokeAward,
   updateAward,
-  updateUserRole,
+  updateUserFlags,
 } from './admin.repository';
 
 export async function getUsers() {
@@ -29,15 +29,20 @@ export async function removeUser(id: number, currentUserId: number) {
   return { ok: true };
 }
 
-export async function changeRole(id: number, roleValue: string) {
-  const role = String(roleValue || '').trim().toLowerCase();
-  if (role !== 'user' && role !== 'editor' && role !== 'admin') {
-    throw new HttpError(400, 'Роль должна быть user, editor или admin');
-  }
+const toBool = (value: any): boolean => value === true || value === 1 || String(value).toLowerCase() === 'true';
+
+export async function changeFlags(id: number, input: any) {
   const user = await findUserById(id);
   if (!user) throw new HttpError(404, 'Пользователь не найден');
-  await updateUserRole(id, role);
-  return { id, role };
+
+  const flags = {
+    admin: toBool(input?.admin),
+    editor: toBool(input?.editor),
+    master: toBool(input?.master),
+  };
+
+  await updateUserFlags(id, flags);
+  return { id, role: 'user', flags };
 }
 
 export async function createKey(createdBy: number) {

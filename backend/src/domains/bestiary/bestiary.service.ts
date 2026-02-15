@@ -22,6 +22,8 @@ const toOptionalAbility = (value: any) => {
   return clamped;
 };
 
+const toFlag = (value: any) => value === true || value === 1 || String(value).toLowerCase() === 'true';
+
 const normalizeEntryPayload = (body: any, fallback?: any) => {
   const name = body?.name !== undefined ? String(body.name).trim() : String(fallback?.name || '').trim();
   if (!name) throw new HttpError(400, 'Название монстра обязательно');
@@ -32,6 +34,8 @@ const normalizeEntryPayload = (body: any, fallback?: any) => {
     size: body?.size !== undefined ? toTrimmed(body.size) : fallback?.size ?? null,
     creature_type: body?.creature_type !== undefined ? toTrimmed(body.creature_type) : fallback?.creature_type ?? null,
     alignment: body?.alignment !== undefined ? toTrimmed(body.alignment) : fallback?.alignment ?? null,
+    habitat: body?.habitat !== undefined ? toTrimmed(body.habitat) : fallback?.habitat ?? null,
+    is_hidden: body?.is_hidden !== undefined ? toFlag(body.is_hidden) : Boolean(fallback?.is_hidden),
     armor_class: body?.armor_class !== undefined ? toTrimmed(body.armor_class) : fallback?.armor_class ?? null,
     hit_points: body?.hit_points !== undefined ? toTrimmed(body.hit_points) : fallback?.hit_points ?? null,
     speed: body?.speed !== undefined ? toTrimmed(body.speed) : fallback?.speed ?? null,
@@ -66,17 +70,17 @@ const normalizeEntryPayload = (body: any, fallback?: any) => {
   };
 };
 
-export async function listBestiaryPublic() {
-  return listBestiaryEntries();
+export async function listBestiaryPublic(includeHidden = false) {
+  return listBestiaryEntries(includeHidden);
 }
 
 export async function listBestiaryAdminData() {
   return listBestiaryEntriesAdmin();
 }
 
-export async function getBestiaryById(id: number) {
+export async function getBestiaryById(id: number, includeHidden = false) {
   if (!Number.isFinite(id) || id <= 0) throw new HttpError(400, 'Некорректный id');
-  const row = await findBestiaryEntryById(id);
+  const row = await findBestiaryEntryById(id, includeHidden);
   if (!row) throw new HttpError(404, 'Монстр не найден');
   return row;
 }

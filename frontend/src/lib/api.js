@@ -85,10 +85,10 @@ export const userProfileAPI = {
 
 export const adminAPI = {
   listUsers: () => apiClient('/admin/users', { method: 'GET' }),
-  setUserRole: (id, role) =>
-    apiClient(`/admin/users/${id}/role`, {
+  setUserFlags: (id, flags) =>
+    apiClient(`/admin/users/${id}/flags`, {
       method: 'PATCH',
-      body: JSON.stringify({ role }),
+      body: JSON.stringify(flags || {}),
     }),
   deleteUser: (id) => apiClient(`/admin/users/${id}`, { method: 'DELETE' }),
   createRegistrationKey: () => apiClient('/admin/registration-keys', { method: 'POST' }),
@@ -242,4 +242,19 @@ export const bestiaryAPI = {
   create: (data) => apiClient('/bestiary', { method: 'POST', body: JSON.stringify(data || {}) }),
   update: (id, data) => apiClient(`/bestiary/${id}`, { method: 'PUT', body: JSON.stringify(data || {}) }),
   remove: (id) => apiClient(`/bestiary/${id}`, { method: 'DELETE' }),
+};
+
+export const screenAPI = {
+  listEncounters: (limit = 100) => apiClient(`/screen/encounters?limit=${encodeURIComponent(limit)}`, { method: 'GET' }),
+  getEncounterById: (id) => apiClient(`/screen/encounters/${id}`, { method: 'GET' }),
+  createEncounter: (data) => apiClient('/screen/encounters', { method: 'POST', body: JSON.stringify(data || {}) }),
+  updateEncounter: (id, data) => apiClient(`/screen/encounters/${id}`, { method: 'PUT', body: JSON.stringify(data || {}) }),
+  startEncounter: (id) => apiClient(`/screen/encounters/${id}/start`, { method: 'POST' }),
+  rebroadcastOrder: (id) => apiClient(`/screen/encounters/${id}/rebroadcast-order`, { method: 'POST' }),
+  finishEncounter: (id) => apiClient(`/screen/encounters/${id}/finish`, { method: 'DELETE' }),
+  updateMonsterHp: (encounterId, monsterInstanceId, hpCurrent) =>
+    apiClient(`/screen/encounters/${encounterId}/monsters/${encodeURIComponent(monsterInstanceId)}/hp`, {
+      method: 'PATCH',
+      body: JSON.stringify({ hp_current: hpCurrent }),
+    }),
 };

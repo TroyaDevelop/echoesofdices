@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import LoginCard from '../../components/admin/login/LoginCard.jsx';
 import { authAPI } from '../../lib/api.js';
+import { canAccessAdminPanel } from '../../lib/permissions.js';
 
 export default function AdminLoginPage() {
   const [formData, setFormData] = useState({ login: '', password: '' });
@@ -36,8 +37,7 @@ export default function AdminLoginPage() {
           return;
         }
 
-        const role = String(parsedUser?.role || '').toLowerCase();
-        if (role === 'editor' || role === 'admin') {
+        if (canAccessAdminPanel(parsedUser)) {
           navigate('/admin', { replace: true });
           return;
         }
@@ -70,8 +70,7 @@ export default function AdminLoginPage() {
         window.dispatchEvent(new Event('auth:login'));
       } catch {
       }
-      const role = String(data?.user?.role || '').toLowerCase();
-      if (role === 'editor' || role === 'admin') {
+      if (canAccessAdminPanel(data?.user)) {
         navigate('/admin', { replace: true });
       } else {
         navigate('/news', { replace: true });

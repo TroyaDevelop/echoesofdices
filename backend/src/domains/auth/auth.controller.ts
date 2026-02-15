@@ -18,6 +18,7 @@ export function verify(req: Request, res: Response) {
       id: req.user?.userId,
       login: req.user?.login,
       role: req.user?.role,
+      flags: req.user?.flags,
     },
   });
 }
