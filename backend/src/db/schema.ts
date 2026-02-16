@@ -383,12 +383,17 @@ export async function ensureRuntimeSchema(): Promise<void> {
   await query('ALTER TABLE wondrous_items ADD COLUMN IF NOT EXISTS description_eot LONGTEXT', []);
 
   await query(
-    "CREATE TABLE IF NOT EXISTS screen_encounters (id INT PRIMARY KEY AUTO_INCREMENT, name VARCHAR(255) NOT NULL, status ENUM('draft','active','finished') NOT NULL DEFAULT 'draft', monsters_json LONGTEXT NOT NULL, initiative_order_json LONGTEXT NULL, created_by INT NOT NULL, started_by INT NULL, started_at TIMESTAMP NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, INDEX idx_screen_encounters_status (status), INDEX idx_screen_encounters_updated (updated_at), INDEX idx_screen_encounters_started_by (started_by), FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE, FOREIGN KEY (started_by) REFERENCES users(id) ON DELETE SET NULL)",
+    "CREATE TABLE IF NOT EXISTS screen_encounters (id INT PRIMARY KEY AUTO_INCREMENT, name VARCHAR(255) NOT NULL, status ENUM('draft','active','finished') NOT NULL DEFAULT 'draft', monsters_json LONGTEXT NOT NULL, initiative_order_json LONGTEXT NULL, map_image_url VARCHAR(500) NULL, map_grid_size_ft SMALLINT NOT NULL DEFAULT 5, map_grid_opacity DECIMAL(4,2) NOT NULL DEFAULT 0.35, map_grid_dashed TINYINT(1) NOT NULL DEFAULT 1, map_tokens_json LONGTEXT NULL, created_by INT NOT NULL, started_by INT NULL, started_at TIMESTAMP NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, INDEX idx_screen_encounters_status (status), INDEX idx_screen_encounters_updated (updated_at), INDEX idx_screen_encounters_started_by (started_by), FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE, FOREIGN KEY (started_by) REFERENCES users(id) ON DELETE SET NULL)",
     []
   );
 
   await query('ALTER TABLE screen_encounters ADD COLUMN IF NOT EXISTS started_by INT NULL', []);
   await query('ALTER TABLE screen_encounters ADD COLUMN IF NOT EXISTS started_at TIMESTAMP NULL', []);
+  await query('ALTER TABLE screen_encounters ADD COLUMN IF NOT EXISTS map_image_url VARCHAR(500) NULL', []);
+  await query('ALTER TABLE screen_encounters ADD COLUMN IF NOT EXISTS map_grid_size_ft SMALLINT NOT NULL DEFAULT 5', []);
+  await query('ALTER TABLE screen_encounters ADD COLUMN IF NOT EXISTS map_grid_opacity DECIMAL(4,2) NOT NULL DEFAULT 0.35', []);
+  await query('ALTER TABLE screen_encounters ADD COLUMN IF NOT EXISTS map_grid_dashed TINYINT(1) NOT NULL DEFAULT 1', []);
+  await query('ALTER TABLE screen_encounters ADD COLUMN IF NOT EXISTS map_tokens_json LONGTEXT NULL', []);
   await query('ALTER TABLE screen_encounters ADD INDEX idx_screen_encounters_started_by (started_by)', []);
 
   await query(

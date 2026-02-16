@@ -249,8 +249,25 @@ export const screenAPI = {
   getEncounterById: (id) => apiClient(`/screen/encounters/${id}`, { method: 'GET' }),
   createEncounter: (data) => apiClient('/screen/encounters', { method: 'POST', body: JSON.stringify(data || {}) }),
   updateEncounter: (id, data) => apiClient(`/screen/encounters/${id}`, { method: 'PUT', body: JSON.stringify(data || {}) }),
+  updateMapConfig: (id, data, imageFile) => {
+    const form = new FormData();
+    if (imageFile) form.append('image', imageFile);
+    const payload = data || {};
+    Object.keys(payload).forEach((key) => {
+      if (payload[key] === undefined || payload[key] === null) return;
+      form.append(key, String(payload[key]));
+    });
+    return apiClient(`/screen/encounters/${id}/map`, { method: 'PUT', body: form });
+  },
+  updateMapTokens: (id, tokens) => apiClient(`/screen/encounters/${id}/map/tokens`, { method: 'PUT', body: JSON.stringify({ tokens: tokens || [] }) }),
+  updateTokenImage: (id, tokenId, imageFile) => {
+    const form = new FormData();
+    if (imageFile) form.append('image', imageFile);
+    return apiClient(`/screen/encounters/${id}/map/tokens/${encodeURIComponent(tokenId)}/image`, { method: 'PUT', body: form });
+  },
+  removeToken: (id, tokenId) => apiClient(`/screen/encounters/${id}/map/tokens/${encodeURIComponent(tokenId)}`, { method: 'DELETE' }),
   startEncounter: (id) => apiClient(`/screen/encounters/${id}/start`, { method: 'POST' }),
-  rebroadcastOrder: (id) => apiClient(`/screen/encounters/${id}/rebroadcast-order`, { method: 'POST' }),
+  rebroadcastOrder: (id, data) => apiClient(`/screen/encounters/${id}/rebroadcast-order`, { method: 'POST', body: JSON.stringify(data || {}) }),
   finishEncounter: (id) => apiClient(`/screen/encounters/${id}/finish`, { method: 'DELETE' }),
   updateMonsterHp: (encounterId, monsterInstanceId, hpCurrent) =>
     apiClient(`/screen/encounters/${encounterId}/monsters/${encodeURIComponent(monsterInstanceId)}/hp`, {

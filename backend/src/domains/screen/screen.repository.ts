@@ -15,24 +15,25 @@ async function ensureScreenEncounterEventsSchema() {
 
 export async function listEncountersRows(limit: number) {
   return query<any[]>(
-    "SELECT e.id, e.name, e.status, e.monsters_json, e.initiative_order_json, e.created_by, e.started_by, e.started_at, e.created_at, e.updated_at, COALESCE(NULLIF(TRIM(us.nickname), ''), us.login, COALESCE(NULLIF(TRIM(uc.nickname), ''), uc.login)) AS master_name FROM screen_encounters e LEFT JOIN users uc ON uc.id = e.created_by LEFT JOIN users us ON us.id = e.started_by ORDER BY e.updated_at DESC, e.id DESC LIMIT ?",
+    "SELECT e.id, e.name, e.status, e.monsters_json, e.initiative_order_json, e.map_image_url, e.map_grid_size_ft, e.map_grid_opacity, e.map_grid_dashed, e.map_tokens_json, e.created_by, e.started_by, e.started_at, e.created_at, e.updated_at, COALESCE(NULLIF(TRIM(us.nickname), ''), us.login, COALESCE(NULLIF(TRIM(uc.nickname), ''), uc.login)) AS master_name FROM screen_encounters e LEFT JOIN users uc ON uc.id = e.created_by LEFT JOIN users us ON us.id = e.started_by ORDER BY e.updated_at DESC, e.id DESC LIMIT ?",
     [limit]
   );
 }
 
 export async function findEncounterById(id: number) {
   const rows = await query<any[]>(
-    "SELECT e.id, e.name, e.status, e.monsters_json, e.initiative_order_json, e.created_by, e.started_by, e.started_at, e.created_at, e.updated_at, COALESCE(NULLIF(TRIM(us.nickname), ''), us.login, COALESCE(NULLIF(TRIM(uc.nickname), ''), uc.login)) AS master_name FROM screen_encounters e LEFT JOIN users uc ON uc.id = e.created_by LEFT JOIN users us ON us.id = e.started_by WHERE e.id = ? LIMIT 1",
+    "SELECT e.id, e.name, e.status, e.monsters_json, e.initiative_order_json, e.map_image_url, e.map_grid_size_ft, e.map_grid_opacity, e.map_grid_dashed, e.map_tokens_json, e.created_by, e.started_by, e.started_at, e.created_at, e.updated_at, COALESCE(NULLIF(TRIM(us.nickname), ''), us.login, COALESCE(NULLIF(TRIM(uc.nickname), ''), uc.login)) AS master_name FROM screen_encounters e LEFT JOIN users uc ON uc.id = e.created_by LEFT JOIN users us ON us.id = e.started_by WHERE e.id = ? LIMIT 1",
     [id]
   );
   return rows?.[0];
 }
 
 export async function insertEncounter(name: string, monstersJson: string, createdBy: number) {
-  return query<any>('INSERT INTO screen_encounters (name, status, monsters_json, initiative_order_json, created_by) VALUES (?, ?, ?, NULL, ?)', [
+  return query<any>('INSERT INTO screen_encounters (name, status, monsters_json, initiative_order_json, map_tokens_json, created_by) VALUES (?, ?, ?, NULL, ?, ?)', [
     name,
     'draft',
     monstersJson,
+    '[]',
     createdBy,
   ]);
 }
@@ -66,6 +67,30 @@ export async function updateEncounterInitiativeOrder(id: number, initiativeOrder
     initiativeOrderJson,
     id,
   ]);
+}
+
+export async function updateEncounterMapConfig(
+  id: number,
+  mapImageUrl: string | null,
+  gridSizeFt: number,
+  gridOpacity: number,
+  gridDashed: boolean
+) {
+  return query<any>(
+    'UPDATE screen_encounters SET map_image_url = ?, map_grid_size_ft = ?, map_grid_opacity = ?, map_grid_dashed = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+    [mapImageUrl, gridSizeFt, gridOpacity, gridDashed ? 1 : 0, id]
+  );
+}
+
+export async function updateEncounterMapTokens(id: number, mapTokensJson: string) {
+  return query<any>('UPDATE screen_encounters SET map_tokens_json = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [mapTokensJson, id]);
+}
+
+export async function clearEncounterMapAssets(id: number) {
+  return query<any>(
+    'UPDATE screen_encounters SET map_image_url = NULL, map_tokens_json = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+    ['[]', id]
+  );
 }
 
 export async function listBestiaryByIds(ids: number[]) {
@@ -113,11 +138,11 @@ export async function listBestiaryByIds(ids: number[]) {
   );
 }
 
-export async function insertEncounterEvent(encounterId: number, payload: any) {
+export async function insertEncounterEvent(encounterId: number, payload: any, eventType = 'screen.encounter.started') {
   await ensureScreenEncounterEventsSchema();
   return query<any>('INSERT INTO screen_encounter_events (encounter_id, event_type, payload_json) VALUES (?, ?, ?)', [
     encounterId,
-    'screen.encounter.started',
+    eventType,
     JSON.stringify(payload || {}),
   ]);
 }

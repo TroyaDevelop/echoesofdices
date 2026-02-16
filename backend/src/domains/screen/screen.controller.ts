@@ -6,10 +6,14 @@ import {
   getScreenEncounterById,
   listScreenEncounters,
   removeScreenEncounterParticipant,
+  removeScreenEncounterToken,
   rebroadcastScreenEncounterOrder,
   startScreenEncounter,
   updateScreenEncounter,
+  updateScreenEncounterMapConfig,
+  updateScreenEncounterMapTokens,
   updateScreenEncounterMonsterHp,
+  updateScreenEncounterTokenImage,
 } from './screen.service';
 
 export async function listScreenEncountersHandler(req: Request, res: Response) {
@@ -74,7 +78,7 @@ export async function finishScreenEncounterHandler(req: Request, res: Response) 
 
 export async function rebroadcastScreenEncounterOrderHandler(req: Request, res: Response) {
   try {
-    const data = await rebroadcastScreenEncounterOrder(req.params.id);
+    const data = await rebroadcastScreenEncounterOrder(req.params.id, req.body || {});
     res.json(data);
   } catch (error) {
     const err = error as HttpError;
@@ -99,5 +103,48 @@ export async function removeScreenEncounterParticipantHandler(req: Request, res:
   } catch (error) {
     const err = error as HttpError;
     res.status(err.status || 500).json({ error: err.message || 'Ошибка удаления существа из боя' });
+  }
+}
+
+export async function updateScreenEncounterMapConfigHandler(req: Request, res: Response) {
+  try {
+    const mapImageUrl = req.file ? `/uploads/tactical-maps/${req.file.filename}` : undefined;
+    const data = await updateScreenEncounterMapConfig(req.params.id, req.body || {}, mapImageUrl);
+    res.json(data);
+  } catch (error) {
+    const err = error as HttpError;
+    res.status(err.status || 500).json({ error: err.message || 'Ошибка обновления карты боя' });
+  }
+}
+
+export async function updateScreenEncounterMapTokensHandler(req: Request, res: Response) {
+  try {
+    const data = await updateScreenEncounterMapTokens(req.params.id, req.body?.tokens);
+    res.json(data);
+  } catch (error) {
+    const err = error as HttpError;
+    res.status(err.status || 500).json({ error: err.message || 'Ошибка обновления токенов карты' });
+  }
+}
+
+export async function updateScreenEncounterTokenImageHandler(req: Request, res: Response) {
+  try {
+    if (!req.file) throw new HttpError(400, 'Не передано изображение токена');
+    const imageUrl = `/uploads/tactical-tokens/${req.file.filename}`;
+    const data = await updateScreenEncounterTokenImage(req.params.id, req.params.tokenId, imageUrl);
+    res.json(data);
+  } catch (error) {
+    const err = error as HttpError;
+    res.status(err.status || 500).json({ error: err.message || 'Ошибка загрузки изображения токена' });
+  }
+}
+
+export async function removeScreenEncounterTokenHandler(req: Request, res: Response) {
+  try {
+    const data = await removeScreenEncounterToken(req.params.id, req.params.tokenId);
+    res.json(data);
+  } catch (error) {
+    const err = error as HttpError;
+    res.status(err.status || 500).json({ error: err.message || 'Ошибка удаления токена карты' });
   }
 }

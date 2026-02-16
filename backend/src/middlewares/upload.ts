@@ -9,8 +9,12 @@ import type { RequestHandler } from 'express';
 const rootUploadsDir = path.join(__dirname, '..', '..', 'uploads');
 const awardsUploadsDir = path.join(rootUploadsDir, 'awards');
 const charactersUploadsDir = path.join(rootUploadsDir, 'characters');
+const tacticalMapsUploadsDir = path.join(rootUploadsDir, 'tactical-maps');
+const tacticalTokensUploadsDir = path.join(rootUploadsDir, 'tactical-tokens');
 if (!fs.existsSync(awardsUploadsDir)) fs.mkdirSync(awardsUploadsDir, { recursive: true });
 if (!fs.existsSync(charactersUploadsDir)) fs.mkdirSync(charactersUploadsDir, { recursive: true });
+if (!fs.existsSync(tacticalMapsUploadsDir)) fs.mkdirSync(tacticalMapsUploadsDir, { recursive: true });
+if (!fs.existsSync(tacticalTokensUploadsDir)) fs.mkdirSync(tacticalTokensUploadsDir, { recursive: true });
 
 const imageFilter: multer.Options['fileFilter'] = (_req, file, cb) => {
   if (/^image\/(png|jpe?g|gif|webp|svg\+xml)$/.test(file.mimetype)) cb(null, true);
@@ -52,3 +56,9 @@ export const optimizeAwardImage = createImageOptimizer({ folder: awardsUploadsDi
 
 export const uploadCharacterImage = createUpload(15);
 export const optimizeCharacterImage = createImageOptimizer({ folder: charactersUploadsDir, prefix: 'character', quality: 70 });
+
+export const uploadTacticalMapImage = createUpload(20);
+export const optimizeTacticalMapImage = createImageOptimizer({ folder: tacticalMapsUploadsDir, prefix: 'tactical-map', quality: 80 });
+
+export const uploadTacticalTokenImage = createUpload(8);
+export const optimizeTacticalTokenImage = createImageOptimizer({ folder: tacticalTokensUploadsDir, prefix: 'tactical-token', quality: 78 });

@@ -1,15 +1,25 @@
 import { Router } from 'express';
 import { authenticateToken, requireMasterOrAdmin } from '../../middlewares/auth';
 import {
+  optimizeTacticalMapImage,
+  optimizeTacticalTokenImage,
+  uploadTacticalMapImage,
+  uploadTacticalTokenImage,
+} from '../../middlewares/upload';
+import {
   createScreenEncounterHandler,
   finishScreenEncounterHandler,
   getScreenEncounterByIdHandler,
   listScreenEncountersHandler,
   removeScreenEncounterParticipantHandler,
+  removeScreenEncounterTokenHandler,
   rebroadcastScreenEncounterOrderHandler,
   startScreenEncounterHandler,
   updateScreenEncounterHandler,
+  updateScreenEncounterMapConfigHandler,
+  updateScreenEncounterMapTokensHandler,
   updateScreenEncounterMonsterHpHandler,
+  updateScreenEncounterTokenImageHandler,
 } from './screen.controller';
 
 export const screenRouter = Router();
@@ -24,3 +34,8 @@ screenRouter.post('/encounters/:id(\\d+)/rebroadcast-order', authenticateToken, 
 screenRouter.delete('/encounters/:id(\\d+)/finish', authenticateToken, requireMasterOrAdmin, finishScreenEncounterHandler);
 screenRouter.patch('/encounters/:id(\\d+)/monsters/:monsterId/hp', authenticateToken, requireMasterOrAdmin, updateScreenEncounterMonsterHpHandler);
 screenRouter.delete('/encounters/:id(\\d+)/monsters/:monsterId', authenticateToken, requireMasterOrAdmin, removeScreenEncounterParticipantHandler);
+
+screenRouter.put('/encounters/:id(\\d+)/map', authenticateToken, requireMasterOrAdmin, uploadTacticalMapImage.single('image'), optimizeTacticalMapImage, updateScreenEncounterMapConfigHandler);
+screenRouter.put('/encounters/:id(\\d+)/map/tokens', authenticateToken, requireMasterOrAdmin, updateScreenEncounterMapTokensHandler);
+screenRouter.put('/encounters/:id(\\d+)/map/tokens/:tokenId/image', authenticateToken, requireMasterOrAdmin, uploadTacticalTokenImage.single('image'), optimizeTacticalTokenImage, updateScreenEncounterTokenImageHandler);
+screenRouter.delete('/encounters/:id(\\d+)/map/tokens/:tokenId', authenticateToken, requireMasterOrAdmin, removeScreenEncounterTokenHandler);

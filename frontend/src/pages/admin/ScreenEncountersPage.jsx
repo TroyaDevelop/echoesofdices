@@ -1,6 +1,14 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import AdminLayout from '../../components/admin/AdminLayout.jsx';
 import { bestiaryAPI, screenAPI } from '../../lib/api.js';
+
+const DEFAULT_MAP_CELL_SIZE = 32;
+const MAP_CANVAS_WIDTH = 960;
+const MAP_CANVAS_HEIGHT = 640;
+const MAP_MIN_ZOOM = 1;
+const MAP_MAX_ZOOM = 2.5;
+
+const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
 
 const normalize = (value) => String(value || '').trim();
 
@@ -16,6 +24,8 @@ const parseHp = (value) => {
   return Math.max(Math.trunc(n), 0);
 };
 
+const randomTokenId = () => `t_${Date.now()}_${Math.floor(Math.random() * 1000000)}`;
+
 const toEntriesPayload = (monsters) => {
   const map = new Map();
   for (const monster of monsters || []) {
@@ -29,6 +39,7 @@ const toEntriesPayload = (monsters) => {
 const normalizeEncounter = (encounter) => {
   const monsters = Array.isArray(encounter?.monsters) ? encounter.monsters : [];
   const order = Array.isArray(encounter?.initiative_order) ? encounter.initiative_order : [];
+  const mapTokens = Array.isArray(encounter?.map_tokens) ? encounter.map_tokens : [];
   return {
     id: Number(encounter?.id || 0),
     name: String(encounter?.name || ''),
@@ -36,6 +47,11 @@ const normalizeEncounter = (encounter) => {
     master_name: String(encounter?.master_name || ''),
     monsters,
     initiative_order: order,
+    map_image_url: encounter?.map_image_url || null,
+    map_grid_size_ft: Number(encounter?.map_grid_size_ft || 5),
+    map_grid_opacity: Number(encounter?.map_grid_opacity || 0.35),
+    map_grid_dashed: Boolean(encounter?.map_grid_dashed),
+    map_tokens: mapTokens,
     updated_at: encounter?.updated_at,
   };
 };
@@ -54,10 +70,80 @@ export default function AdminScreenEncountersPage() {
   const [encounterName, setEncounterName] = useState('');
   const [encounterStatus, setEncounterStatus] = useState('draft');
   const [monsters, setMonsters] = useState([]);
+  const [mapImageUrl, setMapImageUrl] = useState('');
+  const [mapImageFile, setMapImageFile] = useState(null);
+  const [mapGridOpacity, setMapGridOpacity] = useState(0.35);
+  const [mapGridDashed, setMapGridDashed] = useState(true);
+  const [mapCellSize, setMapCellSize] = useState(DEFAULT_MAP_CELL_SIZE);
+  const [mapTokens, setMapTokens] = useState([]);
+  const [savingMap, setSavingMap] = useState(false);
+  const [savingTokens, setSavingTokens] = useState(false);
+  const [mapImagePreviewUrl, setMapImagePreviewUrl] = useState('');
+  const [dragState, setDragState] = useState(null);
+  const [selectedTokenId, setSelectedTokenId] = useState(null);
+  const [tokenSelectedFileNames, setTokenSelectedFileNames] = useState({});
+  const [mapViewState, setMapViewState] = useState({ scale: 1, offsetX: 0, offsetY: 0 });
+  const [mapPanState, setMapPanState] = useState(null);
+
+  const mapCanvasRef = useRef(null);
+  const autoSaveTokensTimerRef = useRef(null);
+  const lastPersistedTokensJsonRef = useRef('[]');
 
   const [query, setQuery] = useState('');
 
   const activeEncounters = useMemo(() => (encounters || []).filter((encounter) => String(encounter?.status || '') === 'active'), [encounters]);
+  const visibleGridCols = Math.max(Math.floor(MAP_CANVAS_WIDTH / mapCellSize), 1);
+  const visibleGridRows = Math.max(Math.floor(MAP_CANVAS_HEIGHT / mapCellSize), 1);
+
+  const mapVisible = Boolean(encounterId);
+
+  const participantsByInstanceId = useMemo(() => {
+    const map = new Map();
+    for (const participant of monsters || []) {
+      const key = String(participant?.monster_instance_id || '').trim();
+      if (!key) continue;
+      const displayName = String(participant?.name || '').trim();
+      map.set(key, displayName || 'Участник');
+    }
+    return map;
+  }, [monsters]);
+
+  const getTokenDisplayName = (token) => {
+    const linkedId = String(token?.linked_monster_instance_id || '').trim();
+    if (!linkedId) return 'Токен';
+    return participantsByInstanceId.get(linkedId) || 'Участник';
+  };
+
+  const getViewportSize = () => {
+    const viewport = mapCanvasRef.current;
+    if (!viewport) return { width: MAP_CANVAS_WIDTH, height: MAP_CANVAS_HEIGHT };
+    const width = viewport.clientWidth || MAP_CANVAS_WIDTH;
+    const height = viewport.clientHeight || MAP_CANVAS_HEIGHT;
+    return { width, height };
+  };
+
+  const clampMapOffsets = (scale, offsetX, offsetY) => {
+    const { width: viewportWidth, height: viewportHeight } = getViewportSize();
+    const scaledWidth = MAP_CANVAS_WIDTH * scale;
+    const scaledHeight = MAP_CANVAS_HEIGHT * scale;
+    const minOffsetX = Math.min(viewportWidth - scaledWidth, 0);
+    const minOffsetY = Math.min(viewportHeight - scaledHeight, 0);
+    return {
+      offsetX: clamp(offsetX, minOffsetX, 0),
+      offsetY: clamp(offsetY, minOffsetY, 0),
+    };
+  };
+
+  const getWorldPointer = (clientX, clientY) => {
+    if (!mapCanvasRef.current) return null;
+    const rect = mapCanvasRef.current.getBoundingClientRect();
+    const localX = clientX - rect.left;
+    const localY = clientY - rect.top;
+    return {
+      x: (localX - mapViewState.offsetX) / mapViewState.scale,
+      y: (localY - mapViewState.offsetY) / mapViewState.scale,
+    };
+  };
 
   const loadAll = async () => {
     setError('');
@@ -78,6 +164,187 @@ export default function AdminScreenEncountersPage() {
   useEffect(() => {
     loadAll();
   }, []);
+
+  useEffect(() => {
+    if (!mapImageFile) {
+      setMapImagePreviewUrl('');
+      return;
+    }
+    const objectUrl = URL.createObjectURL(mapImageFile);
+    setMapImagePreviewUrl(objectUrl);
+    return () => {
+      URL.revokeObjectURL(objectUrl);
+    };
+  }, [mapImageFile]);
+
+  useEffect(() => {
+    if (!dragState) return undefined;
+
+    const handleMouseMove = (event) => {
+      const worldPointer = getWorldPointer(event.clientX, event.clientY);
+      if (!worldPointer) return;
+
+      if (dragState.mode === 'move') {
+        const rawX = Math.round((worldPointer.x - dragState.offsetPxX) / mapCellSize);
+        const rawY = Math.round((worldPointer.y - dragState.offsetPxY) / mapCellSize);
+
+        setMapTokens((prev) =>
+          prev.map((token) => {
+            if (token.token_id !== dragState.tokenId) return token;
+            const sizeCells = Math.max(Number(token.size_cells || 1), 1);
+            const nextX = clamp(rawX, 0, Math.max(visibleGridCols - sizeCells, 0));
+            const nextY = clamp(rawY, 0, Math.max(visibleGridRows - sizeCells, 0));
+            return { ...token, x: nextX, y: nextY };
+          })
+        );
+      }
+
+      if (dragState.mode === 'resize') {
+        const deltaPx = Math.max(worldPointer.x - dragState.startPointerX, worldPointer.y - dragState.startPointerY);
+        const deltaCells = Math.round(deltaPx / mapCellSize);
+
+        setMapTokens((prev) =>
+          prev.map((token) => {
+            if (token.token_id !== dragState.tokenId) return token;
+            const currentX = Math.max(Number(token.x || 0), 0);
+            const currentY = Math.max(Number(token.y || 0), 0);
+            const maxSizeByMap = Math.max(Math.min(visibleGridCols - currentX, visibleGridRows - currentY), 1);
+            const nextSize = clamp(dragState.startSizeCells + deltaCells, 1, Math.min(12, maxSizeByMap));
+            return { ...token, size_cells: nextSize };
+          })
+        );
+      }
+    };
+
+    const handleMouseUp = () => {
+      setDragState(null);
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [dragState, mapCellSize, visibleGridCols, visibleGridRows]);
+
+  useEffect(() => {
+    if (!mapPanState) return undefined;
+
+    const handleMouseMove = (event) => {
+      const deltaX = event.clientX - mapPanState.startClientX;
+      const deltaY = event.clientY - mapPanState.startClientY;
+      setMapViewState((prev) => {
+        const rawOffsetX = mapPanState.startOffsetX + deltaX;
+        const rawOffsetY = mapPanState.startOffsetY + deltaY;
+        const clamped = clampMapOffsets(prev.scale, rawOffsetX, rawOffsetY);
+        return { ...prev, ...clamped };
+      });
+    };
+
+    const handleMouseUp = () => {
+      setMapPanState(null);
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [mapPanState]);
+
+  useEffect(() => {
+    if (!mapVisible) return undefined;
+    if (!mapCanvasRef.current) return undefined;
+    const element = mapCanvasRef.current;
+
+    const nativeWheel = (event) => {
+      event.preventDefault();
+      const rect = element.getBoundingClientRect();
+      const pointerX = event.clientX - rect.left;
+      const pointerY = event.clientY - rect.top;
+
+      setMapViewState((prev) => {
+        const zoomFactor = event.deltaY < 0 ? 1.1 : 0.9;
+        const nextScale = clamp(prev.scale * zoomFactor, MAP_MIN_ZOOM, MAP_MAX_ZOOM);
+        const worldX = (pointerX - prev.offsetX) / prev.scale;
+        const worldY = (pointerY - prev.offsetY) / prev.scale;
+        const rawOffsetX = pointerX - worldX * nextScale;
+        const rawOffsetY = pointerY - worldY * nextScale;
+        const clamped = clampMapOffsets(nextScale, rawOffsetX, rawOffsetY);
+        return { scale: nextScale, ...clamped };
+      });
+    };
+
+    element.addEventListener('wheel', nativeWheel, { passive: false });
+    return () => {
+      element.removeEventListener('wheel', nativeWheel);
+    };
+  }, [mapVisible]);
+
+  useEffect(() => {
+    const storageKey = encounterId ? `screen-map-cell-size-${encounterId}` : 'screen-map-cell-size-draft';
+    const stored = Number(window.localStorage.getItem(storageKey));
+    if (Number.isFinite(stored) && stored >= 16 && stored <= 96) {
+      setMapCellSize(stored);
+      return;
+    }
+    setMapCellSize(DEFAULT_MAP_CELL_SIZE);
+  }, [encounterId]);
+
+  useEffect(() => {
+    const storageKey = encounterId ? `screen-map-cell-size-${encounterId}` : 'screen-map-cell-size-draft';
+    window.localStorage.setItem(storageKey, String(mapCellSize));
+  }, [encounterId, mapCellSize]);
+
+  useEffect(() => {
+    if (autoSaveTokensTimerRef.current) {
+      clearTimeout(autoSaveTokensTimerRef.current);
+      autoSaveTokensTimerRef.current = null;
+    }
+    if (!encounterId || dragState) return;
+
+    const nextJson = JSON.stringify(mapTokens || []);
+    if (nextJson === lastPersistedTokensJsonRef.current) return;
+
+    autoSaveTokensTimerRef.current = setTimeout(async () => {
+      setSavingTokens(true);
+      try {
+        await screenAPI.updateMapTokens(encounterId, mapTokens);
+        lastPersistedTokensJsonRef.current = nextJson;
+      } catch (e) {
+        console.error(e);
+        setError((prev) => prev || e.message || 'Ошибка автосохранения токенов');
+      } finally {
+        setSavingTokens(false);
+      }
+    }, 450);
+
+    return () => {
+      if (autoSaveTokensTimerRef.current) {
+        clearTimeout(autoSaveTokensTimerRef.current);
+        autoSaveTokensTimerRef.current = null;
+      }
+    };
+  }, [encounterId, mapTokens, dragState]);
+
+  useEffect(() => {
+    setMapTokens((prev) =>
+      prev.map((token) => {
+        const rawSize = Math.max(Number(token.size_cells || 1), 1);
+        const safeSize = clamp(rawSize, 1, Math.min(12, Math.max(Math.min(visibleGridCols, visibleGridRows), 1)));
+        const safeX = clamp(Math.max(Number(token.x || 0), 0), 0, Math.max(visibleGridCols - safeSize, 0));
+        const safeY = clamp(Math.max(Number(token.y || 0), 0), 0, Math.max(visibleGridRows - safeSize, 0));
+        if (safeSize === rawSize && safeX === Number(token.x || 0) && safeY === Number(token.y || 0)) {
+          return token;
+        }
+        return { ...token, x: safeX, y: safeY, size_cells: safeSize };
+      })
+    );
+  }, [visibleGridCols, visibleGridRows]);
 
   const filteredMonsters = useMemo(() => {
     const q = normalize(query).toLowerCase();
@@ -190,12 +457,21 @@ export default function AdminScreenEncountersPage() {
     );
   };
 
-  const syncEncounter = (encounter) => {
+  const syncEncounter = (encounter, options = {}) => {
+    const preserveMapDraft = Boolean(options?.preserveMapDraft);
     const next = normalizeEncounter(encounter);
     setEncounterId(next.id || null);
     setEncounterName(next.name || '');
     setEncounterStatus(next.status || 'draft');
     setMonsters(Array.isArray(next.monsters) ? next.monsters : []);
+    setMapImageUrl(String(next.map_image_url || ''));
+    if (!preserveMapDraft) setMapImageFile(null);
+    setMapGridOpacity(Number(next.map_grid_opacity || 0.35));
+    setMapGridDashed(Boolean(next.map_grid_dashed));
+    const nextTokens = Array.isArray(next.map_tokens) ? next.map_tokens : [];
+    setMapTokens(nextTokens);
+    lastPersistedTokensJsonRef.current = JSON.stringify(nextTokens);
+    setSelectedTokenId(null);
   };
 
   const handleNewEncounter = () => {
@@ -203,7 +479,140 @@ export default function AdminScreenEncountersPage() {
     setEncounterName('');
     setEncounterStatus('draft');
     setMonsters([]);
+    setMapImageUrl('');
+    setMapImageFile(null);
+    setMapGridOpacity(0.35);
+    setMapGridDashed(true);
+    setMapCellSize(DEFAULT_MAP_CELL_SIZE);
+    setMapTokens([]);
+    lastPersistedTokensJsonRef.current = '[]';
+    setSelectedTokenId(null);
+    setTokenSelectedFileNames({});
     setError('');
+  };
+
+  const saveMapAndTokens = async () => {
+    setError('');
+    if (!encounterId) {
+      setError('Сначала сохраните энкаунтер, затем карту');
+      return;
+    }
+
+    setSavingMap(true);
+    setSavingTokens(true);
+    try {
+      await screenAPI.updateMapConfig(encounterId, {
+        grid_size_ft: 5,
+        grid_opacity: mapGridOpacity,
+        grid_dashed: mapGridDashed ? 1 : 0,
+      }, mapImageFile);
+      const data = await screenAPI.updateMapTokens(encounterId, mapTokens);
+      syncEncounter(data);
+      setTokenSelectedFileNames({});
+    } catch (e) {
+      console.error(e);
+      setError(e.message || 'Ошибка сохранения карты и токенов');
+    } finally {
+      setSavingMap(false);
+      setSavingTokens(false);
+    }
+  };
+
+  const addTokenFromParticipant = (participant) => {
+    setMapTokens((prev) => [
+      ...prev,
+      {
+        token_id: randomTokenId(),
+        linked_monster_instance_id: String(participant?.monster_instance_id || '') || null,
+        image_url: null,
+        x: 0,
+        y: 0,
+        size_cells: 1,
+        font_family: 'Inter',
+        font_size: 14,
+      },
+    ]);
+  };
+
+  const updateTokenField = (tokenId, key, value) => {
+    setMapTokens((prev) => prev.map((token) => (token.token_id === tokenId ? { ...token, [key]: value } : token)));
+  };
+
+  const uploadTokenImage = async (token, file) => {
+    setError('');
+    if (!encounterId) {
+      setError('Сначала сохраните энкаунтер, затем изображение токена');
+      return;
+    }
+    if (!file) return;
+    setTokenSelectedFileNames((prev) => ({ ...prev, [token.token_id]: file.name }));
+    const localPreviewUrl = URL.createObjectURL(file);
+    setMapTokens((prev) => prev.map((item) => (item.token_id === token.token_id ? { ...item, image_url: localPreviewUrl } : item)));
+    try {
+      const data = await screenAPI.updateTokenImage(encounterId, token.token_id, file);
+      syncEncounter(data, { preserveMapDraft: true });
+      URL.revokeObjectURL(localPreviewUrl);
+    } catch (e) {
+      console.error(e);
+      setError(e.message || 'Ошибка загрузки изображения токена');
+    }
+  };
+
+  const startTokenDrag = (event, token) => {
+    const worldPointer = getWorldPointer(event.clientX, event.clientY);
+    if (!worldPointer) return;
+    setSelectedTokenId(token.token_id);
+    const leftPx = Math.max(Number(token.x || 0), 0) * mapCellSize;
+    const topPx = Math.max(Number(token.y || 0), 0) * mapCellSize;
+
+    setDragState({
+      mode: 'move',
+      tokenId: token.token_id,
+      offsetPxX: worldPointer.x - leftPx,
+      offsetPxY: worldPointer.y - topPx,
+    });
+  };
+
+  const startTokenResize = (event, token) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const worldPointer = getWorldPointer(event.clientX, event.clientY);
+    if (!worldPointer) return;
+    setSelectedTokenId(token.token_id);
+    setDragState({
+      mode: 'resize',
+      tokenId: token.token_id,
+      startPointerX: worldPointer.x,
+      startPointerY: worldPointer.y,
+      startSizeCells: Math.max(Number(token.size_cells || 1), 1),
+    });
+  };
+
+  const startMapPan = (event) => {
+    if (event.button !== 0) return;
+    setSelectedTokenId(null);
+    setMapPanState({
+      startClientX: event.clientX,
+      startClientY: event.clientY,
+      startOffsetX: mapViewState.offsetX,
+      startOffsetY: mapViewState.offsetY,
+    });
+  };
+
+  const removeToken = async (token) => {
+    setError('');
+    if (!encounterId) {
+      setMapTokens((prev) => prev.filter((item) => item.token_id !== token.token_id));
+      if (selectedTokenId === token.token_id) setSelectedTokenId(null);
+      return;
+    }
+    try {
+      const data = await screenAPI.removeToken(encounterId, token.token_id);
+      syncEncounter(data);
+    } catch (e) {
+      console.error(e);
+      setError(e.message || 'Ошибка удаления токена');
+    }
   };
 
   const loadEncounter = async (id) => {
@@ -484,6 +893,250 @@ export default function AdminScreenEncountersPage() {
             ))}
           </div>
         </section>
+
+        {encounterId ? (
+        <section className="bg-white rounded-lg border shadow-sm p-4 space-y-4">
+          <div className="text-sm font-semibold text-gray-900">Тактическая карта</div>
+
+          <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+            <div className="xl:col-span-1 space-y-3">
+              <div>
+                <div className="text-xs font-medium text-gray-700 mb-1">Изображение карты</div>
+                <input
+                  id="map-image-file-input"
+                  type="file"
+                  accept="image/*"
+                  onChange={(event) => setMapImageFile(event.target.files?.[0] || null)}
+                  className="hidden"
+                />
+                <label
+                  htmlFor="map-image-file-input"
+                  className="block w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-700 bg-gray-50 hover:bg-gray-100 cursor-pointer truncate"
+                >
+                  {mapImageFile?.name || 'Нажмите, чтобы выбрать файл карты'}
+                </label>
+                <div className="text-xs text-gray-500 mt-1">Конвертируется в webp на сервере</div>
+              </div>
+
+              <div>
+                <div className="text-xs font-medium text-gray-700 mb-1">Прозрачность</div>
+                <input
+                  type="number"
+                  min={0.05}
+                  max={1}
+                  step={0.05}
+                  value={mapGridOpacity}
+                  onChange={(event) => setMapGridOpacity(Number(event.target.value || 0.35))}
+                  className="w-full rounded-lg border px-3 py-2"
+                />
+              </div>
+
+              <div>
+                <div className="text-xs font-medium text-gray-700 mb-1">Размер клетки на карте: {mapCellSize}px</div>
+                <input
+                  type="range"
+                  min={16}
+                  max={96}
+                  step={1}
+                  value={mapCellSize}
+                  onChange={(event) => setMapCellSize(Number(event.target.value || DEFAULT_MAP_CELL_SIZE))}
+                  className="w-full"
+                />
+              </div>
+
+              <div>
+                <label className="inline-flex items-center gap-2 text-sm text-gray-700">
+                  <input
+                    type="checkbox"
+                    checked={Boolean(mapGridDashed)}
+                    onChange={(event) => setMapGridDashed(event.target.checked)}
+                  />
+                  Сетка пунктирами
+                </label>
+              </div>
+
+              <div className="pt-2 border-t">
+                <div className="text-xs font-medium text-gray-700 mb-2">Токены</div>
+                <div className="flex flex-wrap gap-2 mb-2">
+                  {monsters.slice(0, 6).map((participant) => (
+                    <button
+                      key={`map-token-${participant.monster_instance_id}`}
+                      type="button"
+                      onClick={() => addTokenFromParticipant(participant)}
+                      className="rounded-lg border border-gray-200 text-gray-700 px-3 py-1.5 text-xs hover:bg-gray-50"
+                    >
+                      + {participant.name || 'Участник'}
+                    </button>
+                  ))}
+                </div>
+                <div className="text-xs text-gray-500 mt-1">Позиции токенов сохраняются автоматически после перемещения.</div>
+              </div>
+
+              <div className="pt-2 border-t">
+                <button
+                  type="button"
+                  onClick={saveMapAndTokens}
+                  disabled={savingMap || savingTokens}
+                  className="w-full rounded-lg bg-purple-600 text-white px-4 py-2 hover:bg-purple-700 disabled:opacity-70"
+                >
+                  {(savingMap || savingTokens) ? 'Сохранение…' : 'Сохранить'}
+                </button>
+              </div>
+            </div>
+
+            <div className="xl:col-span-2 space-y-3 min-w-0">
+              <div className="rounded-lg border bg-gray-50 p-2">
+                <div
+                  ref={mapCanvasRef}
+                  className={`relative h-[640px] w-full max-w-[960px] overflow-hidden overscroll-none rounded mx-auto ${mapPanState ? 'cursor-grabbing' : 'cursor-grab'}`}
+                  onMouseDown={startMapPan}
+                >
+                  <div
+                    className="relative origin-top-left"
+                    style={{
+                      width: MAP_CANVAS_WIDTH,
+                      height: MAP_CANVAS_HEIGHT,
+                      transform: `translate(${mapViewState.offsetX}px, ${mapViewState.offsetY}px) scale(${mapViewState.scale})`,
+                      transformOrigin: '0 0',
+                      backgroundColor: '#111827',
+                      backgroundImage: (mapImagePreviewUrl || mapImageUrl) ? `url(${mapImagePreviewUrl || mapImageUrl})` : 'none',
+                      backgroundSize: 'cover',
+                      backgroundPosition: 'center',
+                    }}
+                  >
+                    {Array.from({ length: visibleGridCols + 1 }).map((_, index) => (
+                      <div
+                        key={`grid-v-${index}`}
+                        className="absolute top-0 bottom-0"
+                        style={{
+                          left: index * mapCellSize,
+                          borderLeft: `1px ${mapGridDashed ? 'dashed' : 'solid'} rgba(255,255,255,${mapGridOpacity})`,
+                        }}
+                      />
+                    ))}
+                    {Array.from({ length: visibleGridRows + 1 }).map((_, index) => (
+                      <div
+                        key={`grid-h-${index}`}
+                        className="absolute left-0 right-0"
+                        style={{
+                          top: index * mapCellSize,
+                          borderTop: `1px ${mapGridDashed ? 'dashed' : 'solid'} rgba(255,255,255,${mapGridOpacity})`,
+                        }}
+                      />
+                    ))}
+
+                    {(mapTokens || []).map((token) => {
+                      const sizeCells = Math.max(Number(token.size_cells || 1), 1);
+                      const left = Math.max(Number(token.x || 0), 0) * mapCellSize;
+                      const top = Math.max(Number(token.y || 0), 0) * mapCellSize;
+                      const sizePx = sizeCells * mapCellSize;
+                      const displayName = getTokenDisplayName(token);
+                      return (
+                        <div
+                          key={token.token_id}
+                          className="absolute select-none"
+                          style={{ left, top, width: sizePx, cursor: dragState?.tokenId === token.token_id ? 'grabbing' : 'grab' }}
+                          onMouseDown={(event) => {
+                            event.stopPropagation();
+                            startTokenDrag(event, token);
+                          }}
+                        >
+                          <div
+                            className={`rounded-full overflow-hidden bg-black/40 ${selectedTokenId === token.token_id ? 'border-2 border-purple-400' : 'border border-white/70'}`}
+                            style={{ width: sizePx, height: sizePx }}
+                          >
+                            {token.image_url ? (
+                              <img src={token.image_url} alt={displayName} className="w-full h-full object-cover" draggable={false} />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-white text-xs">{displayName.slice(0, 2)}</div>
+                            )}
+                          </div>
+                          <button
+                            type="button"
+                            aria-label={`Изменить размер токена ${displayName}`}
+                            onMouseDown={(event) => {
+                              event.preventDefault();
+                              startTokenResize(event, token);
+                            }}
+                            className={`absolute -top-1 -right-1 h-4 w-4 rounded-full border border-white bg-purple-500 shadow ${selectedTokenId === token.token_id ? '' : 'hidden'}`}
+                          />
+                          {displayName ? (
+                            <div
+                              className="mt-0.5 text-white drop-shadow text-center leading-none"
+                              style={{
+                                fontFamily: token.font_family || 'Inter',
+                                fontSize: Number(token.font_size || 14),
+                                textShadow: '0 1px 2px rgba(0,0,0,0.7)',
+                              }}
+                            >
+                              {displayName}
+                            </div>
+                          ) : null}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-2 max-h-72 overflow-auto rounded-lg border p-2">
+                {(mapTokens || []).length === 0 ? <div className="text-sm text-gray-500">Токены пока не добавлены.</div> : null}
+                {(mapTokens || []).map((token) => (
+                  <div key={token.token_id} className="rounded-lg border border-gray-200 p-2 space-y-2">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                      <select
+                        value={token.linked_monster_instance_id || ''}
+                        onChange={(event) => updateTokenField(token.token_id, 'linked_monster_instance_id', event.target.value || null)}
+                        className="rounded-lg border px-2 py-1 text-sm"
+                      >
+                        <option value="">Не привязан</option>
+                        {monsters.map((participant) => (
+                          <option key={`link-${participant.monster_instance_id}`} value={participant.monster_instance_id}>
+                            {participant.name || 'Участник'}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                      <input
+                        type="number"
+                        min={8}
+                        max={64}
+                        value={token.font_size || 14}
+                        onChange={(event) => updateTokenField(token.token_id, 'font_size', Number(event.target.value || 14))}
+                        className="rounded-lg border px-2 py-1 text-sm"
+                        placeholder="Размер шрифта"
+                      />
+                      <div className="flex items-center gap-2">
+                        <input
+                          id={`token-file-input-${token.token_id}`}
+                          type="file"
+                          accept="image/*"
+                          onChange={(event) => uploadTokenImage(token, event.target.files?.[0] || null)}
+                          className="hidden"
+                        />
+                        <label
+                          htmlFor={`token-file-input-${token.token_id}`}
+                          className="flex-1 rounded-lg border border-gray-300 px-2 py-1 text-xs text-gray-700 bg-gray-50 hover:bg-gray-100 cursor-pointer truncate"
+                        >
+                          {tokenSelectedFileNames[token.token_id] || 'Нажмите, чтобы выбрать файл токена'}
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => removeToken(token)}
+                          className="rounded-lg border border-red-200 px-2 py-1 text-xs text-red-700 hover:bg-red-50"
+                        >
+                          Удалить
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+        ) : null}
 
         <section className="bg-white rounded-lg border shadow-sm p-4 space-y-3">
           <div className="text-sm font-semibold text-gray-900">Активные бои</div>
