@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { spellsAPI, userProfileAPI } from '../../lib/api.js';
 import { API_URL } from '../../lib/config.js';
+import { importFromLSS, exportToLSS } from '../../lib/lssAdapter.js';
 
 
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, Math.trunc(v)));
@@ -38,6 +39,15 @@ const resolveCharacterImageSrc = (value) => {
     return normalized;
   }
 };
+const extensionFromContentType = (contentType) => {
+  const normalized = String(contentType || '').toLowerCase();
+  if (normalized.includes('png')) return 'png';
+  if (normalized.includes('webp')) return 'webp';
+  if (normalized.includes('gif')) return 'gif';
+  if (normalized.includes('svg')) return 'svg';
+  if (normalized.includes('jpeg') || normalized.includes('jpg')) return 'jpg';
+  return 'jpg';
+};
 const profDot = (v) =>
   v === 2
     ? 'border-emerald-200 bg-emerald-400 ring-2 ring-emerald-200/70'
@@ -53,6 +63,13 @@ const ABILITIES = [
   { key: 'wisdom', label: 'Мудрость', short: 'МДР' },
   { key: 'charisma', label: 'Харизма', short: 'ХАР' },
 ];
+
+const normalizeSpellName = (value) => String(value || '')
+  .toLowerCase()
+  .replace(/ё/g, 'е')
+  .replace(/\([^)]*\)/g, ' ')
+  .replace(/[^a-zа-я0-9]+/gi, ' ')
+  .trim();
 
 const ABILITY_BY_KEY = Object.fromEntries(ABILITIES.map((a) => [a.key, a]));
 const ABILITIES_LEFT = ['strength', 'constitution', 'wisdom'];
@@ -196,6 +213,7 @@ export default function CharacterSheet({ character, owner, onSaved }) {
   const autoSaveKeyRef = useRef('');
   const savingRef = useRef(false);
   const imageInputRef = useRef(null);
+  const lssImportInputRef = useRef(null);
 
   const textareaHeightsStorageKey = useMemo(() => {
     const id = character?.id;
@@ -340,13 +358,20 @@ export default function CharacterSheet({ character, owner, onSaved }) {
         .map((item) => {
           if (typeof item === 'number' || typeof item === 'string') {
             const id = Number(item);
-            return Number.isFinite(id) ? { id, name: '' } : null;
+            return Number.isFinite(id) ? { id, name: '', external: false, level: null } : null;
           }
           if (item && typeof item === 'object') {
             const id = Number(item.id ?? item.spell_id ?? item.spellId);
             if (!Number.isFinite(id)) return null;
-            const name = item.name || item.title || '';
-            return { id, name: String(name) };
+            const rawName = item.name || item.title || '';
+            const name = String(rawName).replace(/^!\s*/, '').trim();
+            const level = Number(item.level);
+            return {
+              id,
+              name,
+              external: Boolean(item.external),
+              level: Number.isFinite(level) ? level : null,
+            };
           }
           return null;
         })
@@ -584,7 +609,14 @@ export default function CharacterSheet({ character, owner, onSaved }) {
       gold_gp: numOrNull(goldGp),
       gold_pp: numOrNull(goldPp),
       spellcasting_ability: spellAbility || null,
-      spells_json: JSON.stringify(knownSpells.map((s) => s.id)),
+      spells_json: JSON.stringify(
+        knownSpells.map((s) => ({
+          id: Number(s.id),
+          name: String(s.name || ''),
+          external: Boolean(s.external),
+          level: Number.isFinite(Number(s.level)) ? Number(s.level) : null,
+        })),
+      ),
       character_image_url: normalizeCharacterImageUrl(characterImageUrl) || null,
       character_images_json: null,
       conditions: conditions || null,
@@ -682,6 +714,122 @@ export default function CharacterSheet({ character, owner, onSaved }) {
     setSpellsQuery('');
   };
 
+  /* ─── LSS import/export ─── */
+  const handleLSSImport = useCallback(
+    (event) => {
+      const file = event.target.files?.[0];
+      if (!file) return;
+      event.target.value = '';
+      const reader = new FileReader();
+      reader.onload = async () => {
+        try {
+          const lssJson = JSON.parse(reader.result);
+          const imported = importFromLSS(lssJson);
+          /* apply imported field values to component state */
+          if (imported.character_name != null) setCharName(imported.character_name || '');
+          if (imported.race != null) setRace(imported.race || '');
+          if (imported.class_name != null) setClassName(imported.class_name || '');
+          if (imported.subclass_name != null) setSubclassName(imported.subclass_name || '');
+          if (imported.background != null) setBackground(imported.background || '');
+          if (imported.alignment != null) setAlignment(imported.alignment || '');
+          if (imported.character_level != null) setLevel(String(imported.character_level));
+          if (imported.xp_current != null) setXpCurrent(String(imported.xp_current));
+          if (imported.xp_max != null) setXpMax(String(imported.xp_max));
+          if (imported.strength != null) setStr(String(imported.strength));
+          if (imported.dexterity != null) setDex(String(imported.dexterity));
+          if (imported.constitution != null) setCon(String(imported.constitution));
+          if (imported.intelligence != null) setInt(String(imported.intelligence));
+          if (imported.wisdom != null) setWis(String(imported.wisdom));
+          if (imported.charisma != null) setCha(String(imported.charisma));
+          const nextSaves = {};
+          SAVES.forEach((s) => { if (imported[s.key] != null) nextSaves[s.key] = imported[s.key]; });
+          if (Object.keys(nextSaves).length) setSaves((prev) => ({ ...prev, ...nextSaves }));
+          const nextSkills = {};
+          SKILLS.forEach((s) => { if (imported[s.key] != null) nextSkills[s.key] = imported[s.key]; });
+          if (Object.keys(nextSkills).length) setSkills((prev) => ({ ...prev, ...nextSkills }));
+          if (imported.armor_class != null) setAc(String(imported.armor_class));
+          if (imported.hp_max != null) setHpMax(String(imported.hp_max));
+          if (imported.hp_current != null) setHpCur(String(imported.hp_current));
+          if (imported.temp_hp != null) setTempHp(String(imported.temp_hp));
+          if (imported.speed != null) setSpeed(String(imported.speed));
+          if (imported.initiative_bonus != null) setInitBonus(String(imported.initiative_bonus));
+          if (imported.inspiration != null) setInspiration(Boolean(Number(imported.inspiration)));
+          if (imported.gold_cp != null) setGoldCp(String(imported.gold_cp));
+          if (imported.gold_sp != null) setGoldSp(String(imported.gold_sp));
+          if (imported.gold_gp != null) setGoldGp(String(imported.gold_gp));
+          if (imported.gold_pp != null) setGoldPp(String(imported.gold_pp));
+          if (imported.spellcasting_ability != null) setSpellAbility(imported.spellcasting_ability || '');
+          if (imported.equipment != null) setEquipment(imported.equipment || '');
+          if (imported.features_traits != null) setFeatures(imported.features_traits || '');
+          if (imported.personality != null) setPersonality(imported.personality || '');
+          if (imported.ideals != null) setIdeals(imported.ideals || '');
+          if (imported.bonds != null) setBonds(imported.bonds || '');
+          if (imported.flaws != null) setFlaws(imported.flaws || '');
+          if (imported.other_proficiencies != null) setOtherProf(imported.other_proficiencies || '');
+          if (imported.notes != null) setNotes(imported.notes || '');
+          if (imported.death_save_success != null) setDeathSaveSuccess(imported.death_save_success);
+          if (imported.death_save_failure != null) setDeathSaveFailure(imported.death_save_failure);
+          if (imported.attacks_json) {
+            try { setAttacks(JSON.parse(imported.attacks_json)); } catch { /* skip */ }
+          }
+          if (imported.spells_json) {
+            try {
+              const parsed = JSON.parse(imported.spells_json);
+              if (Array.isArray(parsed)) {
+                const normalized = parsed
+                  .map((item) => {
+                    const id = Number(item?.id ?? item);
+                    if (!Number.isFinite(id)) return null;
+                    const rawName = String(item?.name || '').trim();
+                    const name = rawName.replace(/^!\s*/, '').trim();
+                    return {
+                      id,
+                      name,
+                      external: Boolean(item?.external),
+                      level: Number.isFinite(Number(item?.level)) ? Number(item.level) : null,
+                    };
+                  })
+                  .filter(Boolean);
+                setKnownSpells(normalized);
+              }
+            } catch { /* skip */ }
+          }
+          if (imported.hit_dice_json) {
+            try {
+              const parsed = JSON.parse(imported.hit_dice_json);
+              if (Array.isArray(parsed) && parsed.length) setHitDiceList(parsed);
+            } catch { /* skip */ }
+          }
+        } catch (e) {
+          console.error(e);
+          setError(e.message || 'Ошибка импорта LSS файла');
+        }
+      };
+      reader.readAsText(file);
+    },
+    [],
+  );
+
+  const handleLSSExport = useCallback(() => {
+    try {
+      const payload = buildPayload();
+      const lss = exportToLSS(payload);
+      const json = JSON.stringify(lss, null, 2);
+      const blob = new Blob([json], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${(charName || 'character').replace(/[^\wа-яёА-ЯЁ .\-]/gi, '_')} — Long Story Short.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error(e);
+      setError(e.message || 'Ошибка экспорта в LSS');
+    }
+  }, [buildPayload, charName]);
+
   const removeKnownSpell = (id) => {
     setKnownSpells((prev) => prev.filter((s) => s.id !== id));
   };
@@ -738,13 +886,33 @@ export default function CharacterSheet({ character, owner, onSaved }) {
   }, [spellsQuery, spellsCatalog, knownSpells]);
 
   const knownSpellDetails = useMemo(() => {
-    const map = new Map(spellsCatalog.map((s) => [Number(s.id), s]));
+    const mapById = new Map(spellsCatalog.map((s) => [Number(s.id), s]));
+    const mapByName = new Map();
+    for (const spell of spellsCatalog) {
+      const ru = normalizeSpellName(spell?.name);
+      const en = normalizeSpellName(spell?.name_en);
+      if (ru && !mapByName.has(ru)) mapByName.set(ru, spell);
+      if (en && !mapByName.has(en)) mapByName.set(en, spell);
+    }
+
     return knownSpells.map((s) => {
       const id = Number(s.id);
-      const catalog = map.get(id);
-      const name = s.name || catalog?.name || catalog?.title || `#${id}`;
-      const lvl = Number(catalog?.level);
-      return { id, name, level: Number.isFinite(lvl) ? lvl : null };
+      const byId = mapById.get(id);
+      const byName = !byId ? mapByName.get(normalizeSpellName(s.name)) : null;
+      const catalog = byId || byName || null;
+      const lvlFromCatalog = Number(catalog?.level);
+      const lvlFromSpell = Number(s?.level);
+      const level = Number.isFinite(lvlFromCatalog)
+        ? lvlFromCatalog
+        : (Number.isFinite(lvlFromSpell) ? lvlFromSpell : null);
+
+      const resolvedName = catalog?.name || catalog?.title || s.name || `#${id}`;
+      const isExternal = Boolean(s?.external) || (!catalog && Boolean(s?.name));
+      const displayName = isExternal && !catalog
+        ? (resolvedName.startsWith('!') ? resolvedName : `! ${resolvedName}`)
+        : resolvedName;
+
+      return { id, name: displayName, level, isExternal: isExternal && !catalog };
     });
   }, [knownSpells, spellsCatalog]);
 
@@ -1123,9 +1291,22 @@ export default function CharacterSheet({ character, owner, onSaved }) {
         </div>
       </div>
 
+      <input
+        ref={lssImportInputRef}
+        type="file"
+        accept=".json,application/json"
+        onChange={handleLSSImport}
+        className="cs-hidden-file"
+      />
       <div className="cs-save-actions">
         <button type="button" onClick={handleManualSave} disabled={saving} className="cs-save-btn">
           {saving ? 'Сохранение…' : 'Сохранить лист'}
+        </button>
+        <button type="button" onClick={() => lssImportInputRef.current?.click()} className="cs-save-btn cs-save-btn--secondary">
+          Импорт LSS
+        </button>
+        <button type="button" onClick={handleLSSExport} className="cs-save-btn cs-save-btn--secondary">
+          Экспорт LSS
         </button>
       </div>
 

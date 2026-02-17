@@ -733,7 +733,9 @@ body {
 .cs-save-actions {
   display: flex;
   justify-content: flex-end;
+  gap: 8px;
   margin-top: 10px;
+  flex-wrap: wrap;
 }
 .cs-save-btn {
   border: 1px solid rgba(139,92,246,.55);
@@ -753,6 +755,13 @@ body {
 .cs-save-btn:disabled {
   opacity: .65;
   cursor: not-allowed;
+}
+.cs-save-btn--secondary {
+  border-color: rgba(100,116,139,.45);
+  background: rgba(51,65,85,.35);
+}
+.cs-save-btn--secondary:hover {
+  background: rgba(51,65,85,.55);
 }
 
 /* ── Responsive ── */

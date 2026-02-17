@@ -267,7 +267,7 @@ export const screenAPI = {
   },
   removeToken: (id, tokenId) => apiClient(`/screen/encounters/${id}/map/tokens/${encodeURIComponent(tokenId)}`, { method: 'DELETE' }),
   startEncounter: (id) => apiClient(`/screen/encounters/${id}/start`, { method: 'POST' }),
-  rebroadcastOrder: (id, data) => apiClient(`/screen/encounters/${id}/rebroadcast-order`, { method: 'POST', body: JSON.stringify(data || {}) }),
+  rebroadcastOrder: (id) => apiClient(`/screen/encounters/${id}/rebroadcast-order`, { method: 'POST' }),
   finishEncounter: (id) => apiClient(`/screen/encounters/${id}/finish`, { method: 'DELETE' }),
   updateMonsterHp: (encounterId, monsterInstanceId, hpCurrent) =>
     apiClient(`/screen/encounters/${encounterId}/monsters/${encodeURIComponent(monsterInstanceId)}/hp`, {
