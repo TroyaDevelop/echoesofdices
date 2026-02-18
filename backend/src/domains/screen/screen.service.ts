@@ -158,6 +158,15 @@ const normalizeGridDashed = (value: unknown) => {
   return text === '1' || text === 'true' || text === 'yes' || text === 'on';
 };
 
+const normalizeMapViewDataUrl = (value: unknown) => {
+  const raw = String(value || '').trim();
+  if (!raw) return null;
+  if (raw.length > 12_000_000) return null;
+  const match = raw.match(/^data:image\/(png|jpeg|jpg|webp);base64,([A-Za-z0-9+/=\s]+)$/i);
+  if (!match) return null;
+  return raw;
+};
+
 const randomTokenId = () => `t_${Date.now()}_${Math.floor(Math.random() * 1_000_000)}`;
 
 const normalizeMapTokens = (tokensRaw: unknown): TacticalMapToken[] => {
@@ -726,7 +735,7 @@ export async function removeScreenEncounterToken(idRaw: unknown, tokenIdRaw: unk
   return getScreenEncounterById(id);
 }
 
-export async function rebroadcastScreenEncounterOrder(idRaw: unknown) {
+export async function rebroadcastScreenEncounterOrder(idRaw: unknown, input?: any) {
   const id = Number(idRaw);
   if (!Number.isFinite(id) || id <= 0) throw new HttpError(400, 'Некорректный id энкаунтера');
 
@@ -739,19 +748,23 @@ export async function rebroadcastScreenEncounterOrder(idRaw: unknown) {
   const initiativeOrder = makeInitiativeOrder(encounter.monsters);
   if (!initiativeOrder.length) throw new HttpError(400, 'Нет участников с инициативой для отправки');
 
+  const mapViewDataUrl = normalizeMapViewDataUrl(input?.map_view_data_url);
+
   await updateEncounterInitiativeOrder(Math.trunc(id), JSON.stringify(initiativeOrder));
 
   await insertEncounterEvent(Math.trunc(id), {
+    event: 'rebroadcast',
     encounter_id: Math.trunc(id),
     encounter_name: encounter.name,
     order: initiativeOrder,
+    map_view_data_url: mapViewDataUrl,
     map_image_url: encounter.map_image_url,
     map_grid_size_ft: encounter.map_grid_size_ft,
     map_grid_opacity: encounter.map_grid_opacity,
     map_grid_dashed: encounter.map_grid_dashed,
     map_tokens: encounter.map_tokens,
     started_at: new Date().toISOString(),
-  });
+  }, 'screen.encounter.rebroadcast');
 
   return getScreenEncounterById(id);
 }

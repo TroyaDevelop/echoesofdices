@@ -78,7 +78,7 @@ export async function finishScreenEncounterHandler(req: Request, res: Response) 
 
 export async function rebroadcastScreenEncounterOrderHandler(req: Request, res: Response) {
   try {
-    const data = await rebroadcastScreenEncounterOrder(req.params.id);
+    const data = await rebroadcastScreenEncounterOrder(req.params.id, req.body || {});
     res.json(data);
   } catch (error) {
     const err = error as HttpError;
