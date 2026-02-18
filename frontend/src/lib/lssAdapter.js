@@ -54,6 +54,39 @@ const getRichText = (textSection, key) => {
   }
 };
 
+const normalizeSpellKey = (value) => String(value || '')
+  .toLowerCase()
+  .replace(/ё/g, 'е')
+  .replace(/\([^)]*\)/g, ' ')
+  .replace(/[^a-zа-я0-9]+/gi, ' ')
+  .trim();
+
+const extractSpellNamesFromTextSection = (textSection) => {
+  if (!textSection || typeof textSection !== 'object') return [];
+  const entries = Object.entries(textSection)
+    .filter(([key]) => String(key).startsWith('spells-level-'))
+    .sort((a, b) => String(a[0]).localeCompare(String(b[0])));
+
+  const names = [];
+  const seen = new Set();
+  for (const [, value] of entries) {
+    const raw = getRichText({ tmp: value }, 'tmp');
+    if (!raw) continue;
+    const lines = String(raw)
+      .split('\n')
+      .map((line) => line.replace(/^[\s\-•*]+/, '').trim())
+      .filter(Boolean);
+
+    for (const line of lines) {
+      const key = normalizeSpellKey(line);
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      names.push(line);
+    }
+  }
+  return names;
+};
+
 /** Convert our internal text to a minimal ProseMirror doc */
 const textToDoc = (text) => {
   const str = String(text || '');
@@ -244,8 +277,7 @@ export function importFromLSS(lssJson) {
   }
 
   // ── Spells ──
-  // LSS stores spell IDs in spells.prepared array (top-level, not inside data)
-  // We also check data.spells for prepared/book arrays if present
+  // LSS stores external IDs in top-level spells.prepared/book and spell names inside text.spells-level-*.
   const lssTopSpells = lssJson.spells || {};
   const preparedIds = Array.isArray(lssTopSpells.prepared)
     ? lssTopSpells.prepared
@@ -254,20 +286,34 @@ export function importFromLSS(lssJson) {
     ? lssTopSpells.book
     : [];
 
+  const spellNamesFromText = extractSpellNamesFromTextSection(d.text || {});
+
   // Merge prepared + book, deduplicate, convert to our format
   const allSpellIds = [...new Set([...preparedIds, ...bookIds])];
-  if (allSpellIds.length > 0) {
-    const spellEntries = allSpellIds.map((rawId) => {
-      // IDs are Mongo ObjectIds (hex strings) in LSS, not our numeric IDs.
-      // We can't map them directly. Store as external = true with original id string.
-      // The user will need to re-link spells if they use a different catalog.
-      return {
-        id: rawId,
-        name: '',
+  if (allSpellIds.length > 0 || spellNamesFromText.length > 0) {
+    let syntheticId = -1;
+    const spellEntries = [];
+
+    for (const name of spellNamesFromText) {
+      spellEntries.push({
+        id: syntheticId,
+        name,
         external: true,
         level: null,
-      };
-    });
+      });
+      syntheticId -= 1;
+    }
+
+    for (const rawId of allSpellIds) {
+      spellEntries.push({
+        id: syntheticId,
+        name: String(rawId || '').trim(),
+        external: true,
+        level: null,
+      });
+      syntheticId -= 1;
+    }
+
     result.spells_json = JSON.stringify(spellEntries);
   }
 

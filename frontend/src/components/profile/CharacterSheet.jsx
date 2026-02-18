@@ -776,17 +776,73 @@ export default function CharacterSheet({ character, owner, onSaved }) {
             try {
               const parsed = JSON.parse(imported.spells_json);
               if (Array.isArray(parsed)) {
+                let catalog = Array.isArray(spellsCatalog) ? spellsCatalog : [];
+                if (!catalog.length) {
+                  try {
+                    const loaded = await spellsAPI.list();
+                    catalog = Array.isArray(loaded) ? loaded : [];
+                    setSpellsCatalog(catalog);
+                    setSpellsLoaded(true);
+                  } catch {
+                    catalog = [];
+                  }
+                }
+
+                const byId = new Map(catalog.map((spell) => [Number(spell.id), spell]));
+                const byName = new Map();
+                for (const spell of catalog) {
+                  const ru = normalizeSpellName(spell?.name);
+                  const en = normalizeSpellName(spell?.name_en);
+                  if (ru && !byName.has(ru)) byName.set(ru, spell);
+                  if (en && !byName.has(en)) byName.set(en, spell);
+                }
+
+                let syntheticId = -1;
+                const usedIds = new Set();
                 const normalized = parsed
                   .map((item) => {
-                    const id = Number(item?.id ?? item);
-                    if (!Number.isFinite(id)) return null;
+                    const idRaw = Number(item?.id ?? item);
                     const rawName = String(item?.name || '').trim();
-                    const name = rawName.replace(/^!\s*/, '').trim();
+                    const cleanName = rawName.replace(/^!\s*/, '').trim();
+                    const normName = normalizeSpellName(cleanName);
+
+                    let catalogSpell = null;
+                    if (Number.isFinite(idRaw) && idRaw > 0) {
+                      catalogSpell = byId.get(idRaw) || null;
+                    }
+                    if (!catalogSpell && normName) {
+                      catalogSpell = byName.get(normName) || null;
+                    }
+
+                    let id = Number(item?.id ?? item);
+                    let external = Boolean(item?.external);
+                    let name = cleanName;
+                    let level = Number.isFinite(Number(item?.level)) ? Number(item.level) : null;
+
+                    if (catalogSpell) {
+                      id = Number(catalogSpell.id);
+                      external = false;
+                      name = String(catalogSpell.name || catalogSpell.title || cleanName || '');
+                      const lvl = Number(catalogSpell.level);
+                      if (Number.isFinite(lvl)) level = lvl;
+                    } else {
+                      if (!name) return null;
+                      if (!Number.isFinite(id) || id <= 0) {
+                        id = syntheticId;
+                        syntheticId -= 1;
+                      }
+                      external = true;
+                    }
+
+                    if (!Number.isFinite(id)) return null;
+                    if (usedIds.has(id)) return null;
+                    usedIds.add(id);
+
                     return {
                       id,
                       name,
-                      external: Boolean(item?.external),
-                      level: Number.isFinite(Number(item?.level)) ? Number(item.level) : null,
+                      external,
+                      level,
                     };
                   })
                   .filter(Boolean);
@@ -807,7 +863,7 @@ export default function CharacterSheet({ character, owner, onSaved }) {
       };
       reader.readAsText(file);
     },
-    [],
+    [spellsCatalog],
   );
 
   const handleLSSExport = useCallback(() => {
