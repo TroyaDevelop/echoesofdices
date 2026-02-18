@@ -337,15 +337,23 @@ export default function AdminBattleSessionPage() {
   const buildCurrentMapSnapshotDataUrl = async () => {
     if (!mapViewportRef.current) return null;
 
-    const viewportWidth = mapViewportRef.current.clientWidth || MAP_CANVAS_WIDTH;
-    const viewportHeight = mapViewportRef.current.clientHeight || MAP_CANVAS_HEIGHT;
-    if (!viewportWidth || !viewportHeight) return null;
+    // Canvas = размер viewport мастера: ровно то, что видит мастер на экране.
+    // dpr учитывается для чёткости, но aspect ratio = aspect ratio viewport.
+    const vpEl = mapViewportRef.current;
+    const vpW = Math.max(vpEl.clientWidth || MAP_CANVAS_WIDTH, 1);
+    const vpH = Math.max(vpEl.clientHeight || MAP_CANVAS_HEIGHT, 1);
+    const dpr = Math.max(Number(window.devicePixelRatio || 1), 1);
 
     const canvas = document.createElement('canvas');
-    canvas.width = Math.max(Math.trunc(viewportWidth), 1);
-    canvas.height = Math.max(Math.trunc(viewportHeight), 1);
+    canvas.width = Math.trunc(vpW * dpr);
+    canvas.height = Math.trunc(vpH * dpr);
     const ctx = canvas.getContext('2d');
     if (!ctx) return null;
+
+    // Масштабируем контекст под dpr — все координаты остаются в логических пикселях
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
 
     const mapImage = await loadImageSafe(encounter?.map_image_url || '');
     const tokenImageEntries = await Promise.all(
@@ -356,9 +364,11 @@ export default function AdminBattleSessionPage() {
     );
     const tokenImages = new Map(tokenImageEntries);
 
+    // Фон (всегда на полный canvas, без трансформа)
     ctx.fillStyle = '#111827';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillRect(0, 0, vpW, vpH);
 
+    // Применяем зум/смещение камеры мастера — выход = viewport, вид = точно как у мастера.
     ctx.save();
     ctx.translate(mapViewState.offsetX, mapViewState.offsetY);
     ctx.scale(mapViewState.scale, mapViewState.scale);
@@ -367,16 +377,16 @@ export default function AdminBattleSessionPage() {
       ctx.drawImage(mapImage, 0, 0, MAP_CANVAS_WIDTH, MAP_CANVAS_HEIGHT);
     }
 
+    const sc = mapViewState.scale || 1;
     const gridOpacity = Number(encounter?.map_grid_opacity || 0.35);
     const gridColor = `rgba(255,255,255,${gridOpacity})`;
-    ctx.lineWidth = 1;
+    ctx.lineWidth = 1 / sc;
     ctx.strokeStyle = gridColor;
     if (encounter?.map_grid_dashed) {
-      ctx.setLineDash([4, 4]);
+      ctx.setLineDash([4 / sc, 4 / sc]);
     } else {
       ctx.setLineDash([]);
     }
-
     for (let x = 0; x <= visibleGridCols; x += 1) {
       const px = x * mapCellSize;
       ctx.beginPath();
@@ -393,6 +403,7 @@ export default function AdminBattleSessionPage() {
     }
     ctx.setLineDash([]);
 
+    // ── ПРОХОД 1: рисуем все круги токенов ─────────────────────────────────
     for (const token of mapTokens || []) {
       const sizeCells = Math.max(Number(token.size_cells || 1), 1);
       const left = Math.max(Number(token.x || 0), 0) * mapCellSize;
@@ -403,8 +414,6 @@ export default function AdminBattleSessionPage() {
       const radius = sizePx / 2;
       const linkedId = String(token?.linked_monster_instance_id || '').trim();
       const baseName = linkedId ? participantsByInstanceId.get(linkedId) || 'Участник' : 'Токен';
-      const turnIndex = linkedId ? initiativeIndexByInstanceId.get(linkedId) : null;
-      const displayName = Number.isFinite(turnIndex) ? `${baseName} ${turnIndex}` : baseName;
 
       ctx.save();
       ctx.beginPath();
@@ -426,24 +435,64 @@ export default function AdminBattleSessionPage() {
       }
       ctx.restore();
 
+      // Обводка круга (вне clip) — толщина нормализована на scale
       ctx.strokeStyle = 'rgba(255,255,255,0.7)';
-      ctx.lineWidth = 1;
+      ctx.lineWidth = 1 / sc;
       ctx.beginPath();
-      ctx.arc(centerX, centerY, radius - 0.5, 0, Math.PI * 2);
+      ctx.arc(centerX, centerY, radius - 0.5 / sc, 0, Math.PI * 2);
       ctx.stroke();
-
-      ctx.fillStyle = '#ffffff';
-      ctx.font = `${Math.max(Number(token.font_size || 14), 10)}px Inter, sans-serif`;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'top';
-      ctx.strokeStyle = 'rgba(0,0,0,0.75)';
-      ctx.lineWidth = 3;
-      const labelY = top + sizePx + 2;
-      ctx.strokeText(displayName, centerX, labelY);
-      ctx.fillText(displayName, centerX, labelY);
     }
 
-    ctx.restore();
+    // ── ПРОХОД 2: рисуем все подписи поверх всех токенов ───────────────────
+    // Вспомогательная функция: разбивает текст на строки, помещающиеся в maxWidth
+    const wrapText = (context, text, maxWidth) => {
+      const words = text.split(' ');
+      const lines = [];
+      let current = '';
+      for (const word of words) {
+        const test = current ? `${current} ${word}` : word;
+        if (context.measureText(test).width > maxWidth && current) {
+          lines.push(current);
+          current = word;
+        } else {
+          current = test;
+        }
+      }
+      if (current) lines.push(current);
+      return lines;
+    };
+
+    for (const token of mapTokens || []) {
+      const sizeCells = Math.max(Number(token.size_cells || 1), 1);
+      const left = Math.max(Number(token.x || 0), 0) * mapCellSize;
+      const top = Math.max(Number(token.y || 0), 0) * mapCellSize;
+      const sizePx = sizeCells * mapCellSize;
+      const centerX = left + sizePx / 2;
+      const linkedId = String(token?.linked_monster_instance_id || '').trim();
+      const baseName = linkedId ? participantsByInstanceId.get(linkedId) || 'Участник' : 'Токен';
+      const turnIndex = linkedId ? initiativeIndexByInstanceId.get(linkedId) : null;
+      const displayName = Number.isFinite(turnIndex) ? `${baseName} ${turnIndex}` : baseName;
+      const labelY = top + sizePx + 2;
+
+      // Размер шрифта и толщина обводки нормализованы на scale
+      const fontSize = Math.max(Number(token.font_size || 14), 10) / sc;
+      ctx.font = `${fontSize}px Inter, sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'top';
+      ctx.strokeStyle = 'rgba(0,0,0,0.85)';
+      ctx.lineWidth = 3 / sc;
+      ctx.fillStyle = '#ffffff';
+
+      const lines = wrapText(ctx, displayName, sizePx);
+      const lineHeight = fontSize * 1.15;
+      for (let i = 0; i < lines.length; i++) {
+        const ly = labelY + i * lineHeight;
+        ctx.strokeText(lines[i], centerX, ly);
+        ctx.fillText(lines[i], centerX, ly);
+      }
+    }
+
+    ctx.restore(); // снимаем трансформ карты
 
     return canvas.toDataURL('image/png');
   };
