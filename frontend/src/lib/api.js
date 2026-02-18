@@ -269,10 +269,20 @@ export const screenAPI = {
   startEncounter: (id) => apiClient(`/screen/encounters/${id}/start`, { method: 'POST' }),
   rebroadcastOrder: (id, data) => apiClient(`/screen/encounters/${id}/rebroadcast-order`, { method: 'POST', body: JSON.stringify(data || {}) }),
   finishEncounter: (id) => apiClient(`/screen/encounters/${id}/finish`, { method: 'DELETE' }),
+  addParticipantFromBestiary: (encounterId, bestiaryId) =>
+    apiClient(`/screen/encounters/${encounterId}/monsters`, {
+      method: 'POST',
+      body: JSON.stringify({ bestiary_id: bestiaryId }),
+    }),
   updateMonsterHp: (encounterId, monsterInstanceId, hpCurrent) =>
     apiClient(`/screen/encounters/${encounterId}/monsters/${encodeURIComponent(monsterInstanceId)}/hp`, {
       method: 'PATCH',
       body: JSON.stringify({ hp_current: hpCurrent }),
+    }),
+  updateParticipantInitiative: (encounterId, monsterInstanceId, initiativeTotal) =>
+    apiClient(`/screen/encounters/${encounterId}/monsters/${encodeURIComponent(monsterInstanceId)}/initiative`, {
+      method: 'PATCH',
+      body: JSON.stringify({ initiative_total: initiativeTotal }),
     }),
   removeParticipant: (encounterId, monsterInstanceId) =>
     apiClient(`/screen/encounters/${encounterId}/monsters/${encodeURIComponent(monsterInstanceId)}`, {

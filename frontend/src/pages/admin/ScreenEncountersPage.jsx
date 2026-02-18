@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import AdminLayout from '../../components/admin/AdminLayout.jsx';
 import { bestiaryAPI, screenAPI } from '../../lib/api.js';
+import TacticalMapEditor from '../../components/admin/TacticalMapEditor.jsx';
 
 const DEFAULT_MAP_CELL_SIZE = 32;
 const MAP_CANVAS_WIDTH = 960;
@@ -519,11 +520,15 @@ export default function AdminScreenEncountersPage() {
   };
 
   const addTokenFromParticipant = (participant) => {
+    const linkedId = String(participant?.monster_instance_id || '').trim();
+    if (linkedId && mapTokens.some((token) => String(token?.linked_monster_instance_id || '').trim() === linkedId)) {
+      return;
+    }
     setMapTokens((prev) => [
       ...prev,
       {
         token_id: randomTokenId(),
-        linked_monster_instance_id: String(participant?.monster_instance_id || '') || null,
+        linked_monster_instance_id: linkedId || null,
         image_url: null,
         x: 0,
         y: 0,
@@ -535,6 +540,18 @@ export default function AdminScreenEncountersPage() {
   };
 
   const updateTokenField = (tokenId, key, value) => {
+    if (key === 'linked_monster_instance_id' && value) {
+      const nextLinkedId = String(value).trim();
+      setMapTokens((prev) => prev.map((token) => {
+        if (token.token_id === tokenId) return { ...token, [key]: nextLinkedId };
+        const linked = String(token?.linked_monster_instance_id || '').trim();
+        if (linked && linked === nextLinkedId) {
+          return { ...token, linked_monster_instance_id: null };
+        }
+        return token;
+      }));
+      return;
+    }
     setMapTokens((prev) => prev.map((token) => (token.token_id === tokenId ? { ...token, [key]: value } : token)));
   };
 
@@ -545,12 +562,34 @@ export default function AdminScreenEncountersPage() {
       return;
     }
     if (!file) return;
-    setTokenSelectedFileNames((prev) => ({ ...prev, [token.token_id]: file.name }));
+    const linkedMonsterId = String(token?.linked_monster_instance_id || '').trim();
+    const sourceParticipant = (monsters || []).find((participant) => String(participant?.monster_instance_id || '').trim() === linkedMonsterId);
+    const sourceBestiaryId = Number(sourceParticipant?.bestiary_id || 0);
+    const sameTypeInstanceIds = new Set(
+      (monsters || [])
+        .filter((participant) => Number(participant?.bestiary_id || 0) > 0 && Number(participant?.bestiary_id || 0) === sourceBestiaryId)
+        .map((participant) => String(participant?.monster_instance_id || '').trim())
+        .filter(Boolean)
+    );
+    const targetTokens = sourceBestiaryId > 0
+      ? (mapTokens || []).filter((item) => sameTypeInstanceIds.has(String(item?.linked_monster_instance_id || '').trim()))
+      : [token];
+    const effectiveTargets = targetTokens.length > 0 ? targetTokens : [token];
+    const targetTokenIds = effectiveTargets.map((item) => String(item.token_id));
+
+    setTokenSelectedFileNames((prev) => {
+      const next = { ...prev };
+      for (const tokenId of targetTokenIds) next[tokenId] = file.name;
+      return next;
+    });
     const localPreviewUrl = URL.createObjectURL(file);
-    setMapTokens((prev) => prev.map((item) => (item.token_id === token.token_id ? { ...item, image_url: localPreviewUrl } : item)));
+    setMapTokens((prev) => prev.map((item) => (targetTokenIds.includes(String(item.token_id)) ? { ...item, image_url: localPreviewUrl } : item)));
     try {
-      const data = await screenAPI.updateTokenImage(encounterId, token.token_id, file);
-      syncEncounter(data, { preserveMapDraft: true });
+      let data = null;
+      for (const target of effectiveTargets) {
+        data = await screenAPI.updateTokenImage(encounterId, target.token_id, file);
+      }
+      if (data) syncEncounter(data, { preserveMapDraft: true });
       URL.revokeObjectURL(localPreviewUrl);
     } catch (e) {
       console.error(e);
@@ -956,23 +995,6 @@ export default function AdminScreenEncountersPage() {
               </div>
 
               <div className="pt-2 border-t">
-                <div className="text-xs font-medium text-gray-700 mb-2">Токены</div>
-                <div className="flex flex-wrap gap-2 mb-2">
-                  {monsters.slice(0, 6).map((participant) => (
-                    <button
-                      key={`map-token-${participant.monster_instance_id}`}
-                      type="button"
-                      onClick={() => addTokenFromParticipant(participant)}
-                      className="rounded-lg border border-gray-200 text-gray-700 px-3 py-1.5 text-xs hover:bg-gray-50"
-                    >
-                      + {participant.name || 'Участник'}
-                    </button>
-                  ))}
-                </div>
-                <div className="text-xs text-gray-500 mt-1">Позиции токенов сохраняются автоматически после перемещения.</div>
-              </div>
-
-              <div className="pt-2 border-t">
                 <button
                   type="button"
                   onClick={saveMapAndTokens}
@@ -985,154 +1007,35 @@ export default function AdminScreenEncountersPage() {
             </div>
 
             <div className="xl:col-span-2 space-y-3 min-w-0">
-              <div className="rounded-lg border bg-gray-50 p-2">
-                <div
-                  ref={mapCanvasRef}
-                  className={`relative h-[640px] w-full max-w-[960px] overflow-hidden overscroll-none rounded mx-auto ${mapPanState ? 'cursor-grabbing' : 'cursor-grab'}`}
-                  onMouseDown={startMapPan}
-                >
-                  <div
-                    className="relative origin-top-left"
-                    style={{
-                      width: MAP_CANVAS_WIDTH,
-                      height: MAP_CANVAS_HEIGHT,
-                      transform: `translate(${mapViewState.offsetX}px, ${mapViewState.offsetY}px) scale(${mapViewState.scale})`,
-                      transformOrigin: '0 0',
-                      backgroundColor: '#111827',
-                      backgroundImage: (mapImagePreviewUrl || mapImageUrl) ? `url(${mapImagePreviewUrl || mapImageUrl})` : 'none',
-                      backgroundSize: 'cover',
-                      backgroundPosition: 'center',
-                    }}
-                  >
-                    {Array.from({ length: visibleGridCols + 1 }).map((_, index) => (
-                      <div
-                        key={`grid-v-${index}`}
-                        className="absolute top-0 bottom-0"
-                        style={{
-                          left: index * mapCellSize,
-                          borderLeft: `1px ${mapGridDashed ? 'dashed' : 'solid'} rgba(255,255,255,${mapGridOpacity})`,
-                        }}
-                      />
-                    ))}
-                    {Array.from({ length: visibleGridRows + 1 }).map((_, index) => (
-                      <div
-                        key={`grid-h-${index}`}
-                        className="absolute left-0 right-0"
-                        style={{
-                          top: index * mapCellSize,
-                          borderTop: `1px ${mapGridDashed ? 'dashed' : 'solid'} rgba(255,255,255,${mapGridOpacity})`,
-                        }}
-                      />
-                    ))}
-
-                    {(mapTokens || []).map((token) => {
-                      const sizeCells = Math.max(Number(token.size_cells || 1), 1);
-                      const left = Math.max(Number(token.x || 0), 0) * mapCellSize;
-                      const top = Math.max(Number(token.y || 0), 0) * mapCellSize;
-                      const sizePx = sizeCells * mapCellSize;
-                      const displayName = getTokenDisplayName(token);
-                      return (
-                        <div
-                          key={token.token_id}
-                          className="absolute select-none"
-                          style={{ left, top, width: sizePx, cursor: dragState?.tokenId === token.token_id ? 'grabbing' : 'grab' }}
-                          onMouseDown={(event) => {
-                            event.stopPropagation();
-                            startTokenDrag(event, token);
-                          }}
-                        >
-                          <div
-                            className={`rounded-full overflow-hidden bg-black/40 ${selectedTokenId === token.token_id ? 'border-2 border-purple-400' : 'border border-white/70'}`}
-                            style={{ width: sizePx, height: sizePx }}
-                          >
-                            {token.image_url ? (
-                              <img src={token.image_url} alt={displayName} className="w-full h-full object-cover" draggable={false} />
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center text-white text-xs">{displayName.slice(0, 2)}</div>
-                            )}
-                          </div>
-                          <button
-                            type="button"
-                            aria-label={`Изменить размер токена ${displayName}`}
-                            onMouseDown={(event) => {
-                              event.preventDefault();
-                              startTokenResize(event, token);
-                            }}
-                            className={`absolute -top-1 -right-1 h-4 w-4 rounded-full border border-white bg-purple-500 shadow ${selectedTokenId === token.token_id ? '' : 'hidden'}`}
-                          />
-                          {displayName ? (
-                            <div
-                              className="mt-0.5 text-white drop-shadow text-center leading-none"
-                              style={{
-                                fontFamily: token.font_family || 'Inter',
-                                fontSize: Number(token.font_size || 14),
-                                textShadow: '0 1px 2px rgba(0,0,0,0.7)',
-                              }}
-                            >
-                              {displayName}
-                            </div>
-                          ) : null}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-2 max-h-72 overflow-auto rounded-lg border p-2">
-                {(mapTokens || []).length === 0 ? <div className="text-sm text-gray-500">Токены пока не добавлены.</div> : null}
-                {(mapTokens || []).map((token) => (
-                  <div key={token.token_id} className="rounded-lg border border-gray-200 p-2 space-y-2">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                      <select
-                        value={token.linked_monster_instance_id || ''}
-                        onChange={(event) => updateTokenField(token.token_id, 'linked_monster_instance_id', event.target.value || null)}
-                        className="rounded-lg border px-2 py-1 text-sm"
-                      >
-                        <option value="">Не привязан</option>
-                        {monsters.map((participant) => (
-                          <option key={`link-${participant.monster_instance_id}`} value={participant.monster_instance_id}>
-                            {participant.name || 'Участник'}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                      <input
-                        type="number"
-                        min={8}
-                        max={64}
-                        value={token.font_size || 14}
-                        onChange={(event) => updateTokenField(token.token_id, 'font_size', Number(event.target.value || 14))}
-                        className="rounded-lg border px-2 py-1 text-sm"
-                        placeholder="Размер шрифта"
-                      />
-                      <div className="flex items-center gap-2">
-                        <input
-                          id={`token-file-input-${token.token_id}`}
-                          type="file"
-                          accept="image/*"
-                          onChange={(event) => uploadTokenImage(token, event.target.files?.[0] || null)}
-                          className="hidden"
-                        />
-                        <label
-                          htmlFor={`token-file-input-${token.token_id}`}
-                          className="flex-1 rounded-lg border border-gray-300 px-2 py-1 text-xs text-gray-700 bg-gray-50 hover:bg-gray-100 cursor-pointer truncate"
-                        >
-                          {tokenSelectedFileNames[token.token_id] || 'Нажмите, чтобы выбрать файл токена'}
-                        </label>
-                        <button
-                          type="button"
-                          onClick={() => removeToken(token)}
-                          className="rounded-lg border border-red-200 px-2 py-1 text-xs text-red-700 hover:bg-red-50"
-                        >
-                          Удалить
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
+              <TacticalMapEditor
+                participants={monsters}
+                mapViewportRef={mapCanvasRef}
+                mapPanState={mapPanState}
+                onMapMouseDown={startMapPan}
+                mapWidth={MAP_CANVAS_WIDTH}
+                mapHeight={MAP_CANVAS_HEIGHT}
+                mapViewState={mapViewState}
+                mapImageUrl={mapImagePreviewUrl || mapImageUrl}
+                mapCellSize={mapCellSize}
+                mapGridDashed={mapGridDashed}
+                mapGridOpacity={mapGridOpacity}
+                visibleGridCols={visibleGridCols}
+                visibleGridRows={visibleGridRows}
+                mapTokens={mapTokens}
+                selectedTokenId={selectedTokenId}
+                activeDragTokenId={dragState?.tokenId || null}
+                getTokenDisplayName={getTokenDisplayName}
+                onTokenMouseDown={startTokenDrag}
+                onTokenResizeMouseDown={startTokenResize}
+                onSelectToken={setSelectedTokenId}
+                onAddTokenFromParticipant={addTokenFromParticipant}
+                onUploadMapFile={(file) => setMapImageFile(file)}
+                mapUploadButtonLabel={mapImageFile?.name || 'Загрузить карту'}
+                onUpdateTokenField={updateTokenField}
+                onUploadTokenImage={uploadTokenImage}
+                onRemoveToken={removeToken}
+                tokenSelectedFileNames={tokenSelectedFileNames}
+              />
             </div>
           </div>
         </section>

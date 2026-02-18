@@ -85,14 +85,21 @@ type TacticalMapToken = {
 const makeInitiativeOrder = (participants: EncounterMonster[]) => {
   return participants
     .filter((participant) => Number.isFinite(Number(participant.initiative_total)))
-    .map((participant) => ({
-      monster_instance_id: participant.monster_instance_id,
-      participant_type: (participant.participant_type === 'player' ? 'player' : 'monster') as 'player' | 'monster',
-      name: participant.name,
-      initiative_roll: Number(participant.initiative_roll || 0),
-      dex_mod: Number(participant.dex_mod || 0),
-      initiative_total: Number(participant.initiative_total || 0),
-    }))
+    .map((participant) => {
+      const participantType = (participant.participant_type === 'player' ? 'player' : 'monster') as 'player' | 'monster';
+      const rawRoll = Number(participant.initiative_roll);
+      const initiativeRoll = Number.isFinite(rawRoll)
+        ? clamp(Math.trunc(rawRoll), 1, 20)
+        : 1;
+      return {
+        monster_instance_id: participant.monster_instance_id,
+        participant_type: participantType,
+        name: participant.name,
+        initiative_roll: initiativeRoll,
+        dex_mod: Number(participant.dex_mod || 0),
+        initiative_total: Number(participant.initiative_total || 0),
+      };
+    })
     .sort((a, b) => {
       if (b.initiative_total !== a.initiative_total) return b.initiative_total - a.initiative_total;
       if (b.dex_mod !== a.dex_mod) return b.dex_mod - a.dex_mod;
@@ -576,15 +583,22 @@ export async function finishScreenEncounter(idRaw: unknown) {
 
   const encounter = deserializeEncounter(row);
 
-  const fileCandidates: string[] = [];
+  const fileCandidates = new Set<string>();
   const mapPath = resolveUploadAbsolutePath(encounter.map_image_url);
-  if (mapPath) fileCandidates.push(mapPath);
+  if (mapPath) fileCandidates.add(mapPath);
+
   for (const token of encounter.map_tokens || []) {
     const tokenPath = resolveUploadAbsolutePath(token?.image_url || null);
-    if (tokenPath) fileCandidates.push(tokenPath);
+    if (tokenPath) fileCandidates.add(tokenPath);
   }
 
-  for (const filePath of fileCandidates) {
+  for (const participant of encounter.monsters || []) {
+    const maybeUrl = toOptString((participant as any)?.image_url);
+    const participantPath = resolveUploadAbsolutePath(maybeUrl);
+    if (participantPath) fileCandidates.add(participantPath);
+  }
+
+  for (const filePath of Array.from(fileCandidates)) {
     try {
       await fsPromises.unlink(filePath);
     } catch {
@@ -796,6 +810,99 @@ export async function updateScreenEncounterMonsterHp(idRaw: unknown, monsterInst
   if (!found) throw new HttpError(404, 'Существо в энкаунтере не найдено');
 
   await updateEncounterMonsters(Math.trunc(id), JSON.stringify(monsters));
+  return getScreenEncounterById(id);
+}
+
+export async function updateScreenEncounterParticipantInitiative(
+  idRaw: unknown,
+  monsterInstanceIdRaw: unknown,
+  initiativeTotalRaw: unknown
+) {
+  const id = Number(idRaw);
+  if (!Number.isFinite(id) || id <= 0) throw new HttpError(400, 'Некорректный id энкаунтера');
+
+  const monsterInstanceId = String(monsterInstanceIdRaw || '').trim();
+  if (!monsterInstanceId) throw new HttpError(400, 'Некорректный id существа');
+
+  const initiativeTotal = Number(initiativeTotalRaw);
+  if (!Number.isFinite(initiativeTotal)) throw new HttpError(400, 'Инициатива должна быть числом');
+
+  const row = await findEncounterById(Math.trunc(id));
+  if (!row) throw new HttpError(404, 'Энкаунтер не найден');
+
+  const encounter = deserializeEncounter(row);
+  let found = false;
+  const monsters = encounter.monsters.map((monster) => {
+    if (monster.monster_instance_id !== monsterInstanceId) return monster;
+    found = true;
+    const nextInitiative = Math.trunc(initiativeTotal);
+    if (monster.participant_type === 'player') {
+      return {
+        ...monster,
+        initiative_custom: nextInitiative,
+        initiative_total: nextInitiative,
+        initiative_roll: null,
+        dex_mod: 0,
+      };
+    }
+    return {
+      ...monster,
+      initiative_custom: nextInitiative,
+      initiative_total: nextInitiative,
+      initiative_roll: null,
+    };
+  });
+
+  if (!found) throw new HttpError(404, 'Существо в энкаунтере не найдено');
+
+  const initiativeOrder = makeInitiativeOrder(monsters);
+  await updateEncounter(
+    Math.trunc(id),
+    encounter.name,
+    JSON.stringify(monsters),
+    encounter.status === 'active' ? 'active' : 'draft',
+    JSON.stringify(initiativeOrder)
+  );
+
+  return getScreenEncounterById(id);
+}
+
+export async function addScreenEncounterParticipantFromBestiary(idRaw: unknown, bestiaryIdRaw: unknown) {
+  const id = Number(idRaw);
+  if (!Number.isFinite(id) || id <= 0) throw new HttpError(400, 'Некорректный id энкаунтера');
+
+  const bestiaryId = Number(bestiaryIdRaw);
+  if (!Number.isFinite(bestiaryId) || bestiaryId <= 0) throw new HttpError(400, 'Некорректный bestiary_id');
+
+  const row = await findEncounterById(Math.trunc(id));
+  if (!row) throw new HttpError(404, 'Энкаунтер не найден');
+
+  const encounter = deserializeEncounter(row);
+  const list = await listBestiaryByIds([Math.trunc(bestiaryId)]);
+  const source = Array.isArray(list) ? list[0] : null;
+  if (!source) throw new HttpError(404, 'Существо из бестиария не найдено');
+
+  const participant = buildSnapshot(source);
+  if (encounter.status === 'active') {
+    const roll = Math.floor(Math.random() * 20) + 1;
+    const dexMod = abilityMod(participant.dexterity);
+    participant.dex_mod = dexMod;
+    participant.initiative_roll = roll;
+    participant.initiative_total = roll + dexMod;
+    participant.initiative_custom = null;
+  }
+
+  const monsters = [...encounter.monsters, participant];
+  const initiativeOrder = makeInitiativeOrder(monsters);
+
+  await updateEncounter(
+    Math.trunc(id),
+    encounter.name,
+    JSON.stringify(monsters),
+    encounter.status === 'active' ? 'active' : 'draft',
+    JSON.stringify(initiativeOrder)
+  );
+
   return getScreenEncounterById(id);
 }
 

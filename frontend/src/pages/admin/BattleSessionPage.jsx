@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import AdminLayout from '../../components/admin/AdminLayout.jsx';
-import { screenAPI } from '../../lib/api.js';
+import TacticalMapEditor from '../../components/admin/TacticalMapEditor.jsx';
+import { bestiaryAPI, screenAPI } from '../../lib/api.js';
 
 const MAP_CANVAS_WIDTH = 960;
 const MAP_CANVAS_HEIGHT = 640;
@@ -9,6 +10,7 @@ const DEFAULT_MAP_CELL_SIZE = 32;
 const MAP_MIN_ZOOM = 1;
 const MAP_MAX_ZOOM = 2.5;
 const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
+const randomTokenId = () => `t_${Date.now()}_${Math.floor(Math.random() * 1000000)}`;
 
 const parseHp = (value) => {
   const n = Number(value);
@@ -26,9 +28,14 @@ export default function AdminBattleSessionPage() {
   const [error, setError] = useState('');
   const [encounter, setEncounter] = useState(null);
   const [participants, setParticipants] = useState([]);
+  const [catalog, setCatalog] = useState([]);
+  const [monsterQuery, setMonsterQuery] = useState('');
   const [mapTokens, setMapTokens] = useState([]);
   const [mapDragState, setMapDragState] = useState(null);
+  const [selectedTokenId, setSelectedTokenId] = useState(null);
+  const [tokenSelectedFileNames, setTokenSelectedFileNames] = useState({});
   const [savingMapTokens, setSavingMapTokens] = useState(false);
+  const [replacingMap, setReplacingMap] = useState(false);
   const [mapCellSize, setMapCellSize] = useState(DEFAULT_MAP_CELL_SIZE);
   const [mapViewState, setMapViewState] = useState({ scale: 1, offsetX: 0, offsetY: 0 });
   const [mapPanState, setMapPanState] = useState(null);
@@ -47,6 +54,7 @@ export default function AdminBattleSessionPage() {
     setEncounter(nextEncounter);
     setParticipants(nextParticipants);
     setMapTokens(nextMapTokens);
+    setSelectedTokenId(null);
     lastPersistedTokensJsonRef.current = JSON.stringify(nextMapTokens);
   };
 
@@ -54,14 +62,19 @@ export default function AdminBattleSessionPage() {
     setError('');
     setLoading(true);
     try {
-      const data = await screenAPI.getEncounterById(id);
+      const [data, bestiary] = await Promise.all([
+        screenAPI.getEncounterById(id),
+        bestiaryAPI.listAdmin(),
+      ]);
       syncSessionData(data);
+      setCatalog(Array.isArray(bestiary) ? bestiary : []);
     } catch (e) {
       console.error(e);
       setError(e.message || 'Ошибка загрузки сессии боя');
       setEncounter(null);
       setParticipants([]);
       setMapTokens([]);
+      setCatalog([]);
       lastPersistedTokensJsonRef.current = '[]';
     } finally {
       setLoading(false);
@@ -111,6 +124,18 @@ export default function AdminBattleSessionPage() {
     return map;
   }, [initiativeOrder]);
 
+  const filteredCatalogMonsters = useMemo(() => {
+    const query = String(monsterQuery || '').trim().toLowerCase();
+    if (!query) return [];
+    return (catalog || [])
+      .filter((monster) => {
+        const name = String(monster?.name || '').trim().toLowerCase();
+        const nameEn = String(monster?.name_en || '').trim().toLowerCase();
+        return name.includes(query) || nameEn.includes(query);
+      })
+      .slice(0, 8);
+  }, [catalog, monsterQuery]);
+
   const getViewportSize = () => {
     const viewport = mapViewportRef.current;
     if (!viewport) return { width: MAP_CANVAS_WIDTH, height: MAP_CANVAS_HEIGHT };
@@ -150,18 +175,37 @@ export default function AdminBattleSessionPage() {
     const handleMouseMove = (event) => {
       const worldPointer = getWorldPointer(event.clientX, event.clientY);
       if (!worldPointer) return;
-      const rawX = Math.round((worldPointer.x - mapDragState.offsetPxX) / mapCellSize);
-      const rawY = Math.round((worldPointer.y - mapDragState.offsetPxY) / mapCellSize);
 
-      setMapTokens((prev) =>
-        prev.map((token) => {
-          if (token.token_id !== mapDragState.tokenId) return token;
-          const sizeCells = Math.max(Number(token.size_cells || 1), 1);
-          const nextX = clamp(rawX, 0, Math.max(visibleGridCols - sizeCells, 0));
-          const nextY = clamp(rawY, 0, Math.max(visibleGridRows - sizeCells, 0));
-          return { ...token, x: nextX, y: nextY };
-        })
-      );
+      if (mapDragState.mode === 'move') {
+        const rawX = Math.round((worldPointer.x - mapDragState.offsetPxX) / mapCellSize);
+        const rawY = Math.round((worldPointer.y - mapDragState.offsetPxY) / mapCellSize);
+
+        setMapTokens((prev) =>
+          prev.map((token) => {
+            if (token.token_id !== mapDragState.tokenId) return token;
+            const sizeCells = Math.max(Number(token.size_cells || 1), 1);
+            const nextX = clamp(rawX, 0, Math.max(visibleGridCols - sizeCells, 0));
+            const nextY = clamp(rawY, 0, Math.max(visibleGridRows - sizeCells, 0));
+            return { ...token, x: nextX, y: nextY };
+          })
+        );
+      }
+
+      if (mapDragState.mode === 'resize') {
+        const deltaPx = Math.max(worldPointer.x - mapDragState.startPointerX, worldPointer.y - mapDragState.startPointerY);
+        const deltaCells = Math.round(deltaPx / mapCellSize);
+
+        setMapTokens((prev) =>
+          prev.map((token) => {
+            if (token.token_id !== mapDragState.tokenId) return token;
+            const currentX = Math.max(Number(token.x || 0), 0);
+            const currentY = Math.max(Number(token.y || 0), 0);
+            const maxSizeByMap = Math.max(Math.min(visibleGridCols - currentX, visibleGridRows - currentY), 1);
+            const nextSize = clamp(mapDragState.startSizeCells + deltaCells, 1, Math.min(12, maxSizeByMap));
+            return { ...token, size_cells: nextSize };
+          })
+        );
+      }
     };
 
     const handleMouseUp = () => {
@@ -456,6 +500,28 @@ export default function AdminBattleSessionPage() {
     );
   };
 
+  const setParticipantInitiativeLocal = (monsterInstanceId, value) => {
+    setParticipants((prev) =>
+      prev.map((participant) => {
+        if (participant.monster_instance_id !== monsterInstanceId) return participant;
+        if (value === '') {
+          return {
+            ...participant,
+            initiative_total: '',
+            initiative_custom: String(participant?.participant_type || '') === 'player' ? '' : participant.initiative_custom,
+          };
+        }
+        const parsed = Number(value);
+        if (!Number.isFinite(parsed)) return participant;
+        const next = Math.trunc(parsed);
+        if (String(participant?.participant_type || '') === 'player') {
+          return { ...participant, initiative_total: next, initiative_custom: next };
+        }
+        return { ...participant, initiative_total: next, initiative_custom: next };
+      })
+    );
+  };
+
   const handleUpdateHp = async (participant) => {
     setError('');
     if (!encounter?.id) return;
@@ -475,6 +541,89 @@ export default function AdminBattleSessionPage() {
     }
   };
 
+  const handleUpdateInitiative = async (participant) => {
+    setError('');
+    if (!encounter?.id) return;
+    const initiative = Number(participant?.initiative_total);
+    if (!Number.isFinite(initiative)) {
+      setError('Инициатива должна быть числом');
+      return;
+    }
+    try {
+      const data = await screenAPI.updateParticipantInitiative(
+        encounter.id,
+        participant.monster_instance_id,
+        Math.trunc(initiative)
+      );
+      syncSessionData(data);
+    } catch (e) {
+      console.error(e);
+      setError(e.message || 'Ошибка обновления инициативы');
+    }
+  };
+
+  const handleUpdateParticipantStats = async (participant) => {
+    setError('');
+    if (!encounter?.id) return;
+
+    const hpCurrent = Number(participant?.hp_current);
+    const initiative = Number(participant?.initiative_total);
+
+    if (!Number.isFinite(hpCurrent) || hpCurrent < 0) {
+      setError('HP должно быть неотрицательным числом');
+      return;
+    }
+    if (!Number.isFinite(initiative)) {
+      setError('Инициатива должна быть числом');
+      return;
+    }
+
+    try {
+      await screenAPI.updateMonsterHp(encounter.id, participant.monster_instance_id, Math.trunc(hpCurrent));
+      const data = await screenAPI.updateParticipantInitiative(
+        encounter.id,
+        participant.monster_instance_id,
+        Math.trunc(initiative)
+      );
+      syncSessionData(data);
+    } catch (e) {
+      console.error(e);
+      setError(e.message || 'Ошибка обновления параметров участника');
+    }
+  };
+
+  const handleAddMonsterToBattle = async (monster) => {
+    setError('');
+    if (!encounter?.id) return;
+    try {
+      const data = await screenAPI.addParticipantFromBestiary(encounter.id, Number(monster?.id));
+      syncSessionData(data);
+      setMonsterQuery('');
+    } catch (e) {
+      console.error(e);
+      setError(e.message || 'Ошибка добавления существа в бой');
+    }
+  };
+
+  const handleReplaceMap = async (file) => {
+    if (!encounter?.id || !file) return;
+    setError('');
+    setReplacingMap(true);
+    try {
+      const data = await screenAPI.updateMapConfig(encounter.id, {
+        grid_size_ft: Number(encounter?.map_grid_size_ft || 5),
+        grid_opacity: Number(encounter?.map_grid_opacity || 0.35),
+        grid_dashed: encounter?.map_grid_dashed ? 1 : 0,
+      }, file);
+      syncSessionData(data);
+    } catch (e) {
+      console.error(e);
+      setError(e.message || 'Ошибка замены карты боя');
+    } finally {
+      setReplacingMap(false);
+    }
+  };
+
   const handleRemoveParticipant = async (participant) => {
     setError('');
     if (!encounter?.id) return;
@@ -490,21 +639,134 @@ export default function AdminBattleSessionPage() {
     }
   };
 
+  const addTokenFromParticipant = (participant) => {
+    const linkedId = String(participant?.monster_instance_id || '').trim();
+    if (linkedId && mapTokens.some((token) => String(token?.linked_monster_instance_id || '').trim() === linkedId)) {
+      return;
+    }
+    setMapTokens((prev) => [
+      ...prev,
+      {
+        token_id: randomTokenId(),
+        linked_monster_instance_id: linkedId || null,
+        image_url: null,
+        x: 0,
+        y: 0,
+        size_cells: 1,
+        font_family: 'Inter',
+        font_size: 14,
+      },
+    ]);
+  };
+
+  const updateTokenField = (tokenId, key, value) => {
+    if (key === 'linked_monster_instance_id' && value) {
+      const nextLinkedId = String(value).trim();
+      setMapTokens((prev) => prev.map((token) => {
+        if (token.token_id === tokenId) return { ...token, [key]: nextLinkedId };
+        const linked = String(token?.linked_monster_instance_id || '').trim();
+        if (linked && linked === nextLinkedId) {
+          return { ...token, linked_monster_instance_id: null };
+        }
+        return token;
+      }));
+      return;
+    }
+    setMapTokens((prev) => prev.map((token) => (token.token_id === tokenId ? { ...token, [key]: value } : token)));
+  };
+
+  const uploadTokenImage = async (token, file) => {
+    if (!encounter?.id || !file) return;
+    const linkedMonsterId = String(token?.linked_monster_instance_id || '').trim();
+    const sourceParticipant = (participants || []).find((participant) => String(participant?.monster_instance_id || '').trim() === linkedMonsterId);
+    const sourceBestiaryId = Number(sourceParticipant?.bestiary_id || 0);
+    const sameTypeInstanceIds = new Set(
+      (participants || [])
+        .filter((participant) => Number(participant?.bestiary_id || 0) > 0 && Number(participant?.bestiary_id || 0) === sourceBestiaryId)
+        .map((participant) => String(participant?.monster_instance_id || '').trim())
+        .filter(Boolean)
+    );
+    const targetTokens = sourceBestiaryId > 0
+      ? (mapTokens || []).filter((item) => sameTypeInstanceIds.has(String(item?.linked_monster_instance_id || '').trim()))
+      : [token];
+    const effectiveTargets = targetTokens.length > 0 ? targetTokens : [token];
+    const targetTokenIds = effectiveTargets.map((item) => String(item.token_id));
+
+    setTokenSelectedFileNames((prev) => {
+      const next = { ...prev };
+      for (const tokenId of targetTokenIds) next[tokenId] = file.name;
+      return next;
+    });
+    const localPreviewUrl = URL.createObjectURL(file);
+    setMapTokens((prev) => prev.map((item) => (targetTokenIds.includes(String(item.token_id)) ? { ...item, image_url: localPreviewUrl } : item)));
+    try {
+      let data = null;
+      for (const target of effectiveTargets) {
+        data = await screenAPI.updateTokenImage(encounter.id, target.token_id, file);
+      }
+      if (data) syncSessionData(data);
+      URL.revokeObjectURL(localPreviewUrl);
+    } catch (e) {
+      console.error(e);
+      setError(e.message || 'Ошибка загрузки изображения токена');
+    }
+  };
+
+  const removeToken = async (token) => {
+    if (!encounter?.id) {
+      setMapTokens((prev) => prev.filter((item) => item.token_id !== token.token_id));
+      if (selectedTokenId === token.token_id) setSelectedTokenId(null);
+      return;
+    }
+    try {
+      const data = await screenAPI.removeToken(encounter.id, token.token_id);
+      syncSessionData(data);
+    } catch (e) {
+      console.error(e);
+      setError(e.message || 'Ошибка удаления токена');
+    }
+  };
+
+  const getTokenDisplayName = (token) => {
+    const linkedId = String(token?.linked_monster_instance_id || '').trim();
+    const baseName = linkedId ? participantsByInstanceId.get(linkedId) || 'Участник' : 'Токен';
+    const turnIndex = linkedId ? initiativeIndexByInstanceId.get(linkedId) : null;
+    return Number.isFinite(turnIndex) ? `${baseName} ${turnIndex}` : baseName;
+  };
+
   const startTokenDrag = (event, token) => {
     const worldPointer = getWorldPointer(event.clientX, event.clientY);
     if (!worldPointer) return;
+    setSelectedTokenId(token.token_id);
     const leftPx = Math.max(Number(token.x || 0), 0) * mapCellSize;
     const topPx = Math.max(Number(token.y || 0), 0) * mapCellSize;
 
     setMapDragState({
+      mode: 'move',
       tokenId: token.token_id,
       offsetPxX: worldPointer.x - leftPx,
       offsetPxY: worldPointer.y - topPx,
     });
   };
 
+  const startTokenResize = (event, token) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const worldPointer = getWorldPointer(event.clientX, event.clientY);
+    if (!worldPointer) return;
+    setSelectedTokenId(token.token_id);
+    setMapDragState({
+      mode: 'resize',
+      tokenId: token.token_id,
+      startPointerX: worldPointer.x,
+      startPointerY: worldPointer.y,
+      startSizeCells: Math.max(Number(token.size_cells || 1), 1),
+    });
+  };
+
   const startMapPan = (event) => {
     if (event.button !== 0) return;
+    setSelectedTokenId(null);
     setMapPanState({
       startClientX: event.clientX,
       startClientY: event.clientY,
@@ -557,6 +819,33 @@ export default function AdminBattleSessionPage() {
                   {finishing ? 'Завершение…' : 'Завершить бой'}
                 </button>
               </div>
+
+              <div className="space-y-2">
+                <div className="text-sm font-medium text-gray-900">Добавить существо из бестиария</div>
+                <div className="relative">
+                  <input
+                    value={monsterQuery}
+                    onChange={(event) => setMonsterQuery(event.target.value)}
+                    placeholder="Поиск существа..."
+                    className="w-full rounded-lg border px-3 py-2"
+                  />
+                  {filteredCatalogMonsters.length > 0 ? (
+                    <div className="absolute z-20 mt-1 w-full rounded-lg border bg-white shadow-lg overflow-hidden">
+                      {filteredCatalogMonsters.map((monster) => (
+                        <button
+                          key={monster.id}
+                          type="button"
+                          onClick={() => handleAddMonsterToBattle(monster)}
+                          className="w-full text-left px-3 py-2 hover:bg-gray-50 border-b last:border-b-0"
+                        >
+                          <div className="font-medium text-gray-900">{monster.name}</div>
+                          <div className="text-xs text-gray-500">CR {monster.challenge_rating || '—'} · КД {monster.armor_class || '—'} · HP {monster.hit_points || '—'}</div>
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+              </div>
             </section>
 
             <section className="rounded-lg border bg-white p-4 space-y-3">
@@ -600,21 +889,28 @@ export default function AdminBattleSessionPage() {
                         </div>
                       ) : null}
 
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         <input
                           type="number"
                           min={0}
                           value={participant.hp_current ?? ''}
                           onChange={(event) => setParticipantHpLocal(participant.monster_instance_id, event.target.value)}
-                          className="w-32 rounded-lg border px-3 py-2"
+                          className="w-28 rounded-lg border px-3 py-2"
                           placeholder="Текущий HP"
+                        />
+                        <input
+                          type="number"
+                          value={participant.initiative_total ?? ''}
+                          onChange={(event) => setParticipantInitiativeLocal(participant.monster_instance_id, event.target.value)}
+                          className="w-28 rounded-lg border px-3 py-2"
+                          placeholder="Инициатива"
                         />
                         <button
                           type="button"
-                          onClick={() => handleUpdateHp(participant)}
+                          onClick={() => handleUpdateParticipantStats(participant)}
                           className="rounded-lg border border-gray-300 px-3 py-2 text-sm hover:bg-gray-50"
                         >
-                          Обновить HP
+                          Обновить
                         </button>
                       </div>
                     </div>
@@ -626,88 +922,38 @@ export default function AdminBattleSessionPage() {
             <section className="rounded-lg border bg-white p-4">
               <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_320px] gap-3 items-start">
                 <div className="space-y-3 min-w-0">
-                  <div className="flex items-center justify-between gap-3">
-                  </div>
-
                   {!encounter?.map_image_url && mapTokens.length === 0 ? (
                     <div className="text-sm text-gray-500">Карта в этом бою не настроена.</div>
                   ) : (
-                    <div className="rounded-lg border bg-gray-50 p-2">
-                      <div
-                        ref={mapViewportRef}
-                        className={`relative h-[640px] w-full max-w-[960px] overflow-hidden overscroll-none rounded mx-auto ${mapPanState ? 'cursor-grabbing' : 'cursor-grab'}`}
-                        onMouseDown={startMapPan}
-                      >
-                        <div
-                          className="relative origin-top-left"
-                          style={{
-                            width: MAP_CANVAS_WIDTH,
-                            height: MAP_CANVAS_HEIGHT,
-                            transform: `translate(${mapViewState.offsetX}px, ${mapViewState.offsetY}px) scale(${mapViewState.scale})`,
-                            transformOrigin: '0 0',
-                            backgroundColor: '#111827',
-                            backgroundImage: encounter?.map_image_url ? `url(${encounter.map_image_url})` : 'none',
-                            backgroundSize: 'cover',
-                            backgroundPosition: 'center',
-                          }}
-                        >
-                          {Array.from({ length: visibleGridCols + 1 }).map((_, index) => (
-                            <div
-                              key={`session-grid-v-${index}`}
-                              className="absolute top-0 bottom-0"
-                              style={{
-                                left: index * mapCellSize,
-                                borderLeft: `1px ${encounter?.map_grid_dashed ? 'dashed' : 'solid'} rgba(255,255,255,${Number(encounter?.map_grid_opacity || 0.35)})`,
-                              }}
-                            />
-                          ))}
-                          {Array.from({ length: visibleGridRows + 1 }).map((_, index) => (
-                            <div
-                              key={`session-grid-h-${index}`}
-                              className="absolute left-0 right-0"
-                              style={{
-                                top: index * mapCellSize,
-                                borderTop: `1px ${encounter?.map_grid_dashed ? 'dashed' : 'solid'} rgba(255,255,255,${Number(encounter?.map_grid_opacity || 0.35)})`,
-                              }}
-                            />
-                          ))}
-
-                          {mapTokens.map((token) => {
-                            const sizeCells = Math.max(Number(token.size_cells || 1), 1);
-                            const left = Math.max(Number(token.x || 0), 0) * mapCellSize;
-                            const top = Math.max(Number(token.y || 0), 0) * mapCellSize;
-                            const sizePx = sizeCells * mapCellSize;
-                            const linkedId = String(token?.linked_monster_instance_id || '').trim();
-                            const baseName = linkedId ? participantsByInstanceId.get(linkedId) || 'Участник' : 'Токен';
-                            const turnIndex = linkedId ? initiativeIndexByInstanceId.get(linkedId) : null;
-                            const displayName = Number.isFinite(turnIndex) ? `${baseName} ${turnIndex}` : baseName;
-
-                            return (
-                              <div
-                                key={token.token_id}
-                                className="absolute select-none"
-                                style={{ left, top, width: sizePx, cursor: mapDragState?.tokenId === token.token_id ? 'grabbing' : 'grab' }}
-                                onMouseDown={(event) => {
-                                  event.stopPropagation();
-                                  startTokenDrag(event, token);
-                                }}
-                              >
-                                <div className="rounded-full overflow-hidden border border-white/70 bg-black/40" style={{ width: sizePx, height: sizePx }}>
-                                  {token.image_url ? (
-                                    <img src={token.image_url} alt={displayName} className="w-full h-full object-cover" draggable={false} />
-                                  ) : (
-                                    <div className="w-full h-full flex items-center justify-center text-white text-xs">{baseName.slice(0, 2)}</div>
-                                  )}
-                                </div>
-                                <div className="mt-0.5 text-white drop-shadow text-center leading-none" style={{ fontSize: Number(token.font_size || 14), textShadow: '0 1px 2px rgba(0,0,0,0.7)' }}>
-                                  {displayName}
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    </div>
+                    <TacticalMapEditor
+                      participants={participants}
+                      mapViewportRef={mapViewportRef}
+                      mapPanState={mapPanState}
+                      onMapMouseDown={startMapPan}
+                      mapWidth={MAP_CANVAS_WIDTH}
+                      mapHeight={MAP_CANVAS_HEIGHT}
+                      mapViewState={mapViewState}
+                      mapImageUrl={encounter?.map_image_url || ''}
+                      mapCellSize={mapCellSize}
+                      mapGridDashed={Boolean(encounter?.map_grid_dashed)}
+                      mapGridOpacity={Number(encounter?.map_grid_opacity || 0.35)}
+                      visibleGridCols={visibleGridCols}
+                      visibleGridRows={visibleGridRows}
+                      mapTokens={mapTokens}
+                      selectedTokenId={selectedTokenId}
+                      activeDragTokenId={mapDragState?.tokenId || null}
+                      getTokenDisplayName={getTokenDisplayName}
+                      onTokenMouseDown={startTokenDrag}
+                      onTokenResizeMouseDown={startTokenResize}
+                      onSelectToken={setSelectedTokenId}
+                      onAddTokenFromParticipant={addTokenFromParticipant}
+                      onUploadMapFile={handleReplaceMap}
+                      mapUploadButtonLabel={replacingMap ? 'Замена карты…' : 'Загрузить карту'}
+                      onUpdateTokenField={updateTokenField}
+                      onUploadTokenImage={uploadTokenImage}
+                      onRemoveToken={removeToken}
+                      tokenSelectedFileNames={tokenSelectedFileNames}
+                    />
                   )}
                 </div>
 
@@ -716,11 +962,11 @@ export default function AdminBattleSessionPage() {
                   {initiativeOrder.length === 0 ? (
                     <div className="text-sm text-gray-500">Порядок ходов пока не сформирован.</div>
                   ) : (
-                    <ol className={`space-y-1 ${initiativeOrder.length > 6 ? 'max-h-64 overflow-auto pr-1' : ''}`}>
+                    <ol className={`space-y-1 ${initiativeOrder.length > 15 ? 'max-h-[36rem] overflow-auto pr-1' : ''}`}>
                       {initiativeOrder.map((row, index) => (
                         <li key={row.monster_instance_id} className="rounded border border-gray-200 bg-white px-2 py-1.5 flex items-center justify-between">
                           <span className="text-sm text-gray-900 truncate pr-2">{index + 1}. {row.name} {row.participant_type === 'player' ? '(игрок)' : ''}</span>
-                          <span className="text-xs text-gray-600 whitespace-nowrap">{row.initiative_total} (к20: {row.initiative_roll} {row.dex_mod >= 0 ? '+' : ''}{row.dex_mod})</span>
+                          <span className="text-xs text-gray-600 whitespace-nowrap">{row.initiative_total} (к20: {Math.max(Number(row.initiative_roll) || 0, 1)} {row.dex_mod >= 0 ? '+' : ''}{row.dex_mod})</span>
                         </li>
                       ))}
                     </ol>

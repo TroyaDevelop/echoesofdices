@@ -7,6 +7,7 @@ import {
   uploadTacticalTokenImage,
 } from '../../middlewares/upload';
 import {
+  addScreenEncounterParticipantFromBestiaryHandler,
   createScreenEncounterHandler,
   finishScreenEncounterHandler,
   getScreenEncounterByIdHandler,
@@ -18,6 +19,7 @@ import {
   updateScreenEncounterHandler,
   updateScreenEncounterMapConfigHandler,
   updateScreenEncounterMapTokensHandler,
+  updateScreenEncounterParticipantInitiativeHandler,
   updateScreenEncounterMonsterHpHandler,
   updateScreenEncounterTokenImageHandler,
 } from './screen.controller';
@@ -32,7 +34,9 @@ screenRouter.put('/encounters/:id(\\d+)', authenticateToken, requireMasterOrAdmi
 screenRouter.post('/encounters/:id(\\d+)/start', authenticateToken, requireMasterOrAdmin, startScreenEncounterHandler);
 screenRouter.post('/encounters/:id(\\d+)/rebroadcast-order', authenticateToken, requireMasterOrAdmin, rebroadcastScreenEncounterOrderHandler);
 screenRouter.delete('/encounters/:id(\\d+)/finish', authenticateToken, requireMasterOrAdmin, finishScreenEncounterHandler);
+screenRouter.post('/encounters/:id(\\d+)/monsters', authenticateToken, requireMasterOrAdmin, addScreenEncounterParticipantFromBestiaryHandler);
 screenRouter.patch('/encounters/:id(\\d+)/monsters/:monsterId/hp', authenticateToken, requireMasterOrAdmin, updateScreenEncounterMonsterHpHandler);
+screenRouter.patch('/encounters/:id(\\d+)/monsters/:monsterId/initiative', authenticateToken, requireMasterOrAdmin, updateScreenEncounterParticipantInitiativeHandler);
 screenRouter.delete('/encounters/:id(\\d+)/monsters/:monsterId', authenticateToken, requireMasterOrAdmin, removeScreenEncounterParticipantHandler);
 
 screenRouter.put('/encounters/:id(\\d+)/map', authenticateToken, requireMasterOrAdmin, uploadTacticalMapImage.single('image'), optimizeTacticalMapImage, updateScreenEncounterMapConfigHandler);

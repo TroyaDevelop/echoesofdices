@@ -1,6 +1,7 @@
 import type { Request, Response } from 'express';
 import { HttpError } from '../../utils/httpError';
 import {
+  addScreenEncounterParticipantFromBestiary,
   createScreenEncounter,
   finishScreenEncounter,
   getScreenEncounterById,
@@ -12,6 +13,7 @@ import {
   updateScreenEncounter,
   updateScreenEncounterMapConfig,
   updateScreenEncounterMapTokens,
+  updateScreenEncounterParticipantInitiative,
   updateScreenEncounterMonsterHp,
   updateScreenEncounterTokenImage,
 } from './screen.service';
@@ -93,6 +95,30 @@ export async function updateScreenEncounterMonsterHpHandler(req: Request, res: R
   } catch (error) {
     const err = error as HttpError;
     res.status(err.status || 500).json({ error: err.message || 'Ошибка обновления HP существа' });
+  }
+}
+
+export async function updateScreenEncounterParticipantInitiativeHandler(req: Request, res: Response) {
+  try {
+    const data = await updateScreenEncounterParticipantInitiative(
+      req.params.id,
+      req.params.monsterId,
+      req.body?.initiative_total
+    );
+    res.json(data);
+  } catch (error) {
+    const err = error as HttpError;
+    res.status(err.status || 500).json({ error: err.message || 'Ошибка обновления инициативы участника' });
+  }
+}
+
+export async function addScreenEncounterParticipantFromBestiaryHandler(req: Request, res: Response) {
+  try {
+    const data = await addScreenEncounterParticipantFromBestiary(req.params.id, req.body?.bestiary_id);
+    res.json(data);
+  } catch (error) {
+    const err = error as HttpError;
+    res.status(err.status || 500).json({ error: err.message || 'Ошибка добавления существа в бой' });
   }
 }
 
