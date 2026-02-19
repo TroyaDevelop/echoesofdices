@@ -266,6 +266,63 @@ body {
   margin: 0.25rem 0;
 }
 
+.spell-description h3,
+.news-content h3 {
+  margin: 0.9rem 0 0.6rem;
+  color: #7f1d1d;
+  font-size: 1.08rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  border-bottom: 1px solid rgba(127, 29, 29, 0.45);
+  padding-bottom: 0.2rem;
+}
+
+.spell-description hr,
+.news-content hr {
+  border: 0;
+  height: 1px;
+  width: 100%;
+  margin: 0.9rem 0 0.85rem;
+  background: rgba(127, 29, 29, 0.55);
+}
+
+.spell-description details,
+.news-content details {
+  margin: 0.75rem 0;
+  border: 1px solid rgba(15, 23, 42, 0.16);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.4);
+}
+
+.spell-description summary,
+.news-content summary {
+  cursor: pointer;
+  padding: 0.55rem 0.8rem;
+  color: #7f1d1d;
+  font-size: 1.45rem;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: 0.02em;
+  list-style: none;
+}
+
+.spell-description summary::-webkit-details-marker,
+.news-content summary::-webkit-details-marker {
+  display: none;
+}
+
+.spell-description details > :not(summary),
+.news-content details > :not(summary) {
+  padding-left: 0.8rem;
+  padding-right: 0.8rem;
+}
+
+.spell-description details > :last-child,
+.news-content details > :last-child {
+  padding-bottom: 0.7rem;
+}
+
 .spell-description table {
   width: 100%;
   border-collapse: collapse;

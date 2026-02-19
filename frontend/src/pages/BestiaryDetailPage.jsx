@@ -38,7 +38,11 @@ function Section({ title, content }) {
 
   return (
     <div className="mt-2">
-      <div className="text-xl font-semibold uppercase text-red-900/90">— {title} —</div>
+      {title.toLowerCase() === 'особенности' ? (
+        <hr className="border-0 h-px w-full my-4 bg-red-900/55" />
+      ) : (
+        <div className="text-xl font-semibold uppercase text-red-900/90">— {title} —</div>
+      )}
       <div className="mt-1 bestiary-section-content">
         <SpellDescription description={renderedContent} />
       </div>

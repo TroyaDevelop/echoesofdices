@@ -106,12 +106,41 @@ export default function SpellDescriptionEditor({
       ? 'h-8 px-2 rounded-md text-xs font-semibold border border-gray-200 text-gray-400 bg-gray-50 cursor-not-allowed'
       : 'h-8 px-2 rounded-md text-xs font-semibold border border-gray-200 text-gray-700 bg-white hover:bg-gray-50';
 
+  const insertSectionHeading = () => {
+    editor.chain().focus().insertContent('<p>— НОВЫЙ ЗАГОЛОВОК —</p>').run();
+  };
+
+  const insertCollapsibleSection = () => {
+    editor
+      .chain()
+      .focus()
+      .insertContent(
+        '<p>[[COLLAPSE: НОВЫЙ РАЗДЕЛ]]</p><p>Текст раздела…</p><p>[[/COLLAPSE]]</p>'
+      )
+      .run();
+  };
+
   const inTable = enableTables && editor.isActive('table');
 
   return (
     <div className="relative">
-      {enableTables ? (
-        <div className="mb-2 flex flex-wrap items-center gap-2">
+      <div className="mb-2 flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={insertSectionHeading}
+          className={toolBtnClass(false)}
+        >
+          Заголовок
+        </button>
+        <button
+          type="button"
+          onClick={insertCollapsibleSection}
+          className={toolBtnClass(false)}
+        >
+          Раскрывающийся раздел
+        </button>
+        {enableTables ? (
+          <>
           <button
             type="button"
             onClick={() => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()}
@@ -159,8 +188,9 @@ export default function SpellDescriptionEditor({
           >
             Удалить таблицу
           </button>
-        </div>
-      ) : null}
+          </>
+        ) : null}
+      </div>
 
       <BubbleMenu
         editor={editor}
