@@ -139,7 +139,8 @@ export default function TacticalMapEditor({
               transformOrigin: '0 0',
               backgroundColor: '#111827',
               backgroundImage: mapImageUrl ? `url(${mapImageUrl})` : 'none',
-              backgroundSize: 'cover',
+              backgroundSize: 'contain',
+              backgroundRepeat: 'no-repeat',
               backgroundPosition: 'center',
             }}
           >

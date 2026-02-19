@@ -39,13 +39,16 @@ export default function AdminBattleSessionPage() {
   const [mapCellSize, setMapCellSize] = useState(DEFAULT_MAP_CELL_SIZE);
   const [mapViewState, setMapViewState] = useState({ scale: 1, offsetX: 0, offsetY: 0 });
   const [mapPanState, setMapPanState] = useState(null);
+  const [mapCanvasSize, setMapCanvasSize] = useState({ width: MAP_CANVAS_WIDTH, height: MAP_CANVAS_HEIGHT });
 
   const mapViewportRef = useRef(null);
   const autoSaveTokensTimerRef = useRef(null);
   const lastPersistedTokensJsonRef = useRef('[]');
 
-  const visibleGridCols = Math.max(Math.floor(MAP_CANVAS_WIDTH / mapCellSize), 1);
-  const visibleGridRows = Math.max(Math.floor(MAP_CANVAS_HEIGHT / mapCellSize), 1);
+  const mapCanvasWidth = Math.max(Number(mapCanvasSize?.width || MAP_CANVAS_WIDTH), 1);
+  const mapCanvasHeight = Math.max(Number(mapCanvasSize?.height || MAP_CANVAS_HEIGHT), 1);
+  const visibleGridCols = Math.max(Math.floor(mapCanvasWidth / mapCellSize), 1);
+  const visibleGridRows = Math.max(Math.floor(mapCanvasHeight / mapCellSize), 1);
 
   const syncSessionData = (data) => {
     const nextEncounter = data || null;
@@ -95,6 +98,44 @@ export default function AdminBattleSessionPage() {
     setMapCellSize(DEFAULT_MAP_CELL_SIZE);
   }, [id]);
 
+  useEffect(() => {
+    const imageUrl = String(encounter?.map_image_url || '').trim();
+    if (!imageUrl) {
+      setMapCanvasSize({ width: MAP_CANVAS_WIDTH, height: MAP_CANVAS_HEIGHT });
+      return;
+    }
+
+    let cancelled = false;
+    const image = new Image();
+    image.onload = () => {
+      if (cancelled) return;
+      const naturalWidth = Math.max(Number(image.naturalWidth || 0), 1);
+      const naturalHeight = Math.max(Number(image.naturalHeight || 0), 1);
+      const aspect = naturalWidth / naturalHeight;
+
+      let nextWidth = MAP_CANVAS_WIDTH;
+      let nextHeight = Math.round(nextWidth / aspect);
+      if (nextHeight > MAP_CANVAS_HEIGHT) {
+        nextHeight = MAP_CANVAS_HEIGHT;
+        nextWidth = Math.round(nextHeight * aspect);
+      }
+
+      setMapCanvasSize({
+        width: Math.max(nextWidth, 1),
+        height: Math.max(nextHeight, 1),
+      });
+    };
+    image.onerror = () => {
+      if (cancelled) return;
+      setMapCanvasSize({ width: MAP_CANVAS_WIDTH, height: MAP_CANVAS_HEIGHT });
+    };
+    image.src = imageUrl;
+
+    return () => {
+      cancelled = true;
+    };
+  }, [encounter?.map_image_url]);
+
   const initiativeOrder = useMemo(() => {
     const list = Array.isArray(encounter?.initiative_order) ? encounter.initiative_order : [];
     return list;
@@ -138,16 +179,16 @@ export default function AdminBattleSessionPage() {
 
   const getViewportSize = () => {
     const viewport = mapViewportRef.current;
-    if (!viewport) return { width: MAP_CANVAS_WIDTH, height: MAP_CANVAS_HEIGHT };
-    const width = viewport.clientWidth || MAP_CANVAS_WIDTH;
-    const height = viewport.clientHeight || MAP_CANVAS_HEIGHT;
+    if (!viewport) return { width: mapCanvasWidth, height: mapCanvasHeight };
+    const width = viewport.clientWidth || mapCanvasWidth;
+    const height = viewport.clientHeight || mapCanvasHeight;
     return { width, height };
   };
 
   const clampMapOffsets = (scale, offsetX, offsetY) => {
     const { width: viewportWidth, height: viewportHeight } = getViewportSize();
-    const scaledWidth = MAP_CANVAS_WIDTH * scale;
-    const scaledHeight = MAP_CANVAS_HEIGHT * scale;
+    const scaledWidth = mapCanvasWidth * scale;
+    const scaledHeight = mapCanvasHeight * scale;
 
     const minOffsetX = Math.min(viewportWidth - scaledWidth, 0);
     const minOffsetY = Math.min(viewportHeight - scaledHeight, 0);
@@ -244,7 +285,7 @@ export default function AdminBattleSessionPage() {
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [mapPanState]);
+  }, [mapPanState, mapCanvasWidth, mapCanvasHeight]);
 
   useEffect(() => {
     if (!mapVisible) return undefined;
@@ -273,7 +314,7 @@ export default function AdminBattleSessionPage() {
     return () => {
       element.removeEventListener('wheel', nativeWheel);
     };
-  }, [mapVisible]);
+  }, [mapVisible, mapCanvasWidth, mapCanvasHeight]);
 
   useEffect(() => {
     if (autoSaveTokensTimerRef.current) {
@@ -340,8 +381,8 @@ export default function AdminBattleSessionPage() {
     // Canvas = размер viewport мастера: ровно то, что видит мастер на экране.
     // dpr учитывается для чёткости, но aspect ratio = aspect ratio viewport.
     const vpEl = mapViewportRef.current;
-    const vpW = Math.max(vpEl.clientWidth || MAP_CANVAS_WIDTH, 1);
-    const vpH = Math.max(vpEl.clientHeight || MAP_CANVAS_HEIGHT, 1);
+    const vpW = Math.max(vpEl.clientWidth || mapCanvasWidth, 1);
+    const vpH = Math.max(vpEl.clientHeight || mapCanvasHeight, 1);
     const dpr = Math.max(Number(window.devicePixelRatio || 1), 1);
 
     const canvas = document.createElement('canvas');
@@ -374,7 +415,7 @@ export default function AdminBattleSessionPage() {
     ctx.scale(mapViewState.scale, mapViewState.scale);
 
     if (mapImage) {
-      ctx.drawImage(mapImage, 0, 0, MAP_CANVAS_WIDTH, MAP_CANVAS_HEIGHT);
+      ctx.drawImage(mapImage, 0, 0, mapCanvasWidth, mapCanvasHeight);
     }
 
     const sc = mapViewState.scale || 1;
@@ -391,14 +432,14 @@ export default function AdminBattleSessionPage() {
       const px = x * mapCellSize;
       ctx.beginPath();
       ctx.moveTo(px, 0);
-      ctx.lineTo(px, MAP_CANVAS_HEIGHT);
+      ctx.lineTo(px, mapCanvasHeight);
       ctx.stroke();
     }
     for (let y = 0; y <= visibleGridRows; y += 1) {
       const py = y * mapCellSize;
       ctx.beginPath();
       ctx.moveTo(0, py);
-      ctx.lineTo(MAP_CANVAS_WIDTH, py);
+      ctx.lineTo(mapCanvasWidth, py);
       ctx.stroke();
     }
     ctx.setLineDash([]);
@@ -979,8 +1020,8 @@ export default function AdminBattleSessionPage() {
                       mapViewportRef={mapViewportRef}
                       mapPanState={mapPanState}
                       onMapMouseDown={startMapPan}
-                      mapWidth={MAP_CANVAS_WIDTH}
-                      mapHeight={MAP_CANVAS_HEIGHT}
+                      mapWidth={mapCanvasWidth}
+                      mapHeight={mapCanvasHeight}
                       mapViewState={mapViewState}
                       mapImageUrl={encounter?.map_image_url || ''}
                       mapCellSize={mapCellSize}
