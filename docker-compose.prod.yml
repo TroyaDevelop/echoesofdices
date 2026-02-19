@@ -13,6 +13,8 @@ services:
       DB_PASSWORD: "echoes_password"
       ECHOESROOT_LOGIN: "${ECHOESROOT_LOGIN}"
       ECHOESROOT_PASSWORD: "${ECHOESROOT_PASSWORD}"
+      MARKET_BOT_INTEGRATION_KEY: "${MARKET_BOT_INTEGRATION_KEY}"
+      MARKET_INTEGRATION_KEY: "${MARKET_INTEGRATION_KEY}"
     volumes:
       - ./backend/uploads:/app/uploads
     depends_on:
