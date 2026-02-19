@@ -36,7 +36,10 @@ export default function AdminBattleSessionPage() {
   const [tokenSelectedFileNames, setTokenSelectedFileNames] = useState({});
   const [savingMapTokens, setSavingMapTokens] = useState(false);
   const [replacingMap, setReplacingMap] = useState(false);
+  const [savingMapConfig, setSavingMapConfig] = useState(false);
   const [mapCellSize, setMapCellSize] = useState(DEFAULT_MAP_CELL_SIZE);
+  const [mapGridOpacity, setMapGridOpacity] = useState(0.35);
+  const [mapGridDashed, setMapGridDashed] = useState(true);
   const [mapViewState, setMapViewState] = useState({ scale: 1, offsetX: 0, offsetY: 0 });
   const [mapPanState, setMapPanState] = useState(null);
   const [mapCanvasSize, setMapCanvasSize] = useState({ width: MAP_CANVAS_WIDTH, height: MAP_CANVAS_HEIGHT });
@@ -57,6 +60,8 @@ export default function AdminBattleSessionPage() {
     setEncounter(nextEncounter);
     setParticipants(nextParticipants);
     setMapTokens(nextMapTokens);
+    setMapGridOpacity(Number(nextEncounter?.map_grid_opacity || 0.35));
+    setMapGridDashed(Boolean(nextEncounter?.map_grid_dashed));
     setSelectedTokenId(null);
     lastPersistedTokensJsonRef.current = JSON.stringify(nextMapTokens);
   };
@@ -419,11 +424,11 @@ export default function AdminBattleSessionPage() {
     }
 
     const sc = mapViewState.scale || 1;
-    const gridOpacity = Number(encounter?.map_grid_opacity || 0.35);
+    const gridOpacity = Number(mapGridOpacity || 0.35);
     const gridColor = `rgba(255,255,255,${gridOpacity})`;
     ctx.lineWidth = 1 / sc;
     ctx.strokeStyle = gridColor;
-    if (encounter?.map_grid_dashed) {
+    if (mapGridDashed) {
       ctx.setLineDash([4 / sc, 4 / sc]);
     } else {
       ctx.setLineDash([]);
@@ -536,6 +541,26 @@ export default function AdminBattleSessionPage() {
     ctx.restore(); // снимаем трансформ карты
 
     return canvas.toDataURL('image/png');
+  };
+
+  const saveMapGridConfig = async () => {
+    setError('');
+    if (!encounter?.id) return;
+
+    setSavingMapConfig(true);
+    try {
+      const data = await screenAPI.updateMapConfig(encounter.id, {
+        grid_size_ft: Number(encounter?.map_grid_size_ft || 5),
+        grid_opacity: Number(mapGridOpacity || 0.35),
+        grid_dashed: mapGridDashed ? 1 : 0,
+      });
+      syncSessionData(data);
+    } catch (e) {
+      console.error(e);
+      setError(e.message || 'Ошибка сохранения параметров сетки');
+    } finally {
+      setSavingMapConfig(false);
+    }
   };
 
   const handleRebroadcast = async () => {
@@ -702,8 +727,8 @@ export default function AdminBattleSessionPage() {
     try {
       const data = await screenAPI.updateMapConfig(encounter.id, {
         grid_size_ft: Number(encounter?.map_grid_size_ft || 5),
-        grid_opacity: Number(encounter?.map_grid_opacity || 0.35),
-        grid_dashed: encounter?.map_grid_dashed ? 1 : 0,
+        grid_opacity: Number(mapGridOpacity || 0.35),
+        grid_dashed: mapGridDashed ? 1 : 0,
       }, file);
       syncSessionData(data);
     } catch (e) {
@@ -1012,6 +1037,56 @@ export default function AdminBattleSessionPage() {
             <section className="rounded-lg border bg-white p-4">
               <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_320px] gap-3 items-start">
                 <div className="space-y-3 min-w-0">
+                  <div className="rounded-lg border bg-gray-50 p-3 space-y-3">
+                    <div>
+                      <div className="text-xs font-medium text-gray-700 mb-1">Прозрачность</div>
+                      <input
+                        type="number"
+                        min={0.05}
+                        max={1}
+                        step={0.05}
+                        value={mapGridOpacity}
+                        onChange={(event) => setMapGridOpacity(Number(event.target.value || 0.35))}
+                        className="w-full rounded-lg border px-3 py-2"
+                      />
+                    </div>
+
+                    <div>
+                      <div className="text-xs font-medium text-gray-700 mb-1">Размер клетки на карте: {mapCellSize}px</div>
+                      <input
+                        type="range"
+                        min={16}
+                        max={96}
+                        step={1}
+                        value={mapCellSize}
+                        onChange={(event) => setMapCellSize(Number(event.target.value || DEFAULT_MAP_CELL_SIZE))}
+                        className="w-full"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="inline-flex items-center gap-2 text-sm text-gray-700">
+                        <input
+                          type="checkbox"
+                          checked={Boolean(mapGridDashed)}
+                          onChange={(event) => setMapGridDashed(event.target.checked)}
+                        />
+                        Сетка пунктирами
+                      </label>
+                    </div>
+
+                    <div className="pt-2 border-t">
+                      <button
+                        type="button"
+                        onClick={saveMapGridConfig}
+                        disabled={savingMapConfig || replacingMap}
+                        className="w-full rounded-lg bg-purple-600 text-white px-4 py-2 hover:bg-purple-700 disabled:opacity-70"
+                      >
+                        {savingMapConfig ? 'Сохранение…' : 'Сохранить сетку'}
+                      </button>
+                    </div>
+                  </div>
+
                   {!encounter?.map_image_url && mapTokens.length === 0 ? (
                     <div className="text-sm text-gray-500">Карта в этом бою не настроена.</div>
                   ) : (
@@ -1025,8 +1100,8 @@ export default function AdminBattleSessionPage() {
                       mapViewState={mapViewState}
                       mapImageUrl={encounter?.map_image_url || ''}
                       mapCellSize={mapCellSize}
-                      mapGridDashed={Boolean(encounter?.map_grid_dashed)}
-                      mapGridOpacity={Number(encounter?.map_grid_opacity || 0.35)}
+                      mapGridDashed={mapGridDashed}
+                      mapGridOpacity={mapGridOpacity}
                       visibleGridCols={visibleGridCols}
                       visibleGridRows={visibleGridRows}
                       mapTokens={mapTokens}
