@@ -60,6 +60,14 @@ export const searchAPI = {
   search: (query) => apiClient(`/search?q=${encodeURIComponent(query)}`, { method: 'GET' }),
 };
 
+export const toolsAPI = {
+  spellcheck: (text) =>
+    apiClient('/tools/spellcheck', {
+      method: 'POST',
+      body: JSON.stringify({ text: String(text || '') }),
+    }),
+};
+
 export const authAPI = {
   login: (login, password) =>
     apiClient('/auth/login', {

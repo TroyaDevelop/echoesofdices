@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import PublicLayout from '../components/PublicLayout.jsx';
+import { toolsAPI } from '../lib/api.js';
 
 export default function WordCountPage() {
   const [text, setText] = useState('');
@@ -19,20 +20,11 @@ export default function WordCountPage() {
       }
       setIsChecking(true);
       try {
-        const params = new URLSearchParams({
-          text: text,
-          lang: 'ru,en',
-          options: 518 // IGNORE_URLS | IGNORE_CAPITALIZATION | FIND_REPEAT_WORDS
-        });
-        const res = await fetch(`https://speller.yandex.net/services/spellcheck.json/checkText`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-          body: params
-        });
-        const data = await res.json();
-        setSpellErrors(data || []);
+        const data = await toolsAPI.spellcheck(text);
+        setSpellErrors(Array.isArray(data?.errors) ? data.errors : []);
       } catch (e) {
         console.error('Spellcheck error:', e);
+        setSpellErrors([]);
       } finally {
         setIsChecking(false);
       }
@@ -75,14 +67,15 @@ export default function WordCountPage() {
 
         {spellErrors.length > 0 && (
           <div className="bg-red-950/20 border border-red-900/30 rounded-xl p-4">
-            <h2 className="text-lg font-semibold text-red-200 mb-3">Возможные опечатки:</h2>
+            <h2 className="text-lg font-semibold text-red-200 mb-3">Ошибки орфографии и пунктуации:</h2>
             <div className="space-y-2">
               {spellErrors.map((err, idx) => (
                 <div key={idx} className="flex items-start gap-3 text-sm bg-black/20 p-2 rounded border border-red-900/20">
-                  <div className="text-red-300 font-medium line-through decoration-red-500/50">{err.word}</div>
+                  <div className="text-red-300 font-medium line-through decoration-red-500/50">{err.word || 'фрагмент текста'}</div>
                   <div className="text-slate-400">→</div>
-                  <div className="text-emerald-300">
-                    {err.s?.length > 0 ? err.s.join(', ') : <span className="text-slate-500 italic">нет вариантов</span>}
+                  <div className="text-emerald-300 flex-1">
+                    {err.s?.length > 0 ? err.s.join(', ') : <span className="text-slate-500 italic">вариант исправления не предложен</span>}
+                    {err.message ? <div className="text-slate-400 mt-1">{err.message}</div> : null}
                   </div>
                 </div>
               ))}
