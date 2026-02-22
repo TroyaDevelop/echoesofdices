@@ -97,6 +97,10 @@ export async function ensureRuntimeSchema(): Promise<void> {
   await safeQuery('ALTER TABLE users ADD COLUMN IF NOT EXISTS equipment TEXT', []);
   await safeQuery('ALTER TABLE users ADD COLUMN IF NOT EXISTS spellcasting_ability VARCHAR(20)', []);
   await safeQuery('ALTER TABLE users ADD COLUMN IF NOT EXISTS invite_code VARCHAR(20) UNIQUE', []);
+  await safeQuery(
+    "UPDATE users SET invite_code = LOWER(LPAD(HEX(id), 8, '0')) WHERE invite_code IS NULL OR TRIM(invite_code) = ''",
+    []
+  );
   await safeQuery('ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_status VARCHAR(160)', []);
   await safeQuery('ALTER TABLE users ADD COLUMN IF NOT EXISTS hide_character_sheets TINYINT(1) NOT NULL DEFAULT 0', []);
   await safeQuery('ALTER TABLE users ADD COLUMN IF NOT EXISTS hide_favorite_spells TINYINT(1) NOT NULL DEFAULT 0', []);
