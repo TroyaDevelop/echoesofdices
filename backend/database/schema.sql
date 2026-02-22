@@ -32,6 +32,10 @@ CREATE TABLE IF NOT EXISTS users (
     skill_sleight_of_hand TINYINT,
     skill_stealth TINYINT,
     skill_survival TINYINT,
+    profile_status VARCHAR(160),
+    hide_character_sheets TINYINT(1) NOT NULL DEFAULT 0,
+    hide_favorite_spells TINYINT(1) NOT NULL DEFAULT 0,
+    last_seen_at TIMESTAMP NULL DEFAULT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
@@ -330,3 +334,26 @@ ALTER TABLE market_items
     ADD CONSTRAINT fk_market_items_region
     FOREIGN KEY (region_id) REFERENCES market_regions(id)
     ON DELETE SET NULL;
+ALTER TABLE users ADD COLUMN invite_code VARCHAR(20) UNIQUE;
+
+CREATE TABLE IF NOT EXISTS friendships (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    user_id_1 INT NOT NULL,
+    user_id_2 INT NOT NULL,
+    status ENUM('pending', 'accepted') DEFAULT 'pending',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id_1) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id_2) REFERENCES users(id) ON DELETE CASCADE,
+    UNIQUE KEY unique_friendship (user_id_1, user_id_2)
+);
+
+CREATE TABLE IF NOT EXISTS notifications (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    user_id INT NOT NULL,
+    type VARCHAR(50) NOT NULL,
+    data JSON,
+    is_read BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);

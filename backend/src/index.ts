@@ -24,6 +24,7 @@ import { botIntegrationRouter } from './domains/botIntegration/botIntegration.ro
 import { screenRouter } from './domains/screen/screen.routes';
 import { searchRouter } from './domains/search/search.routes';
 import { toolsRouter } from './domains/tools/tools.routes';
+import socialRouter from './domains/social/social.routes';
 
 const app = express();
 
@@ -49,6 +50,7 @@ app.use('/api/bot-integration', botIntegrationRouter);
 app.use('/api/screen', screenRouter);
 app.use('/api/search', searchRouter);
 app.use('/api/tools', toolsRouter);
+app.use('/api/social', socialRouter);
 
 app.use(errorHandler);
 app.use(notFoundHandler);

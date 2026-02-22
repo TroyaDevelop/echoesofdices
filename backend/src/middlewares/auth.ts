@@ -1,7 +1,7 @@
 import type { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { JWT_SECRET } from '../config/env';
-import { findUserAuthById } from '../domains/auth/auth.repository';
+import { findUserAuthById, touchUserLastSeenById } from '../domains/auth/auth.repository';
 import { extractUserFlags, hasAnyFlag, type UserFlagKey } from '../utils/permissions';
 
 async function resolveAuthUserFromToken(token: string) {
@@ -36,6 +36,7 @@ export async function authenticateToken(req: Request, res: Response, next: NextF
       return;
     }
     req.user = authUser;
+    touchUserLastSeenById(authUser.userId).catch(() => {});
     next();
   } catch {
     res.status(403).json({ error: 'Недействительный токен' });

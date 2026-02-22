@@ -99,7 +99,7 @@ const SKILLS = [
 ];
 
 
-export default function CharacterSheet({ character, owner, onSaved }) {
+export default function CharacterSheet({ character, owner, onSaved, readOnly = false }) {
   
   const init = useCallback(
     (key, fallback = '') => {
@@ -214,6 +214,7 @@ export default function CharacterSheet({ character, owner, onSaved }) {
   const savingRef = useRef(false);
   const imageInputRef = useRef(null);
   const lssImportInputRef = useRef(null);
+  const formRef = useRef(null);
 
   const textareaHeightsStorageKey = useMemo(() => {
     const id = character?.id;
@@ -898,6 +899,7 @@ export default function CharacterSheet({ character, owner, onSaved }) {
   }, [autoSaveKey]);
 
   useEffect(() => {
+    if (readOnly) return;
     if (!character?.id || hydratingRef.current) return;
     if (!autoSaveReadyRef.current) {
       autoSaveReadyRef.current = true;
@@ -921,7 +923,31 @@ export default function CharacterSheet({ character, owner, onSaved }) {
     }, 10000);
 
     return () => clearInterval(interval);
-  }, [autoSaveKey, character?.id, saveCharacter]);
+  }, [autoSaveKey, character?.id, saveCharacter, readOnly]);
+
+  useEffect(() => {
+    const form = formRef.current;
+    if (!form) return;
+
+    const selector = 'input, textarea, select, button';
+
+    if (readOnly) {
+      const controls = form.querySelectorAll(selector);
+      controls.forEach((control) => {
+        if (control.classList.contains('cs-tab') || control.closest('.cs-tabs')) return;
+        if (control.dataset.readonlyManaged === '1') return;
+        control.disabled = true;
+        control.dataset.readonlyManaged = '1';
+      });
+      return;
+    }
+
+    const managed = form.querySelectorAll('[data-readonly-managed="1"]');
+    managed.forEach((control) => {
+      control.disabled = false;
+      delete control.dataset.readonlyManaged;
+    });
+  }, [readOnly, panel]);
 
   
   const spellDC = spellAbility ? 8 + profBonus + abilityMod(abilityState[spellAbility]) : null;
@@ -1030,7 +1056,7 @@ export default function CharacterSheet({ character, owner, onSaved }) {
   };
 
   return (
-    <form onSubmit={(e) => e.preventDefault()} className="cs">
+    <form ref={formRef} onSubmit={(e) => e.preventDefault()} className="cs">
       <input
         ref={imageInputRef}
         type="file"
@@ -1347,24 +1373,28 @@ export default function CharacterSheet({ character, owner, onSaved }) {
         </div>
       </div>
 
-      <input
-        ref={lssImportInputRef}
-        type="file"
-        accept=".json,application/json"
-        onChange={handleLSSImport}
-        className="cs-hidden-file"
-      />
-      <div className="cs-save-actions">
-        <button type="button" onClick={handleManualSave} disabled={saving} className="cs-save-btn">
-          {saving ? 'Сохранение…' : 'Сохранить лист'}
-        </button>
-        <button type="button" onClick={() => lssImportInputRef.current?.click()} className="cs-save-btn cs-save-btn--secondary">
-          Импорт LSS
-        </button>
-        <button type="button" onClick={handleLSSExport} className="cs-save-btn cs-save-btn--secondary">
-          Экспорт LSS
-        </button>
-      </div>
+      {!readOnly ? (
+        <>
+          <input
+            ref={lssImportInputRef}
+            type="file"
+            accept=".json,application/json"
+            onChange={handleLSSImport}
+            className="cs-hidden-file"
+          />
+          <div className="cs-save-actions">
+            <button type="button" onClick={handleManualSave} disabled={saving} className="cs-save-btn">
+              {saving ? 'Сохранение…' : 'Сохранить лист'}
+            </button>
+            <button type="button" onClick={() => lssImportInputRef.current?.click()} className="cs-save-btn cs-save-btn--secondary">
+              Импорт LSS
+            </button>
+            <button type="button" onClick={handleLSSExport} className="cs-save-btn cs-save-btn--secondary">
+              Экспорт LSS
+            </button>
+          </div>
+        </>
+      ) : null}
 
     </form>
   );

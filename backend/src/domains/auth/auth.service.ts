@@ -1,5 +1,6 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
 import { JWT_SECRET } from '../../config/env';
 import { HttpError } from '../../utils/httpError';
 import { extractUserFlags } from '../../utils/permissions';
@@ -53,7 +54,8 @@ export async function registerUser(input: { login: string; password: string; nic
   if (affected < 1) throw new HttpError(403, 'Неверный или уже использованный ключ регистрации');
 
   const hashed = await bcrypt.hash(passwordValue, 10);
-  const result = await insertUser(loginValue, hashed, 'user', nicknameValue);
+  const inviteCode = crypto.randomBytes(4).toString('hex');
+  const result = await insertUser(loginValue, hashed, 'user', nicknameValue, inviteCode);
   const insertedId = typeof result.insertId === 'bigint' ? Number(result.insertId) : result.insertId;
 
   await markRegistrationKeyUsed(insertedId, keyValue);

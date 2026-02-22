@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import PublicLayout from '../components/PublicLayout.jsx';
 import CharacterSheet from '../components/profile/CharacterSheet.jsx';
+import FriendsTab from '../components/profile/FriendsTab.jsx';
 import { userProfileAPI, spellsAPI } from '../lib/api.js';
 import { API_URL } from '../lib/config.js';
 
@@ -27,6 +28,7 @@ const shortDateTime = (value) => {
 
 const TABS = [
   { key: 'profile', label: 'Профиль' },
+  { key: 'privacy', label: 'Приватность' },
   { key: 'sheet', label: 'Лист персонажа' },
   { key: 'favorites', label: 'Избранные заклинания' },
 ];
@@ -37,6 +39,11 @@ export default function ProfilePage() {
   const [error, setError] = useState('');
   const [profile, setProfile] = useState(null);
   const [tab, setTab] = useState('profile');
+  const [profileStatusInput, setProfileStatusInput] = useState('');
+  const [hideCharacterSheets, setHideCharacterSheets] = useState(false);
+  const [hideFavoriteSpells, setHideFavoriteSpells] = useState(false);
+  const [settingsBusy, setSettingsBusy] = useState(false);
+  const [settingsSuccess, setSettingsSuccess] = useState('');
 
   
   const [awards, setAwards] = useState([]);
@@ -118,6 +125,12 @@ export default function ProfilePage() {
     return () => { isActive = false; };
   }, [tab, activeCharacterId]);
 
+  useEffect(() => {
+    setProfileStatusInput(profile?.profile_status || '');
+    setHideCharacterSheets(Boolean(profile?.hide_character_sheets));
+    setHideFavoriteSpells(Boolean(profile?.hide_favorite_spells));
+  }, [profile]);
+
   const displayName = useMemo(() => {
     if (!profile) return '';
     return profile.nickname || profile.login || 'Без имени';
@@ -172,6 +185,43 @@ export default function ProfilePage() {
     setActiveCharacterId(next.id);
   };
 
+  const saveProfileStatus = async () => {
+    if (settingsBusy) return;
+    setSettingsBusy(true);
+    setError('');
+    setSettingsSuccess('');
+    try {
+      const updated = await userProfileAPI.update({
+        profile_status: profileStatusInput,
+      });
+      setProfile(updated);
+      setSettingsSuccess('Статус профиля сохранен');
+    } catch (e) {
+      setError(e.message || 'Ошибка сохранения статуса профиля');
+    } finally {
+      setSettingsBusy(false);
+    }
+  };
+
+  const savePrivacySettings = async () => {
+    if (settingsBusy) return;
+    setSettingsBusy(true);
+    setError('');
+    setSettingsSuccess('');
+    try {
+      const updated = await userProfileAPI.update({
+        hide_character_sheets: hideCharacterSheets,
+        hide_favorite_spells: hideFavoriteSpells,
+      });
+      setProfile(updated);
+      setSettingsSuccess('Настройки приватности сохранены');
+    } catch (e) {
+      setError(e.message || 'Ошибка сохранения настроек приватности');
+    } finally {
+      setSettingsBusy(false);
+    }
+  };
+
   return (
     <PublicLayout>
       <div className="space-y-6">
@@ -207,6 +257,9 @@ export default function ProfilePage() {
                   <div className="text-2xl font-semibold text-slate-100">{displayName}</div>
                   {joinedDate ? (
                     <div className="mt-1 text-xs text-slate-400">Участник с {joinedDate}</div>
+                  ) : null}
+                  {profile?.profile_status ? (
+                    <div className="mt-2 text-sm text-slate-300">Статус: {profile.profile_status}</div>
                   ) : null}
                   {profile?.character_name ? (
                     <div className="mt-3 text-sm text-slate-300">
@@ -246,6 +299,41 @@ export default function ProfilePage() {
                       </div>
                     )}
                   </div>
+                </div>
+
+                <div className="rounded-2xl border border-white/10 bg-white/5 p-5 space-y-4">
+                  <div>
+                    <div className="text-lg font-semibold text-slate-100">Статус профиля</div>
+                    <div className="text-xs text-slate-400 mt-1">Этот статус увидят ваши соратники в вашем профиле.</div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-sm text-slate-300 block">Статус профиля</label>
+                    <input
+                      type="text"
+                      value={profileStatusInput}
+                      onChange={(e) => setProfileStatusInput(e.target.value)}
+                      maxLength={160}
+                      placeholder="Например: Ищу группу в воскресенье"
+                      className="w-full rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-purple-400"
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={saveProfileStatus}
+                      disabled={settingsBusy}
+                      className="px-4 py-2 rounded-lg text-sm font-medium bg-purple-600 text-white hover:bg-purple-500 disabled:opacity-60"
+                    >
+                      {settingsBusy ? 'Сохранение…' : 'Сохранить статус'}
+                    </button>
+                    {settingsSuccess ? <span className="text-xs text-emerald-300">{settingsSuccess}</span> : null}
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+                  <FriendsTab profile={profile} />
                 </div>
               </div>
             ) : null}
@@ -351,6 +439,47 @@ export default function ProfilePage() {
                     />
                   </>
                 )}
+              </div>
+            ) : null}
+
+            {tab === 'privacy' ? (
+              <div className="rounded-2xl border border-white/10 bg-white/5 p-5 space-y-4">
+                <div>
+                  <div className="text-lg font-semibold text-slate-100">Настройки приватности</div>
+                  <div className="text-xs text-slate-400 mt-1">Управляйте видимостью данных профиля для соратников.</div>
+                </div>
+
+                <label className="flex items-center gap-2 text-sm text-slate-300">
+                  <input
+                    type="checkbox"
+                    checked={hideCharacterSheets}
+                    onChange={(e) => setHideCharacterSheets(e.target.checked)}
+                    className="rounded border-white/20 bg-black/30"
+                  />
+                  Скрыть информацию о листах персонажа от соратников
+                </label>
+
+                <label className="flex items-center gap-2 text-sm text-slate-300">
+                  <input
+                    type="checkbox"
+                    checked={hideFavoriteSpells}
+                    onChange={(e) => setHideFavoriteSpells(e.target.checked)}
+                    className="rounded border-white/20 bg-black/30"
+                  />
+                  Скрыть избранные заклинания от соратников
+                </label>
+
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={savePrivacySettings}
+                    disabled={settingsBusy}
+                    className="px-4 py-2 rounded-lg text-sm font-medium bg-purple-600 text-white hover:bg-purple-500 disabled:opacity-60"
+                  >
+                    {settingsBusy ? 'Сохранение…' : 'Сохранить приватность'}
+                  </button>
+                  {settingsSuccess ? <span className="text-xs text-emerald-300">{settingsSuccess}</span> : null}
+                </div>
               </div>
             ) : null}
 

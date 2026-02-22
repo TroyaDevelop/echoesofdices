@@ -15,6 +15,7 @@ import LorePage from './pages/LorePage.jsx';
 import LoreDetailPage from './pages/LoreDetailPage.jsx';
 import MarketPage from './pages/MarketPage.jsx';
 import ProfilePage from './pages/ProfilePage.jsx';
+import FriendProfilePage from './pages/FriendProfilePage.jsx';
 import LoginPage from './pages/admin/LoginPage.jsx';
 import RegisterPage from './pages/RegisterPage.jsx';
 import AdminDashboardPage from './pages/admin/DashboardPage.jsx';
@@ -51,6 +52,7 @@ export default function App() {
       <Route path="/lore/:slug" element={<LoreDetailPage />} />
       <Route path="/market" element={<MarketPage />} />
       <Route path="/profile" element={<ProfilePage />} />
+      <Route path="/profile/:id" element={<FriendProfilePage />} />
       <Route path="/tools/word-count" element={<WordCountPage />} />
 
       <Route path="/login" element={<LoginPage />} />

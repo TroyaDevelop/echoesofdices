@@ -301,3 +301,15 @@ export const screenAPI = {
       method: 'DELETE',
     }),
 };
+
+export const socialAPI = {
+  sendRequest: (inviteCode) => apiClient('/social/friends/request', { method: 'POST', body: JSON.stringify({ inviteCode }) }),
+  respondRequest: (friendshipId, action) => apiClient('/social/friends/respond', { method: 'POST', body: JSON.stringify({ friendshipId, action }) }),
+  getFriends: () => apiClient('/social/friends'),
+  removeFriend: (friendshipId) => apiClient(`/social/friends/${friendshipId}`, { method: 'DELETE' }),
+  getNotifications: () => apiClient('/social/notifications'),
+  readNotification: (notificationId) => apiClient(`/social/notifications/${notificationId}/read`, { method: 'POST' }),
+  getFriendProfile: (friendId) => apiClient(`/social/profile/${friendId}`),
+  getFriendCharacters: (friendId) => apiClient(`/social/profile/${friendId}/characters`),
+  getFriendFavorites: (friendId) => apiClient(`/social/profile/${friendId}/favorites`),
+};

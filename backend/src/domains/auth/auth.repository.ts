@@ -13,8 +13,12 @@ export async function findUserAuthById(id: number) {
   return rows && rows[0];
 }
 
-export async function insertUser(login: string, password: string, role: string, nickname: string) {
-  return query<any>('INSERT INTO users (login, password, role, nickname) VALUES (?, ?, ?, ?)', [login, password, role, nickname]);
+export async function touchUserLastSeenById(id: number) {
+  return query<any>('UPDATE users SET last_seen_at = NOW() WHERE id = ?', [id]);
+}
+
+export async function insertUser(login: string, password: string, role: string, nickname: string, inviteCode: string) {
+  return query<any>('INSERT INTO users (login, password, role, nickname, invite_code) VALUES (?, ?, ?, ?, ?)', [login, password, role, nickname, inviteCode]);
 }
 
 export async function claimRegistrationKey(key: string) {
