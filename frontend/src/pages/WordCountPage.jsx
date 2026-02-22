@@ -36,7 +36,7 @@ export default function WordCountPage() {
   return (
     <PublicLayout>
       <div className="max-w-4xl mx-auto">
-        <h1 className="text-3xl font-bold text-white mb-6">Подсчет слов и проверка текста</h1>
+        <h1 className="text-3xl font-bold text-white mb-6">Орфограф</h1>
         
         <div className="bg-slate-900/80 border border-white/10 rounded-xl p-4 mb-6 shadow-xl">
           <textarea

@@ -103,7 +103,7 @@ export default function PublicLayout({ children }) {
       </NavLink>
       <div className="px-3 pt-4 pb-1 text-[11px] uppercase tracking-wider text-slate-400/80">Инструментарий</div>
       <NavLink to="/tools/word-count" className={navLinkClass} onClick={onNavigate}>
-        Подсчет слов
+        Орфограф
       </NavLink>
     </>
   );
