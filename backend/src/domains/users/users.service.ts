@@ -24,6 +24,7 @@ export async function updateProfile(userId: number, body: any) {
   const existing = await findUserById(userId);
   if (!existing) throw new HttpError(404, 'Пользователь не найден');
 
+  const hasField = (field: string) => Object.prototype.hasOwnProperty.call(body || {}, field);
   const hasLevel = Object.prototype.hasOwnProperty.call(body || {}, 'character_level');
   const nextLevel = normalizeLevel(body?.character_level);
   if (hasLevel && nextLevel === undefined) {
@@ -31,54 +32,54 @@ export async function updateProfile(userId: number, body: any) {
   }
 
   const nextStrength = normalizeAbilityScore(body?.strength);
-  if (nextStrength === undefined) throw new HttpError(400, 'Сила должна быть числом от 1 до 30 или пустым значением');
+  if (hasField('strength') && nextStrength === undefined) throw new HttpError(400, 'Сила должна быть числом от 1 до 30 или пустым значением');
   const nextDexterity = normalizeAbilityScore(body?.dexterity);
-  if (nextDexterity === undefined) throw new HttpError(400, 'Ловкость должна быть числом от 1 до 30 или пустым значением');
+  if (hasField('dexterity') && nextDexterity === undefined) throw new HttpError(400, 'Ловкость должна быть числом от 1 до 30 или пустым значением');
   const nextConstitution = normalizeAbilityScore(body?.constitution);
-  if (nextConstitution === undefined) throw new HttpError(400, 'Телосложение должно быть числом от 1 до 30 или пустым значением');
+  if (hasField('constitution') && nextConstitution === undefined) throw new HttpError(400, 'Телосложение должно быть числом от 1 до 30 или пустым значением');
   const nextIntelligence = normalizeAbilityScore(body?.intelligence);
-  if (nextIntelligence === undefined) throw new HttpError(400, 'Интеллект должен быть числом от 1 до 30 или пустым значением');
+  if (hasField('intelligence') && nextIntelligence === undefined) throw new HttpError(400, 'Интеллект должен быть числом от 1 до 30 или пустым значением');
   const nextWisdom = normalizeAbilityScore(body?.wisdom);
-  if (nextWisdom === undefined) throw new HttpError(400, 'Мудрость должна быть числом от 1 до 30 или пустым значением');
+  if (hasField('wisdom') && nextWisdom === undefined) throw new HttpError(400, 'Мудрость должна быть числом от 1 до 30 или пустым значением');
   const nextCharisma = normalizeAbilityScore(body?.charisma);
-  if (nextCharisma === undefined) throw new HttpError(400, 'Харизма должна быть числом от 1 до 30 или пустым значением');
+  if (hasField('charisma') && nextCharisma === undefined) throw new HttpError(400, 'Харизма должна быть числом от 1 до 30 или пустым значением');
 
   const nextAcrobatics = normalizeSkillValue(body?.skill_acrobatics);
-  if (nextAcrobatics === undefined) throw new HttpError(400, 'Некорректное значение навыка Акробатика');
+  if (hasField('skill_acrobatics') && nextAcrobatics === undefined) throw new HttpError(400, 'Некорректное значение навыка Акробатика');
   const nextAnimalHandling = normalizeSkillValue(body?.skill_animal_handling);
-  if (nextAnimalHandling === undefined) throw new HttpError(400, 'Некорректное значение навыка Уход за животными');
+  if (hasField('skill_animal_handling') && nextAnimalHandling === undefined) throw new HttpError(400, 'Некорректное значение навыка Уход за животными');
   const nextArcana = normalizeSkillValue(body?.skill_arcana);
-  if (nextArcana === undefined) throw new HttpError(400, 'Некорректное значение навыка Магия');
+  if (hasField('skill_arcana') && nextArcana === undefined) throw new HttpError(400, 'Некорректное значение навыка Магия');
   const nextAthletics = normalizeSkillValue(body?.skill_athletics);
-  if (nextAthletics === undefined) throw new HttpError(400, 'Некорректное значение навыка Атлетика');
+  if (hasField('skill_athletics') && nextAthletics === undefined) throw new HttpError(400, 'Некорректное значение навыка Атлетика');
   const nextDeception = normalizeSkillValue(body?.skill_deception);
-  if (nextDeception === undefined) throw new HttpError(400, 'Некорректное значение навыка Обман');
+  if (hasField('skill_deception') && nextDeception === undefined) throw new HttpError(400, 'Некорректное значение навыка Обман');
   const nextHistory = normalizeSkillValue(body?.skill_history);
-  if (nextHistory === undefined) throw new HttpError(400, 'Некорректное значение навыка История');
+  if (hasField('skill_history') && nextHistory === undefined) throw new HttpError(400, 'Некорректное значение навыка История');
   const nextInsight = normalizeSkillValue(body?.skill_insight);
-  if (nextInsight === undefined) throw new HttpError(400, 'Некорректное значение навыка Проницательность');
+  if (hasField('skill_insight') && nextInsight === undefined) throw new HttpError(400, 'Некорректное значение навыка Проницательность');
   const nextIntimidation = normalizeSkillValue(body?.skill_intimidation);
-  if (nextIntimidation === undefined) throw new HttpError(400, 'Некорректное значение навыка Запугивание');
+  if (hasField('skill_intimidation') && nextIntimidation === undefined) throw new HttpError(400, 'Некорректное значение навыка Запугивание');
   const nextInvestigation = normalizeSkillValue(body?.skill_investigation);
-  if (nextInvestigation === undefined) throw new HttpError(400, 'Некорректное значение навыка Анализ');
+  if (hasField('skill_investigation') && nextInvestigation === undefined) throw new HttpError(400, 'Некорректное значение навыка Анализ');
   const nextMedicine = normalizeSkillValue(body?.skill_medicine);
-  if (nextMedicine === undefined) throw new HttpError(400, 'Некорректное значение навыка Медицина');
+  if (hasField('skill_medicine') && nextMedicine === undefined) throw new HttpError(400, 'Некорректное значение навыка Медицина');
   const nextNature = normalizeSkillValue(body?.skill_nature);
-  if (nextNature === undefined) throw new HttpError(400, 'Некорректное значение навыка Природа');
+  if (hasField('skill_nature') && nextNature === undefined) throw new HttpError(400, 'Некорректное значение навыка Природа');
   const nextPerception = normalizeSkillValue(body?.skill_perception);
-  if (nextPerception === undefined) throw new HttpError(400, 'Некорректное значение навыка Восприятие');
+  if (hasField('skill_perception') && nextPerception === undefined) throw new HttpError(400, 'Некорректное значение навыка Восприятие');
   const nextPerformance = normalizeSkillValue(body?.skill_performance);
-  if (nextPerformance === undefined) throw new HttpError(400, 'Некорректное значение навыка Выступление');
+  if (hasField('skill_performance') && nextPerformance === undefined) throw new HttpError(400, 'Некорректное значение навыка Выступление');
   const nextPersuasion = normalizeSkillValue(body?.skill_persuasion);
-  if (nextPersuasion === undefined) throw new HttpError(400, 'Некорректное значение навыка Убеждение');
+  if (hasField('skill_persuasion') && nextPersuasion === undefined) throw new HttpError(400, 'Некорректное значение навыка Убеждение');
   const nextReligion = normalizeSkillValue(body?.skill_religion);
-  if (nextReligion === undefined) throw new HttpError(400, 'Некорректное значение навыка Религия');
+  if (hasField('skill_religion') && nextReligion === undefined) throw new HttpError(400, 'Некорректное значение навыка Религия');
   const nextSleightOfHand = normalizeSkillValue(body?.skill_sleight_of_hand);
-  if (nextSleightOfHand === undefined) throw new HttpError(400, 'Некорректное значение навыка Ловкость рук');
+  if (hasField('skill_sleight_of_hand') && nextSleightOfHand === undefined) throw new HttpError(400, 'Некорректное значение навыка Ловкость рук');
   const nextStealth = normalizeSkillValue(body?.skill_stealth);
-  if (nextStealth === undefined) throw new HttpError(400, 'Некорректное значение навыка Скрытность');
+  if (hasField('skill_stealth') && nextStealth === undefined) throw new HttpError(400, 'Некорректное значение навыка Скрытность');
   const nextSurvival = normalizeSkillValue(body?.skill_survival);
-  if (nextSurvival === undefined) throw new HttpError(400, 'Некорректное значение навыка Выживание');
+  if (hasField('skill_survival') && nextSurvival === undefined) throw new HttpError(400, 'Некорректное значение навыка Выживание');
 
   const merged: Record<string, any> = {
     character_level: nextLevel === undefined ? existing.character_level : nextLevel,
