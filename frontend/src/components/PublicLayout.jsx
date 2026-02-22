@@ -1,6 +1,7 @@
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { useEffect, useMemo, useState } from 'react';
 import { canAccessAdminPanel } from '../lib/permissions.js';
+import GlobalSearch from './GlobalSearch.jsx';
 
 const navLinkClass = ({ isActive }) =>
   `block w-full px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
@@ -99,6 +100,10 @@ export default function PublicLayout({ children }) {
       <NavLink to="/lore" className={navLinkClass} onClick={onNavigate}>
         Lore
       </NavLink>
+      <div className="px-3 pt-4 pb-1 text-[11px] uppercase tracking-wider text-slate-400/80">Инструментарий</div>
+      <NavLink to="/tools/word-count" className={navLinkClass} onClick={onNavigate}>
+        Подсчет слов
+      </NavLink>
     </>
   );
 
@@ -154,6 +159,7 @@ export default function PublicLayout({ children }) {
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-slate-950 via-slate-950 to-purple-950 text-slate-100">
+      <GlobalSearch />
       {}
       <div className="md:hidden border-b border-white/10 bg-black/30 backdrop-blur">
         <div className="px-4 py-3 flex items-center gap-3">

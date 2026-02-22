@@ -56,6 +56,10 @@ const apiClient = async (path, options = {}) => {
   return res.json();
 };
 
+export const searchAPI = {
+  search: (query) => apiClient(`/search?q=${encodeURIComponent(query)}`, { method: 'GET' }),
+};
+
 export const authAPI = {
   login: (login, password) =>
     apiClient('/auth/login', {

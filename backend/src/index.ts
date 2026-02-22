@@ -22,6 +22,7 @@ import { bestiaryRouter } from './domains/bestiary/bestiary.routes';
 import { healthRouter } from './domains/health/health.routes';
 import { botIntegrationRouter } from './domains/botIntegration/botIntegration.routes';
 import { screenRouter } from './domains/screen/screen.routes';
+import { searchRouter } from './domains/search/search.routes';
 
 const app = express();
 
@@ -45,6 +46,7 @@ app.use('/api/bestiary', bestiaryRouter);
 app.use('/api/health', healthRouter);
 app.use('/api/bot-integration', botIntegrationRouter);
 app.use('/api/screen', screenRouter);
+app.use('/api/search', searchRouter);
 
 app.use(errorHandler);
 app.use(notFoundHandler);

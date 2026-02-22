@@ -30,6 +30,7 @@ import AdminUsersPage from './pages/admin/UsersPage.jsx';
 import AdminMarketPage from './pages/admin/MarketPage.jsx';
 import AdminScreenEncountersPage from './pages/admin/ScreenEncountersPage.jsx';
 import AdminBattleSessionPage from './pages/admin/BattleSessionPage.jsx';
+import WordCountPage from './pages/WordCountPage.jsx';
 
 export default function App() {
   return (
@@ -50,6 +51,7 @@ export default function App() {
       <Route path="/lore/:slug" element={<LoreDetailPage />} />
       <Route path="/market" element={<MarketPage />} />
       <Route path="/profile" element={<ProfilePage />} />
+      <Route path="/tools/word-count" element={<WordCountPage />} />
 
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
