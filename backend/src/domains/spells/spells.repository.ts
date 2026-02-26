@@ -79,6 +79,18 @@ export async function deleteSpellClass(id: number) {
   return query<any>('DELETE FROM spell_classes WHERE id = ? LIMIT 1', [id]);
 }
 
+export async function listSpellSchools() {
+  return query<any[]>('SELECT id, name FROM spell_schools ORDER BY name ASC', []);
+}
+
+export async function createSpellSchool(name: string) {
+  return query<any>('INSERT INTO spell_schools (name) VALUES (?)', [name]);
+}
+
+export async function deleteSpellSchool(id: number) {
+  return query<any>('DELETE FROM spell_schools WHERE id = ? LIMIT 1', [id]);
+}
+
 export async function listSources() {
   return query<any[]>('SELECT id, name FROM sources ORDER BY name ASC', []);
 }

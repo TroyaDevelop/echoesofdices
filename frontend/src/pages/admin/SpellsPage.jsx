@@ -3,7 +3,7 @@ import AdminLayout from '../../components/admin/AdminLayout.jsx';
 import SpellCreateForm from '../../components/admin/spells/SpellCreateForm.jsx';
 import SpellRow from '../../components/admin/spells/SpellRow.jsx';
 import SpellsHeader from '../../components/admin/spells/SpellsHeader.jsx';
-import { sourcesAPI, spellClassesAPI, spellsAPI } from '../../lib/api.js';
+import { sourcesAPI, spellClassesAPI, spellSchoolsAPI, spellsAPI } from '../../lib/api.js';
 import { normalizeSpellDescriptionForSave } from '../../lib/richText.js';
 
 const normalize = (v) => String(v || '').trim();
@@ -44,6 +44,7 @@ export default function AdminSpellsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [classItems, setClassItems] = useState([]);
+  const [schoolItems, setSchoolItems] = useState([]);
   const [sourceItems, setSourceItems] = useState([]);
 
   const [query, setQuery] = useState('');
@@ -87,13 +88,15 @@ export default function AdminSpellsPage() {
     setError('');
     setLoading(true);
     try {
-      const [data, classesData, sourcesData] = await Promise.all([
+      const [data, classesData, schoolsData, sourcesData] = await Promise.all([
         spellsAPI.listAdmin(),
         spellClassesAPI.listAdmin(),
+        spellSchoolsAPI.listAdmin(),
         sourcesAPI.listAdmin(),
       ]);
       setItems(Array.isArray(data) ? data : []);
       setClassItems(Array.isArray(classesData) ? classesData : []);
+      setSchoolItems(Array.isArray(schoolsData) ? schoolsData : []);
       setSourceItems(Array.isArray(sourcesData) ? sourcesData : []);
     } catch (e) {
       console.error(e);
@@ -121,6 +124,8 @@ export default function AdminSpellsPage() {
 
   const classOptions = useMemo(() => classItems, [classItems]);
   const classSet = useMemo(() => new Set(classItems.map((item) => normalizeClassKey(item.name))), [classItems]);
+  const schoolOptions = useMemo(() => schoolItems, [schoolItems]);
+  const schoolSet = useMemo(() => new Set(schoolItems.map((item) => normalizeClassKey(item.name))), [schoolItems]);
   const sourceOptions = useMemo(() => sourceItems, [sourceItems]);
   const sourceSet = useMemo(() => new Set(sourceItems.map((item) => normalizeSourceKey(item.name))), [sourceItems]);
 
@@ -134,6 +139,12 @@ export default function AdminSpellsPage() {
     const tokens = splitSourceTokens(value);
     if (tokens.length === 0) return [];
     return tokens.filter((token) => !sourceSet.has(normalizeSourceKey(token)));
+  };
+
+  const invalidSchoolsFor = (value) => {
+    const tokens = splitClassTokens(value);
+    if (tokens.length === 0) return [];
+    return tokens.filter((token) => !schoolSet.has(normalizeClassKey(token)));
   };
 
   const sourceListId = 'admin-spells-sources';
@@ -152,6 +163,12 @@ export default function AdminSpellsPage() {
     const invalidSources = invalidSourcesFor(source);
     if (invalidSources.length > 0) {
       setError(`Неизвестные источники: ${invalidSources.join(', ')}`);
+      return;
+    }
+
+    const invalidSchools = invalidSchoolsFor(school);
+    if (invalidSchools.length > 0) {
+      setError(`Неизвестные школы: ${invalidSchools.join(', ')}`);
       return;
     }
 
@@ -275,6 +292,12 @@ export default function AdminSpellsPage() {
       setError(`Неизвестные источники: ${invalidSources.join(', ')}`);
       return;
     }
+
+    const invalidSchools = invalidSchoolsFor(editSchool);
+    if (invalidSchools.length > 0) {
+      setError(`Неизвестные школы: ${invalidSchools.join(', ')}`);
+      return;
+    }
     const payload = {
       name: normalize(editName),
       name_en: normalize(editNameEn) || null,
@@ -330,6 +353,7 @@ export default function AdminSpellsPage() {
           onLevelChange={setLevel}
           school={school}
           onSchoolChange={setSchool}
+          schoolOptions={schoolOptions}
           theme={theme}
           onThemeChange={setTheme}
           castingTime={castingTime}
@@ -417,6 +441,7 @@ export default function AdminSpellsPage() {
                     setEditDescriptionEot,
                   }}
                   classOptions={classOptions}
+                  schoolOptions={schoolOptions}
                   sourceListId={sourceListId}
                   sourceOptions={sourceOptions}
                   themeOptions={themeOptions}

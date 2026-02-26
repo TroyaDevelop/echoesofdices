@@ -1,12 +1,14 @@
 import { HttpError } from '../../utils/httpError';
 import { normalizeSpellTheme } from '../../utils/normalizers';
-import { validateClassesExist, validateSourcesExist } from '../../utils/referenceValidation';
+import { validateClassesExist, validateSourcesExist, validateSpellSchoolsExist } from '../../utils/referenceValidation';
 import {
   createSource,
   createSpellClass,
+  createSpellSchool,
   deleteSource,
   deleteSpell,
   deleteSpellClass,
+  deleteSpellSchool,
   deleteSpellComment,
   findSpellById,
   findSpellComment,
@@ -20,6 +22,7 @@ import {
   listFavorites,
   listSources,
   listSpellClasses as listSpellClassesRepo,
+  listSpellSchools as listSpellSchoolsRepo,
   listSpellComments,
   listSpells,
   listSpellsAdmin,
@@ -115,6 +118,24 @@ export async function deleteSpellClassRecord(id: number) {
   return { ok: true };
 }
 
+export async function listSpellSchools() {
+  return listSpellSchoolsRepo();
+}
+
+export async function createSpellSchoolRecord(nameRaw: string) {
+  const name = String(nameRaw || '').trim();
+  if (!name) throw new HttpError(400, 'Название школы обязательно');
+  const result = await createSpellSchool(name);
+  const insertedId = typeof result.insertId === 'bigint' ? Number(result.insertId) : result.insertId;
+  return { id: insertedId, name };
+}
+
+export async function deleteSpellSchoolRecord(id: number) {
+  if (!Number.isFinite(id)) throw new HttpError(400, 'Некорректный id');
+  await deleteSpellSchool(id);
+  return { ok: true };
+}
+
 export async function listSourcesData() {
   return listSources();
 }
@@ -157,6 +178,9 @@ export async function createSpellRecord(body: any) {
 
   const invalidSources = await validateSourcesExist(source);
   if (invalidSources.length > 0) throw new HttpError(400, `Неизвестные источники: ${invalidSources.join(', ')}`);
+
+  const invalidSchools = await validateSpellSchoolsExist(school);
+  if (invalidSchools.length > 0) throw new HttpError(400, `Неизвестные школы: ${invalidSchools.join(', ')}`);
 
   if (!name) throw new HttpError(400, 'Название заклинания обязательно');
 
@@ -247,6 +271,9 @@ export async function updateSpellRecord(id: number, body: any) {
 
   const invalidClasses = await validateClassesExist(merged.classes);
   if (invalidClasses.length > 0) throw new HttpError(400, `Неизвестные классы: ${invalidClasses.join(', ')}`);
+
+  const invalidSchools = await validateSpellSchoolsExist(merged.school);
+  if (invalidSchools.length > 0) throw new HttpError(400, `Неизвестные школы: ${invalidSchools.join(', ')}`);
 
   if (body.source !== undefined) {
     const invalidSources = await validateSourcesExist(merged.source);

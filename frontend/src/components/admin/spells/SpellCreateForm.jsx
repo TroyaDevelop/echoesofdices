@@ -11,6 +11,7 @@ export default function SpellCreateForm({
   onLevelChange,
   school,
   onSchoolChange,
+  schoolOptions,
   theme,
   onThemeChange,
   castingTime,
@@ -78,6 +79,10 @@ export default function SpellCreateForm({
           placeholder="Школа (опционально)"
           className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
         />
+
+        <div className="md:col-span-2">
+          <TokenHint value={school} options={schoolOptions} />
+        </div>
 
         <div className="flex items-center gap-2">
           <label className="text-sm text-gray-700">Стихия/фон</label>

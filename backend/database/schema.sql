@@ -190,6 +190,23 @@ CREATE TABLE IF NOT EXISTS spell_classes (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS spell_schools (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    name VARCHAR(80) NOT NULL UNIQUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+INSERT IGNORE INTO spell_schools (name) VALUES
+('Воплощение'),
+('Вызов'),
+('Иллюзия'),
+('Некромантия'),
+('Ограждение'),
+('Очарование'),
+('Преобразование'),
+('Прорицание');
+
 CREATE TABLE IF NOT EXISTS sources (
     id INT PRIMARY KEY AUTO_INCREMENT,
     name VARCHAR(80) NOT NULL UNIQUE,

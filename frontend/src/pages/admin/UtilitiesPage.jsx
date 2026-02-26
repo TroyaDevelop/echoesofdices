@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import AdminLayout from '../../components/admin/AdminLayout.jsx';
 import AwardsPanel from '../../components/admin/awards/AwardsPanel.jsx';
 import SpellClassesPanel from '../../components/admin/spells/SpellClassesPanel.jsx';
-import { loreAPI, sourcesAPI, spellClassesAPI } from '../../lib/api.js';
+import SpellSchoolsPanel from '../../components/admin/spells/SpellSchoolsPanel.jsx';
+import { loreAPI, sourcesAPI, spellClassesAPI, spellSchoolsAPI } from '../../lib/api.js';
 
 export default function AdminUtilitiesPage() {
   const [error, setError] = useState('');
@@ -10,6 +11,10 @@ export default function AdminUtilitiesPage() {
   const [classItems, setClassItems] = useState([]);
   const [classDraft, setClassDraft] = useState('');
   const [classBusy, setClassBusy] = useState(false);
+
+  const [schoolItems, setSchoolItems] = useState([]);
+  const [schoolDraft, setSchoolDraft] = useState('');
+  const [schoolBusy, setSchoolBusy] = useState(false);
 
   const [locations, setLocations] = useState([]);
   const [locationsError, setLocationsError] = useState('');
@@ -22,12 +27,14 @@ export default function AdminUtilitiesPage() {
   const load = async () => {
     setError('');
     try {
-      const [classesData, locationsData, sourcesData] = await Promise.all([
+      const [classesData, schoolsData, locationsData, sourcesData] = await Promise.all([
         spellClassesAPI.listAdmin(),
+        spellSchoolsAPI.listAdmin(),
         loreAPI.listLocationsAdmin(),
         sourcesAPI.listAdmin(),
       ]);
       setClassItems(Array.isArray(classesData) ? classesData : []);
+      setSchoolItems(Array.isArray(schoolsData) ? schoolsData : []);
       setLocations(Array.isArray(locationsData) ? locationsData : []);
       setSources(Array.isArray(sourcesData) ? sourcesData : []);
     } catch (e) {
@@ -71,6 +78,40 @@ export default function AdminUtilitiesPage() {
     } catch (e) {
       console.error(e);
       setError(e.message || 'Ошибка удаления класса');
+    }
+  };
+
+  const handleAddSchool = async (e) => {
+    e.preventDefault();
+    setError('');
+    const value = String(schoolDraft || '').trim();
+    if (!value) {
+      setError('Название школы обязательно');
+      return;
+    }
+
+    try {
+      setSchoolBusy(true);
+      await spellSchoolsAPI.create(value);
+      setSchoolDraft('');
+      const next = await spellSchoolsAPI.listAdmin();
+      setSchoolItems(Array.isArray(next) ? next : []);
+    } catch (e) {
+      console.error(e);
+      setError(e.message || 'Ошибка добавления школы');
+    } finally {
+      setSchoolBusy(false);
+    }
+  };
+
+  const handleRemoveSchool = async (id) => {
+    setError('');
+    try {
+      await spellSchoolsAPI.remove(id);
+      setSchoolItems((prev) => prev.filter((item) => item.id !== id));
+    } catch (e) {
+      console.error(e);
+      setError(e.message || 'Ошибка удаления школы');
     }
   };
 
@@ -138,7 +179,7 @@ export default function AdminUtilitiesPage() {
 
         {error && <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">{error}</div>}
 
-        <div className="grid grid-cols-1 xl:grid-cols-2 2xl:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
           <div className="bg-white rounded-lg shadow-sm border p-4 space-y-3">
             <div className="flex items-center justify-between gap-3 flex-wrap">
               <div className="text-lg font-semibold text-gray-900">Локации</div>
@@ -244,6 +285,15 @@ export default function AdminUtilitiesPage() {
             items={classItems}
             onRemove={handleRemoveClass}
             busy={classBusy}
+          />
+
+          <SpellSchoolsPanel
+            value={schoolDraft}
+            onValueChange={setSchoolDraft}
+            onAdd={handleAddSchool}
+            items={schoolItems}
+            onRemove={handleRemoveSchool}
+            busy={schoolBusy}
           />
 
           <AwardsPanel />

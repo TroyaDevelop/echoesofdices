@@ -12,6 +12,7 @@ export default function SpellRow({
   onDelete,
   editState,
   classOptions,
+  schoolOptions,
   sourceListId,
   sourceOptions,
   themeOptions,
@@ -42,6 +43,7 @@ export default function SpellRow({
             onEditLevelChange={editState.setEditLevel}
             editSchool={editState.editSchool}
             onEditSchoolChange={editState.setEditSchool}
+            schoolOptions={schoolOptions}
             editTheme={editState.editTheme}
             onEditThemeChange={editState.setEditTheme}
             editCastingTime={editState.editCastingTime}

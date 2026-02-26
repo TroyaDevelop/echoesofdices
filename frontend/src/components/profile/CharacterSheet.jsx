@@ -64,6 +64,42 @@ const ABILITIES = [
   { key: 'charisma', label: 'Харизма', short: 'ХАР' },
 ];
 
+const SPELL_SLOT_LEVELS = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+const EMPTY_SPELL_SLOTS = Object.fromEntries(SPELL_SLOT_LEVELS.map((slotLevel) => [String(slotLevel), '']));
+const EMPTY_SPELL_SLOT_USAGE = Object.fromEntries(SPELL_SLOT_LEVELS.map((slotLevel) => [String(slotLevel), []]));
+
+const normalizeSpellSlotsState = (rawValue) => {
+  const totals = { ...EMPTY_SPELL_SLOTS };
+  const usage = { ...EMPTY_SPELL_SLOT_USAGE };
+  const source = rawValue && typeof rawValue === 'object' ? rawValue : {};
+
+  SPELL_SLOT_LEVELS.forEach((slotLevel) => {
+    const key = String(slotLevel);
+    const entry = source[key] ?? source[slotLevel];
+
+    if (entry && typeof entry === 'object' && !Array.isArray(entry)) {
+      const totalRaw = Number(entry.total ?? entry.count ?? entry.max);
+      const total = Number.isFinite(totalRaw) && totalRaw >= 0 ? clamp(totalRaw, 0, 20) : 0;
+      totals[key] = total > 0 ? String(total) : '';
+
+      const usedRaw = Array.isArray(entry.used)
+        ? entry.used
+        : Array.isArray(entry.spent)
+          ? entry.spent
+          : [];
+      usage[key] = Array.from({ length: total }, (_, idx) => Boolean(usedRaw[idx]));
+      return;
+    }
+
+    const plainTotalRaw = Number(entry);
+    const plainTotal = Number.isFinite(plainTotalRaw) && plainTotalRaw >= 0 ? clamp(plainTotalRaw, 0, 20) : 0;
+    totals[key] = plainTotal > 0 ? String(plainTotal) : '';
+    usage[key] = Array.from({ length: plainTotal }, () => false);
+  });
+
+  return { totals, usage };
+};
+
 const normalizeSpellName = (value) => String(value || '')
   .toLowerCase()
   .replace(/ё/g, 'е')
@@ -186,6 +222,8 @@ export default function CharacterSheet({ character, owner, onSaved, readOnly = f
   const [spellsLoading, setSpellsLoading] = useState(false);
   const [spellsError, setSpellsError] = useState('');
   const [knownSpells, setKnownSpells] = useState([]);
+  const [spellSlots, setSpellSlots] = useState(() => ({ ...EMPTY_SPELL_SLOTS }));
+  const [spellSlotUsage, setSpellSlotUsage] = useState(() => ({ ...EMPTY_SPELL_SLOT_USAGE }));
   const [characterImageUrl, setCharacterImageUrl] = useState('');
   const [imageUploading, setImageUploading] = useState(false);
   const [conditions, setConditions] = useState('');
@@ -215,6 +253,7 @@ export default function CharacterSheet({ character, owner, onSaved, readOnly = f
   const imageInputRef = useRef(null);
   const lssImportInputRef = useRef(null);
   const formRef = useRef(null);
+  const notesTextareaRef = useRef(null);
 
   const textareaHeightsStorageKey = useMemo(() => {
     const id = character?.id;
@@ -331,6 +370,16 @@ export default function CharacterSheet({ character, owner, onSaved, readOnly = f
     setGoldGp(initNum('gold_gp'));
     setGoldPp(initNum('gold_pp'));
     setSpellAbility(init('spellcasting_ability'));
+    try {
+      const rawSlots = character.spell_slots_json;
+      const parsedSlots = rawSlots ? JSON.parse(rawSlots) : {};
+      const normalized = normalizeSpellSlotsState(parsedSlots);
+      setSpellSlots(normalized.totals);
+      setSpellSlotUsage(normalized.usage);
+    } catch {
+      setSpellSlots({ ...EMPTY_SPELL_SLOTS });
+      setSpellSlotUsage({ ...EMPTY_SPELL_SLOT_USAGE });
+    }
     setSpellsQuery('');
     setSpellsError('');
 
@@ -573,6 +622,18 @@ export default function CharacterSheet({ character, owner, onSaved, readOnly = f
       return Number.isFinite(n) ? n : null;
     };
 
+    const preparedSpellSlots = SPELL_SLOT_LEVELS.reduce((acc, slotLevel) => {
+      const key = String(slotLevel);
+      const raw = spellSlots[key];
+      if (raw === '' || raw === null || raw === undefined) return acc;
+      const value = Number(raw);
+      if (!Number.isFinite(value) || value < 0) return acc;
+      const total = clamp(value, 0, 20);
+      const used = Array.from({ length: total }, (_, idx) => Boolean(spellSlotUsage[key]?.[idx]));
+      acc[key] = { total, used };
+      return acc;
+    }, {});
+
     return {
       character_name: charName || null,
       race: race || null,
@@ -610,6 +671,7 @@ export default function CharacterSheet({ character, owner, onSaved, readOnly = f
       gold_gp: numOrNull(goldGp),
       gold_pp: numOrNull(goldPp),
       spellcasting_ability: spellAbility || null,
+      spell_slots_json: Object.keys(preparedSpellSlots).length > 0 ? JSON.stringify(preparedSpellSlots) : null,
       spells_json: JSON.stringify(
         knownSpells.map((s) => ({
           id: Number(s.id),
@@ -664,6 +726,8 @@ export default function CharacterSheet({ character, owner, onSaved, readOnly = f
     knownSpells,
     level,
     notes,
+    spellSlotUsage,
+    spellSlots,
     otherProf,
     personality,
     race,
@@ -760,6 +824,14 @@ export default function CharacterSheet({ character, owner, onSaved, readOnly = f
           if (imported.gold_gp != null) setGoldGp(String(imported.gold_gp));
           if (imported.gold_pp != null) setGoldPp(String(imported.gold_pp));
           if (imported.spellcasting_ability != null) setSpellAbility(imported.spellcasting_ability || '');
+          if (imported.spell_slots_json) {
+            try {
+              const parsedSlots = JSON.parse(imported.spell_slots_json);
+              const normalized = normalizeSpellSlotsState(parsedSlots);
+              setSpellSlots(normalized.totals);
+              setSpellSlotUsage(normalized.usage);
+            } catch { /* skip */ }
+          }
           if (imported.equipment != null) setEquipment(imported.equipment || '');
           if (imported.features_traits != null) setFeatures(imported.features_traits || '');
           if (imported.personality != null) setPersonality(imported.personality || '');
@@ -891,6 +963,63 @@ export default function CharacterSheet({ character, owner, onSaved, readOnly = f
     setKnownSpells((prev) => prev.filter((s) => s.id !== id));
   };
 
+  const updateSpellSlot = useCallback((slotLevel, value) => {
+    const key = String(slotLevel);
+    const digits = String(value || '').replace(/[^0-9]/g, '');
+    const normalized = digits === '' ? '' : String(clamp(Number(digits), 0, 20));
+    const nextTotal = normalized === '' ? 0 : Number(normalized);
+
+    setSpellSlots((prev) => ({ ...prev, [key]: normalized }));
+    setSpellSlotUsage((prev) => {
+      const base = Array.isArray(prev[key]) ? prev[key] : [];
+      const next = Array.from({ length: nextTotal }, (_, idx) => Boolean(base[idx]));
+      return { ...prev, [key]: next };
+    });
+  }, []);
+
+  const toggleSpellSlotUsage = useCallback((slotLevel, slotIndex) => {
+    const key = String(slotLevel);
+    setSpellSlotUsage((prev) => {
+      const base = Array.isArray(prev[key]) ? [...prev[key]] : [];
+      if (slotIndex < 0 || slotIndex >= base.length) return prev;
+      base[slotIndex] = !base[slotIndex];
+      return { ...prev, [key]: base };
+    });
+  }, []);
+
+  const formatNotes = useCallback((type) => {
+    const textarea = notesTextareaRef.current;
+    if (!textarea) return;
+
+    const start = textarea.selectionStart ?? 0;
+    const end = textarea.selectionEnd ?? start;
+    const before = notes.slice(0, start);
+    const selected = notes.slice(start, end);
+    const after = notes.slice(end);
+
+    let next = notes;
+    let nextStart = start;
+    let nextEnd = end;
+
+    if (type === 'bold' || type === 'italic' || type === 'code') {
+      const token = type === 'bold' ? '**' : type === 'italic' ? '*' : '`';
+      next = `${before}${token}${selected}${token}${after}`;
+      nextStart = start + token.length;
+      nextEnd = nextStart + selected.length;
+    } else if (type === 'title') {
+      const prefix = '## ';
+      next = `${before}${prefix}${selected}${after}`;
+      nextStart = start + prefix.length;
+      nextEnd = nextStart + selected.length;
+    }
+
+    setNotes(next);
+    requestAnimationFrame(() => {
+      textarea.focus();
+      textarea.setSelectionRange(nextStart, nextEnd);
+    });
+  }, [notes]);
+
   
   const autoSaveKey = useMemo(() => JSON.stringify(buildPayload()), [buildPayload]);
 
@@ -1015,7 +1144,7 @@ export default function CharacterSheet({ character, owner, onSaved, readOnly = f
       const title = lvl === null ? 'Уровень ?' : (lvl === 0 ? 'Заговоры' : `Уровень ${lvl}`);
       const items = groups.get(key) || [];
       items.sort((a, b) => a.name.localeCompare(b.name, 'ru', { sensitivity: 'base' }));
-      return { key, title, items };
+      return { key, title, items, slotLevel: Number.isFinite(lvl) && lvl > 0 ? lvl : null };
     });
   }, [knownSpellDetails]);
 
@@ -1228,8 +1357,9 @@ export default function CharacterSheet({ character, owner, onSaved, readOnly = f
             <div className="cs-abilities-col">
               {ABILITIES_LEFT.map((key) => renderAbility(ABILITY_BY_KEY[key]))}
               <div className="cs-passives cs-passives--compact">
-                <div className="cs-section-head">ПАССИВНАЯ ВНИМАТЕЛЬНОСТЬ</div>
+                <div className="cs-section-head">ПАССИВНЫЕ НАВЫКИ</div>
                 <div className="cs-passive"><span className="cs-passive-v">{passivePerception}</span><span>Мудрость (Восприятие)</span></div>
+                <div className="cs-passive"><span className="cs-passive-v">{passiveInvestigation}</span><span>Интеллект (Анализ)</span></div>
               </div>
             </div>
             <div className="cs-abilities-col">
@@ -1304,7 +1434,27 @@ export default function CharacterSheet({ character, owner, onSaved, readOnly = f
                 <textarea {...bindTextareaSize('flaws')} rows={3} value={flaws} onChange={(e) => setFlaws(e.target.value)} className="cs-ta" placeholder="Слабости" />
               </div>
             )}
-            {panel === 'notes' && <textarea {...bindTextareaSize('notes')} rows={12} value={notes} onChange={(e) => setNotes(e.target.value)} className="cs-ta" placeholder="Заметки" />}
+            {panel === 'notes' && (
+              <div className="cs-stack">
+                {!readOnly ? (
+                  <div className="cs-notes-toolbar">
+                    <button type="button" className="cs-notes-btn" onClick={() => formatNotes('title')}>Заголовок</button>
+                    <button type="button" className="cs-notes-btn" onClick={() => formatNotes('bold')}>Жирный</button>
+                    <button type="button" className="cs-notes-btn" onClick={() => formatNotes('italic')}>Курсив</button>
+                  </div>
+                ) : null}
+
+                <textarea
+                  ref={notesTextareaRef}
+                  {...bindTextareaSize('notes')}
+                  rows={12}
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  className="cs-ta cs-ta--notes"
+                  placeholder="Заметки"
+                />
+              </div>
+            )}
             {panel === 'spells' && (
               <div className="cs-stack">
                 <select value={spellAbility} onChange={(e) => setSpellAbility(e.target.value)} className="cs-select">
@@ -1348,7 +1498,38 @@ export default function CharacterSheet({ character, owner, onSaved, readOnly = f
                     <div className="cs-spell-groups">
                       {groupedKnownSpells.map((group) => (
                         <div key={group.key} className="cs-spell-group">
-                          <div className="cs-spell-group-title">{group.title}</div>
+                          <div className="cs-spell-group-title">
+                            <span>{group.title}</span>
+                            {group.slotLevel ? (
+                              <div className="cs-spell-group-slots">
+                                <div className="cs-spell-slot-dots" aria-label={`Ячейки ${group.slotLevel} круга`}>
+                                  {Array.from({ length: Number(spellSlots[String(group.slotLevel)] || 0) }, (_, index) => {
+                                    const isMarked = Boolean(spellSlotUsage[String(group.slotLevel)]?.[index]);
+                                    return (
+                                      <button
+                                        key={`slot_${group.slotLevel}_${index}`}
+                                        type="button"
+                                        onClick={() => toggleSpellSlotUsage(group.slotLevel, index)}
+                                        className={`cs-spell-slot-dot ${isMarked ? 'is-on' : ''}`}
+                                        aria-label={`${group.slotLevel} круг, ячейка ${index + 1}`}
+                                        title="Клик: отметить/снять"
+                                      />
+                                    );
+                                  })}
+                                </div>
+                                <input
+                                  type="number"
+                                  min={0}
+                                  max={20}
+                                  value={spellSlots[String(group.slotLevel)] || ''}
+                                  onChange={(e) => updateSpellSlot(group.slotLevel, e.target.value)}
+                                  className="cs-spell-slot-input"
+                                  placeholder="0"
+                                  aria-label={`Количество ячеек ${group.slotLevel} круга`}
+                                />
+                              </div>
+                            ) : null}
+                          </div>
                           <div className="cs-spell-items">
                             {group.items.map((s) => (
                               <div key={s.id} className="cs-spell-item">

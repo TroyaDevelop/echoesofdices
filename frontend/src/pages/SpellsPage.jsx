@@ -1,16 +1,22 @@
 import { useEffect, useMemo, useState } from 'react';
 import PublicLayout from '../components/PublicLayout.jsx';
-import { sourcesAPI, spellClassesAPI, spellsAPI } from '../lib/api.js';
+import { sourcesAPI, spellClassesAPI, spellSchoolsAPI, spellsAPI } from '../lib/api.js';
 import SpellListHeader from '../components/spells/SpellListHeader.jsx';
 import SpellGroupSection from '../components/spells/SpellGroupSection.jsx';
 
 const normalize = (v) => String(v || '').trim();
 const normalizeKey = (v) => normalize(v).toLowerCase();
 const normalizeSource = (v) => normalize(v).toLowerCase();
+const normalizeSchool = (v) => normalize(v).toLowerCase();
 const splitSources = (value) =>
   String(value || '')
     .split(/[,;/]+/)
     .map((item) => normalizeSource(item))
+    .filter(Boolean);
+const splitSchools = (value) =>
+  String(value || '')
+    .split(/[,;/]+/)
+    .map((item) => normalizeSchool(item))
     .filter(Boolean);
 
 const splitClasses = (value) => {
@@ -32,10 +38,12 @@ export default function SpellsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [classOptions, setClassOptions] = useState([]);
+  const [schoolOptions, setSchoolOptions] = useState([]);
   const [sourceOptions, setSourceOptions] = useState([]);
 
   const [query, setQuery] = useState('');
   const [classFilter, setClassFilter] = useState('');
+  const [schoolFilter, setSchoolFilter] = useState('');
   const [sourceFilters, setSourceFilters] = useState([]);
 
   const [groupMode, setGroupMode] = useState('alpha');
@@ -44,13 +52,23 @@ export default function SpellsPage() {
     setError('');
     setLoading(true);
     try {
-      const [data, classData, sourceData] = await Promise.all([spellsAPI.list(), spellClassesAPI.list(), sourcesAPI.list()]);
+      const [data, classData, schoolData, sourceData] = await Promise.all([spellsAPI.list(), spellClassesAPI.list(), spellSchoolsAPI.list(), sourcesAPI.list()]);
       setSpells(Array.isArray(data) ? data : []);
       const normalized = Array.isArray(classData) ? classData : [];
       setClassOptions(
         normalized
           .map((item) => ({
             value: normalizeKey(item?.name ?? item),
+            label: String((item?.name ?? item) || '').trim(),
+          }))
+          .filter((item) => item.value && item.label)
+          .sort((a, b) => a.label.localeCompare(b.label, 'ru', { sensitivity: 'base' }))
+      );
+      const normalizedSchools = Array.isArray(schoolData) ? schoolData : [];
+      setSchoolOptions(
+        normalizedSchools
+          .map((item) => ({
+            value: normalizeSchool(item?.name ?? item),
             label: String((item?.name ?? item) || '').trim(),
           }))
           .filter((item) => item.value && item.label)
@@ -86,6 +104,7 @@ export default function SpellsPage() {
   const filteredSorted = useMemo(() => {
     const q = normalize(query).toLowerCase();
     const cf = normalizeKey(classFilter);
+    const sfSchool = normalizeSchool(schoolFilter);
     const sf = new Set((sourceFilters || []).map(normalizeSource).filter(Boolean));
 
     const filtered = (spells || []).filter((s) => {
@@ -93,6 +112,10 @@ export default function SpellsPage() {
       if (cf) {
         const classes = splitClasses(s?.classes).map(normalizeKey);
         if (!classes.includes(cf)) return false;
+      }
+      if (sfSchool) {
+        const schools = splitSchools(s?.school);
+        if (!schools.includes(sfSchool)) return false;
       }
       if (sf.size > 0) {
         const sourceTokens = splitSources(s?.source);
@@ -103,7 +126,7 @@ export default function SpellsPage() {
     });
 
     return filtered.sort((a, b) => normalize(a.name).localeCompare(normalize(b.name), 'ru', { sensitivity: 'base' }));
-  }, [spells, query, classFilter, sourceFilters]);
+  }, [spells, query, classFilter, schoolFilter, sourceFilters]);
 
   const toggleSourceFilter = (value) => {
     const key = normalizeSource(value);
@@ -171,6 +194,9 @@ export default function SpellsPage() {
           classFilter={classFilter}
           onClassFilterChange={setClassFilter}
           classOptions={classOptions}
+          schoolFilter={schoolFilter}
+          onSchoolFilterChange={setSchoolFilter}
+          schoolOptions={schoolOptions}
           sourceOptions={sourceOptions}
           selectedSources={sourceFilters}
           onToggleSource={toggleSourceFilter}

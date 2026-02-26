@@ -234,6 +234,13 @@ export const spellClassesAPI = {
   remove: (id) => apiClient(`/spell-classes/${id}`, { method: 'DELETE' }),
 };
 
+export const spellSchoolsAPI = {
+  list: () => apiClient('/spell-schools', { method: 'GET' }),
+  listAdmin: () => apiClient('/spell-schools/admin', { method: 'GET' }),
+  create: (name) => apiClient('/spell-schools', { method: 'POST', body: JSON.stringify({ name }) }),
+  remove: (id) => apiClient(`/spell-schools/${id}`, { method: 'DELETE' }),
+};
+
 export const sourcesAPI = {
   list: () => apiClient('/sources', { method: 'GET' }),
   listAdmin: () => apiClient('/sources/admin', { method: 'GET' }),

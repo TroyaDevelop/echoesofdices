@@ -31,3 +31,19 @@ export async function validateSourcesExist(value: unknown): Promise<string[]> {
   const known = new Set((rows || []).map((row) => normalizeSourceKey(row.name)));
   return tokens.filter((token) => !known.has(normalizeSourceKey(token)));
 }
+
+const normalizeSchoolKey = (value: string) => String(value || '').trim().toLowerCase();
+const splitSchoolTokens = (value: unknown) =>
+  String(value || '')
+    .split(/[,;/]+/)
+    .map((item) => String(item || '').trim())
+    .filter(Boolean);
+
+export async function validateSpellSchoolsExist(value: unknown): Promise<string[]> {
+  const tokens = splitSchoolTokens(value);
+  if (tokens.length === 0) return [];
+
+  const rows = await query<any[]>('SELECT name FROM spell_schools', []);
+  const known = new Set((rows || []).map((row) => normalizeSchoolKey(row.name)));
+  return tokens.filter((token) => !known.has(normalizeSchoolKey(token)));
+}
