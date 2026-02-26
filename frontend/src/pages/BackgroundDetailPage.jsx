@@ -218,7 +218,8 @@ export default function BackgroundDetailPage() {
 
               {background.description ? (
                 <div className="space-y-2">
-                  <h3 className="text-red-800 uppercase font-bold tracking-wide">ОПИСАНИЕ</h3>
+                  <h3 className="text-red-800 uppercase font-bold tracking-wide text-lg sm:text-xl">ОПИСАНИЕ</h3>
+                  <div className="h-px w-full bg-black/15" />
                   <SpellDescription description={background.description} />
                 </div>
               ) : null}
@@ -232,7 +233,8 @@ export default function BackgroundDetailPage() {
 
               {background.personalization ? (
                 <div className="space-y-2">
-                  <h3 className="text-red-800 uppercase font-bold tracking-wide">ПЕРСОНАЛИЗАЦИЯ</h3>
+                  <h3 className="text-red-800 uppercase font-bold tracking-wide text-lg sm:text-xl">ПЕРСОНАЛИЗАЦИЯ</h3>
+                  <div className="h-px w-full bg-black/15" />
                   <SpellDescription description={background.personalization} />
                 </div>
               ) : null}

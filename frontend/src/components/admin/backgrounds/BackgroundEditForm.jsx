@@ -82,7 +82,7 @@ export default function BackgroundEditForm({
       </div>
 
       <div className="space-y-2">
-        <div className="text-sm font-semibold text-gray-900">Описание</div>
+        <div className="text-lg font-bold uppercase tracking-wide text-gray-900">Описание</div>
         <SpellDescriptionEditor key={editingKey} value={editDescription} onChange={onEditDescriptionChange} />
       </div>
 
@@ -102,7 +102,7 @@ export default function BackgroundEditForm({
       />
 
       <div className="space-y-2">
-        <div className="text-sm font-semibold text-gray-900">Персонализация</div>
+        <div className="text-lg font-bold uppercase tracking-wide text-gray-900">Персонализация</div>
         <SpellDescriptionEditor
           key={`personalization-${editingKey}`}
           value={editPersonalization}
