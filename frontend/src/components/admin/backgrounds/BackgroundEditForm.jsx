@@ -19,12 +19,6 @@ export default function BackgroundEditForm({
   onEditToolProficienciesChange,
   editEquipment,
   onEditEquipmentChange,
-  editSpecialtyTitle,
-  onEditSpecialtyTitleChange,
-  editSpecialtyDice,
-  onEditSpecialtyDiceChange,
-  editSpecialtyTable,
-  onEditSpecialtyTableChange,
   editFeatureTitle,
   onEditFeatureTitleChange,
   editFeatureDescription,
@@ -82,32 +76,10 @@ export default function BackgroundEditForm({
           className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
         />
 
-        <input
-          value={editSpecialtyTitle}
-          onChange={(e) => onEditSpecialtyTitleChange(e.target.value)}
-          placeholder="Заголовок таблицы"
-          className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-        />
-
-        <input
-          value={editSpecialtyDice}
-          onChange={(e) => onEditSpecialtyDiceChange(e.target.value)}
-          placeholder="Кость таблицы"
-          className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-        />
-
         <div className="md:col-span-2">
           <TokenHint value={editSource} options={sourceOptions} />
         </div>
       </div>
-
-      <textarea
-        value={editSpecialtyTable}
-        onChange={(e) => onEditSpecialtyTableChange(e.target.value)}
-        rows={6}
-        placeholder={'Таблица амплуа (по строкам):\n1 | Акробат\n2 | Актер\n3 | Жонглер'}
-        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-      />
 
       <div className="space-y-2">
         <div className="text-sm font-semibold text-gray-900">Описание</div>

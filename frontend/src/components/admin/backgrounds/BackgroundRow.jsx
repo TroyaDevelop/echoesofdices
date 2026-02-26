@@ -47,12 +47,6 @@ export default function BackgroundRow({
             onEditToolProficienciesChange={editState.setEditToolProficiencies}
             editEquipment={editState.editEquipment}
             onEditEquipmentChange={editState.setEditEquipment}
-            editSpecialtyTitle={editState.editSpecialtyTitle}
-            onEditSpecialtyTitleChange={editState.setEditSpecialtyTitle}
-            editSpecialtyDice={editState.editSpecialtyDice}
-            onEditSpecialtyDiceChange={editState.setEditSpecialtyDice}
-            editSpecialtyTable={editState.editSpecialtyTable}
-            onEditSpecialtyTableChange={editState.setEditSpecialtyTable}
             editFeatureTitle={editState.editFeatureTitle}
             onEditFeatureTitleChange={editState.setEditFeatureTitle}
             editFeatureDescription={editState.editFeatureDescription}

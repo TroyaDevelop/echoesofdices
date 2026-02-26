@@ -28,9 +28,6 @@ export default function AdminBackgroundsPage() {
   const [skillProficiencies, setSkillProficiencies] = useState('');
   const [toolProficiencies, setToolProficiencies] = useState('');
   const [equipment, setEquipment] = useState('');
-  const [specialtyTitle, setSpecialtyTitle] = useState('');
-  const [specialtyDice, setSpecialtyDice] = useState('к10');
-  const [specialtyTable, setSpecialtyTable] = useState('');
   const [featureTitle, setFeatureTitle] = useState('');
   const [featureDescription, setFeatureDescription] = useState('');
   const [personalization, setPersonalization] = useState('');
@@ -43,9 +40,6 @@ export default function AdminBackgroundsPage() {
   const [editSkillProficiencies, setEditSkillProficiencies] = useState('');
   const [editToolProficiencies, setEditToolProficiencies] = useState('');
   const [editEquipment, setEditEquipment] = useState('');
-  const [editSpecialtyTitle, setEditSpecialtyTitle] = useState('');
-  const [editSpecialtyDice, setEditSpecialtyDice] = useState('к10');
-  const [editSpecialtyTable, setEditSpecialtyTable] = useState('');
   const [editFeatureTitle, setEditFeatureTitle] = useState('');
   const [editFeatureDescription, setEditFeatureDescription] = useState('');
   const [editPersonalization, setEditPersonalization] = useState('');
@@ -109,9 +103,6 @@ export default function AdminBackgroundsPage() {
       skill_proficiencies: normalize(skillProficiencies) || null,
       tool_proficiencies: normalize(toolProficiencies) || null,
       equipment: normalize(equipment) || null,
-      specialty_title: normalize(specialtyTitle) || null,
-      specialty_dice: normalize(specialtyDice) || null,
-      specialty_table: normalize(specialtyTable) || null,
       feature_title: normalize(featureTitle) || null,
       feature_description: normalize(featureDescription) || null,
       personalization: normalize(personalization) || null,
@@ -131,9 +122,6 @@ export default function AdminBackgroundsPage() {
       setSkillProficiencies('');
       setToolProficiencies('');
       setEquipment('');
-      setSpecialtyTitle('');
-      setSpecialtyDice('к10');
-      setSpecialtyTable('');
       setFeatureTitle('');
       setFeatureDescription('');
       setPersonalization('');
@@ -165,9 +153,6 @@ export default function AdminBackgroundsPage() {
     setEditSkillProficiencies(String(item.skill_proficiencies || ''));
     setEditToolProficiencies(String(item.tool_proficiencies || ''));
     setEditEquipment(String(item.equipment || ''));
-    setEditSpecialtyTitle(String(item.specialty_title || ''));
-    setEditSpecialtyDice(String(item.specialty_dice || 'к10'));
-    setEditSpecialtyTable(String(item.specialty_table || ''));
     setEditFeatureTitle(String(item.feature_title || ''));
     setEditFeatureDescription(String(item.feature_description || ''));
     setEditPersonalization(String(item.personalization || ''));
@@ -182,9 +167,6 @@ export default function AdminBackgroundsPage() {
     setEditSkillProficiencies('');
     setEditToolProficiencies('');
     setEditEquipment('');
-    setEditSpecialtyTitle('');
-    setEditSpecialtyDice('к10');
-    setEditSpecialtyTable('');
     setEditFeatureTitle('');
     setEditFeatureDescription('');
     setEditPersonalization('');
@@ -207,9 +189,6 @@ export default function AdminBackgroundsPage() {
       skill_proficiencies: normalize(editSkillProficiencies) || null,
       tool_proficiencies: normalize(editToolProficiencies) || null,
       equipment: normalize(editEquipment) || null,
-      specialty_title: normalize(editSpecialtyTitle) || null,
-      specialty_dice: normalize(editSpecialtyDice) || null,
-      specialty_table: normalize(editSpecialtyTable) || null,
       feature_title: normalize(editFeatureTitle) || null,
       feature_description: normalize(editFeatureDescription) || null,
       personalization: normalize(editPersonalization) || null,
@@ -254,12 +233,6 @@ export default function AdminBackgroundsPage() {
           onToolProficienciesChange={setToolProficiencies}
           equipment={equipment}
           onEquipmentChange={setEquipment}
-          specialtyTitle={specialtyTitle}
-          onSpecialtyTitleChange={setSpecialtyTitle}
-          specialtyDice={specialtyDice}
-          onSpecialtyDiceChange={setSpecialtyDice}
-          specialtyTable={specialtyTable}
-          onSpecialtyTableChange={setSpecialtyTable}
           featureTitle={featureTitle}
           onFeatureTitleChange={setFeatureTitle}
           featureDescription={featureDescription}
@@ -305,12 +278,6 @@ export default function AdminBackgroundsPage() {
                     setEditToolProficiencies,
                     editEquipment,
                     setEditEquipment,
-                    editSpecialtyTitle,
-                    setEditSpecialtyTitle,
-                    editSpecialtyDice,
-                    setEditSpecialtyDice,
-                    editSpecialtyTable,
-                    setEditSpecialtyTable,
                     editFeatureTitle,
                     setEditFeatureTitle,
                     editFeatureDescription,

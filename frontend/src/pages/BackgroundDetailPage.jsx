@@ -9,22 +9,6 @@ import LikeButton from '../components/spells/LikeButton.jsx';
 import CommentsSection from '../components/spells/CommentsSection.jsx';
 import ConfirmModal from '../components/spells/ConfirmModal.jsx';
 
-const parseSpecialtyRows = (value) => {
-  return String(value || '')
-    .split(/\r?\n/)
-    .map((line) => String(line || '').trim())
-    .filter(Boolean)
-    .map((line) => {
-      const parts = line.split(/\s*[|;]\s*/).map((part) => String(part || '').trim());
-      if (parts.length >= 2) {
-        return { roll: parts[0], value: parts.slice(1).join(' | ') };
-      }
-      const match = line.match(/^(\d+)\s+(.+)$/);
-      if (match) return { roll: match[1], value: match[2] };
-      return { roll: '', value: line };
-    });
-};
-
 export default function BackgroundDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -188,8 +172,6 @@ export default function BackgroundDetailPage() {
   const sourceText = useMemo(() => String(background?.source || '').trim(), [background?.source]);
   const subtitle = 'Предыстория';
 
-  const specialtyRows = useMemo(() => parseSpecialtyRows(background?.specialty_table), [background?.specialty_table]);
-
   return (
     <div className="min-h-screen spell-page spell-page--none px-3 py-3 sm:px-6 sm:py-6">
       <div className="max-w-6xl mx-auto">
@@ -228,37 +210,12 @@ export default function BackgroundDetailPage() {
             <div className="px-4 sm:px-6 pb-4 space-y-4">
               <div className="h-px bg-black/10" />
 
-              {background.description ? <SpellDescription description={background.description} /> : null}
-
               <div className="space-y-1 text-sm sm:text-base leading-relaxed">
                 {background.skill_proficiencies ? <div><strong>Владение навыками:</strong> {background.skill_proficiencies}</div> : null}
                 {background.tool_proficiencies ? <div><strong>Владение инструментами:</strong> {background.tool_proficiencies}</div> : null}
                 {background.equipment ? <div><strong>Снаряжение:</strong> {background.equipment}</div> : null}
+                {background.description ? <SpellDescription description={background.description} /> : null}
               </div>
-
-              {specialtyRows.length > 0 ? (
-                <div className="space-y-2">
-                  {background.specialty_title ? <h3 className="text-red-800 uppercase font-bold tracking-wide">{background.specialty_title}</h3> : null}
-                  <div className="overflow-x-auto border border-black/10 rounded-lg">
-                    <table className="w-full text-sm">
-                      <thead className="bg-black/5">
-                        <tr>
-                          <th className="text-left px-3 py-2 w-20">{background.specialty_dice || 'к10'}</th>
-                          <th className="text-left px-3 py-2">Амплуа</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {specialtyRows.map((row, index) => (
-                          <tr key={`${row.roll}:${row.value}:${index}`} className="border-t border-black/10">
-                            <td className="px-3 py-2">{row.roll || '—'}</td>
-                            <td className="px-3 py-2">{row.value}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              ) : null}
 
               {background.feature_description ? (
                 <div className="space-y-2">

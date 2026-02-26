@@ -18,12 +18,6 @@ export default function BackgroundCreateForm({
   onToolProficienciesChange,
   equipment,
   onEquipmentChange,
-  specialtyTitle,
-  onSpecialtyTitleChange,
-  specialtyDice,
-  onSpecialtyDiceChange,
-  specialtyTable,
-  onSpecialtyTableChange,
   featureTitle,
   onFeatureTitleChange,
   featureDescription,
@@ -80,32 +74,10 @@ export default function BackgroundCreateForm({
           className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
         />
 
-        <input
-          value={specialtyTitle}
-          onChange={(e) => onSpecialtyTitleChange(e.target.value)}
-          placeholder="Заголовок таблицы (например, НОМЕРА АРТИСТА)"
-          className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-        />
-
-        <input
-          value={specialtyDice}
-          onChange={(e) => onSpecialtyDiceChange(e.target.value)}
-          placeholder="Кость таблицы (например, к10)"
-          className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-        />
-
         <div className="md:col-span-2">
           <TokenHint value={source} options={sourceOptions} />
         </div>
       </div>
-
-      <textarea
-        value={specialtyTable}
-        onChange={(e) => onSpecialtyTableChange(e.target.value)}
-        rows={6}
-        placeholder={'Таблица амплуа (по строкам):\n1 | Акробат\n2 | Актер\n3 | Жонглер'}
-        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-      />
 
       <div className="space-y-2">
         <div className="text-sm font-semibold text-gray-900">Описание</div>
@@ -115,7 +87,7 @@ export default function BackgroundCreateForm({
       <input
         value={featureTitle}
         onChange={(e) => onFeatureTitleChange(e.target.value)}
-        placeholder="Заголовок умения (например, УМЕНИЕ: ПО МНОГОЧИСЛЕННЫМ ПРОСЬБАМ)"
+        placeholder="Заголовок умения"
         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
       />
 
