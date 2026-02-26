@@ -105,7 +105,7 @@ export default function AdminBackgroundsPage() {
       equipment: normalize(equipment) || null,
       feature_title: normalize(featureTitle) || null,
       feature_description: normalize(featureDescription) || null,
-      personalization: normalize(personalization) || null,
+      personalization: normalizeSpellDescriptionForSave(personalization),
     };
 
     if (!payload.name) {
@@ -191,7 +191,7 @@ export default function AdminBackgroundsPage() {
       equipment: normalize(editEquipment) || null,
       feature_title: normalize(editFeatureTitle) || null,
       feature_description: normalize(editFeatureDescription) || null,
-      personalization: normalize(editPersonalization) || null,
+      personalization: normalizeSpellDescriptionForSave(editPersonalization),
     };
 
     if (!payload.name) {

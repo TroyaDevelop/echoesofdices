@@ -214,8 +214,14 @@ export default function BackgroundDetailPage() {
                 {background.skill_proficiencies ? <div><strong>Владение навыками:</strong> {background.skill_proficiencies}</div> : null}
                 {background.tool_proficiencies ? <div><strong>Владение инструментами:</strong> {background.tool_proficiencies}</div> : null}
                 {background.equipment ? <div><strong>Снаряжение:</strong> {background.equipment}</div> : null}
-                {background.description ? <SpellDescription description={background.description} /> : null}
               </div>
+
+              {background.description ? (
+                <div className="space-y-2">
+                  <h3 className="text-red-800 uppercase font-bold tracking-wide">ОПИСАНИЕ</h3>
+                  <SpellDescription description={background.description} />
+                </div>
+              ) : null}
 
               {background.feature_description ? (
                 <div className="space-y-2">
@@ -226,7 +232,7 @@ export default function BackgroundDetailPage() {
 
               {background.personalization ? (
                 <div className="space-y-2">
-                  <h3 className="text-red-800 uppercase font-bold tracking-wide">Персонализация</h3>
+                  <h3 className="text-red-800 uppercase font-bold tracking-wide">ПЕРСОНАЛИЗАЦИЯ</h3>
                   <SpellDescription description={background.personalization} />
                 </div>
               ) : null}

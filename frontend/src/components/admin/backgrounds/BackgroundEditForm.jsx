@@ -101,13 +101,14 @@ export default function BackgroundEditForm({
         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
       />
 
-      <textarea
-        value={editPersonalization}
-        onChange={(e) => onEditPersonalizationChange(e.target.value)}
-        rows={5}
-        placeholder="Персонализация"
-        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-      />
+      <div className="space-y-2">
+        <div className="text-sm font-semibold text-gray-900">Персонализация</div>
+        <SpellDescriptionEditor
+          key={`personalization-${editingKey}`}
+          value={editPersonalization}
+          onChange={onEditPersonalizationChange}
+        />
+      </div>
 
       <div className="flex items-center gap-3">
         <button

@@ -99,13 +99,10 @@ export default function BackgroundCreateForm({
         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
       />
 
-      <textarea
-        value={personalization}
-        onChange={(e) => onPersonalizationChange(e.target.value)}
-        rows={5}
-        placeholder="Персонализация"
-        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-      />
+      <div className="space-y-2">
+        <div className="text-sm font-semibold text-gray-900">Персонализация</div>
+        <SpellDescriptionEditor value={personalization} onChange={onPersonalizationChange} />
+      </div>
 
       <div>
         <button type="submit" className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-medium">
