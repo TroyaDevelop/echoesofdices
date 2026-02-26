@@ -138,7 +138,7 @@ export default function MarketPage() {
   const [tradeLogs, setTradeLogs] = useState([]);
   const [logsLoading, setLogsLoading] = useState(false);
   const [logsError, setLogsError] = useState('');
-  const [profile, setProfile] = useState(null);
+  const [characters, setCharacters] = useState([]);
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
     try {
       return Boolean(localStorage.getItem('token'));
@@ -202,7 +202,7 @@ export default function MarketPage() {
 
     const token = localStorage.getItem('token');
     if (!token) {
-      setProfile(null);
+      setCharacters([]);
       setIsAuthenticated(false);
       return () => {
         active = false;
@@ -210,14 +210,14 @@ export default function MarketPage() {
     }
 
     (async () => {
+      setIsAuthenticated(true);
       try {
-        const data = await userProfileAPI.get();
+        const data = await userProfileAPI.listCharacters();
         if (!active) return;
-        setProfile(data || null);
-        setIsAuthenticated(true);
-      } catch (e) {
+        setCharacters(Array.isArray(data) ? data : []);
+      } catch {
         if (!active) return;
-        setProfile(null);
+        setCharacters([]);
         setIsAuthenticated(false);
       }
     })();
@@ -315,10 +315,10 @@ export default function MarketPage() {
     }
   }, [isAdmin, viewTab]);
 
-  const skillOptions = useMemo(() => {
-    const level = profile?.character_level ?? 1;
+  const buildSkillOptions = (sheet) => {
+    const level = sheet?.character_level ?? 1;
     const bonus = proficiencyBonusForLevel(level);
-    const chaMod = abilityMod(profile?.charisma ?? 10);
+    const chaMod = abilityMod(sheet?.charisma ?? 10);
     const makeOption = (id, label, value) => {
       const prof = toSkillValue(value);
       const skillBonus = chaMod + bonus * (prof === 2 ? 2 : prof);
@@ -329,17 +329,44 @@ export default function MarketPage() {
       };
     };
 
-    if (!profile) {
+    if (!sheet) {
       return [{ id: 'none', label: 'Без навыка', bonus: 0 }];
     }
 
     return [
-      makeOption('persuasion', 'Убеждение', profile?.skill_persuasion),
-      makeOption('performance', 'Выступление', profile?.skill_performance),
-      makeOption('intimidation', 'Запугивание', profile?.skill_intimidation),
-      makeOption('deception', 'Обман', profile?.skill_deception),
+      makeOption('persuasion', 'Убеждение', sheet?.skill_persuasion),
+      makeOption('performance', 'Выступление', sheet?.skill_performance),
+      makeOption('intimidation', 'Запугивание', sheet?.skill_intimidation),
+      makeOption('deception', 'Обман', sheet?.skill_deception),
     ];
-  }, [profile]);
+  };
+
+  const tradeCharacterOptions = useMemo(() => {
+    const options = [];
+
+    for (const character of characters || []) {
+      const id = Number(character?.id);
+      if (!Number.isFinite(id)) continue;
+      const name = String(character?.character_name || '').trim();
+      options.push({
+        id: `sheet:${id}`,
+        label: name || `Персонаж #${id}`,
+        sheet: character,
+        skillOptions: buildSkillOptions(character),
+      });
+    }
+
+    if (options.length === 0) {
+      options.push({
+        id: 'none',
+        label: 'Без персонажа',
+        sheet: null,
+        skillOptions: [{ id: 'none', label: 'Без навыка', bonus: 0 }],
+      });
+    }
+
+    return options;
+  }, [characters]);
 
   const handleOpenTrade = (item, percent) => {
     if (!showMarkup) return;
@@ -574,7 +601,7 @@ export default function MarketPage() {
         isOpen={Boolean(tradeContext)}
         onClose={() => setTradeContext(null)}
         onTradeComplete={handleTradeComplete}
-        skillOptions={skillOptions}
+        characterOptions={tradeCharacterOptions}
         tradeContext={tradeContext}
       />
     </PublicLayout>

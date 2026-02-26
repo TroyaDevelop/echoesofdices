@@ -31,29 +31,22 @@ const applyMarkupPercent = (baseCp, percent) => {
 
 const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
 
-const pricePercentForRoll = (roll) => {
-  const r = clamp(Math.trunc(Number(roll || 0)), 1, 20);
-  if (r <= 10) {
-    return 0.10 + ((r - 1) * 0.23) / 9;
-  }
-  return 0.33 + ((r - 10) * 0.67) / 10;
-};
-
 const percentForSell = (result, isCritical) => {
   if (isCritical) return 1;
   const numeric = Math.trunc(Number(result || 0));
-  const capped = clamp(numeric, 1, 19);
-  return pricePercentForRoll(capped);
+  const capped = clamp(numeric, 1, 60);
+  const t = (capped - 1) / 59;
+  const eased = Math.pow(t, 1.35);
+  return 0.10 + 0.85 * eased;
 };
 
 const percentForBuy = (result, roll) => {
   if (roll === 20) return 1 / 3;
   const numeric = Math.trunc(Number(result || 0));
-  const capped = clamp(numeric, 1, 19);
-  if (capped <= 10) {
-    return 1 + ((10 - capped) * 0.9) / 9;
-  }
-  return 1 - ((capped - 10) * 0.6) / 9;
+  const capped = clamp(numeric, 1, 60);
+  const t = (capped - 1) / 59;
+  const eased = Math.pow(t, 1.35);
+  return 1.9 - 0.95 * eased;
 };
 
 const rollDie = (sides) => Math.floor(Math.random() * sides) + 1;
@@ -89,9 +82,10 @@ export default function MarketAutoTradeModal({
   isOpen,
   onClose,
   onTradeComplete,
-  skillOptions,
+  characterOptions,
   tradeContext,
 }) {
+  const [characterId, setCharacterId] = useState('');
   const [skillId, setSkillId] = useState('');
   const [lastTrade, setLastTrade] = useState(null);
   const [tradeType, setTradeType] = useState('sell');
@@ -109,12 +103,35 @@ export default function MarketAutoTradeModal({
     setTradeType('sell');
     setRollMode('normal');
     setExtraDice([]);
+    const nextCharacter = Array.isArray(characterOptions) && characterOptions.length ? characterOptions[0].id : '';
+    setCharacterId(nextCharacter);
   }, [item?.id]);
+
+  useEffect(() => {
+    if (!Array.isArray(characterOptions) || characterOptions.length === 0) {
+      setCharacterId('');
+      return;
+    }
+    if (!characterOptions.some((opt) => opt.id === characterId)) {
+      setCharacterId(characterOptions[0].id);
+    }
+  }, [characterOptions, characterId]);
+
+  const selectedCharacter = useMemo(() => {
+    return (Array.isArray(characterOptions) ? characterOptions : []).find((opt) => opt.id === characterId) || null;
+  }, [characterOptions, characterId]);
+
+  const skillOptions = useMemo(() => {
+    if (!selectedCharacter || !Array.isArray(selectedCharacter.skillOptions)) {
+      return [{ id: 'none', label: 'Без навыка', bonus: 0 }];
+    }
+    return selectedCharacter.skillOptions;
+  }, [selectedCharacter]);
 
   useEffect(() => {
     const next = Array.isArray(skillOptions) && skillOptions.length ? skillOptions[0].id : '';
     setSkillId(next);
-  }, [skillOptions, item?.id]);
+  }, [skillOptions, characterId, item?.id]);
 
   const selectedSkill = useMemo(() => {
     return (Array.isArray(skillOptions) ? skillOptions : []).find((opt) => opt.id === skillId) || null;
@@ -271,6 +288,20 @@ export default function MarketAutoTradeModal({
                 </button>
               </div>
               <div className="flex flex-wrap items-center gap-3">
+              <label className="text-sm text-slate-200">
+                Персонаж
+                <select
+                  value={characterId}
+                  onChange={(e) => setCharacterId(e.target.value)}
+                  className="ml-2 px-2 py-1 rounded-md border border-white/10 bg-black/30 text-slate-100"
+                >
+                  {(characterOptions || []).map((option) => (
+                    <option key={option.id} value={option.id}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
               <label className="text-sm text-slate-200">
                 Навык
                 <select
