@@ -115,6 +115,7 @@ CREATE TABLE IF NOT EXISTS spells (
     name_en VARCHAR(255),
     level TINYINT UNSIGNED NOT NULL DEFAULT 0,
     school VARCHAR(100),
+    school_extra VARCHAR(120),
     theme VARCHAR(32) DEFAULT 'none',
     casting_time VARCHAR(255),
     range_text VARCHAR(255),

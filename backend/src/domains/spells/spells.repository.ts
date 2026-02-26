@@ -1,16 +1,16 @@
 import { query } from '../../db/pool';
 
 export async function listSpells() {
-  return query<any[]>('SELECT id, name, name_en, level, school, theme, casting_time, range_text, components, duration, classes, subclasses, source, source_pages, description, description_eot, created_at, updated_at FROM spells ORDER BY name ASC', []);
+  return query<any[]>('SELECT id, name, name_en, level, school, school_extra, theme, casting_time, range_text, components, duration, classes, subclasses, source, source_pages, description, description_eot, created_at, updated_at FROM spells ORDER BY name ASC', []);
 }
 
 export async function listSpellsAdmin() {
-  return query<any[]>('SELECT id, name, name_en, level, school, theme, casting_time, range_text, components, duration, classes, subclasses, source, source_pages, description, description_eot, created_at, updated_at FROM spells ORDER BY name ASC', []);
+  return query<any[]>('SELECT id, name, name_en, level, school, school_extra, theme, casting_time, range_text, components, duration, classes, subclasses, source, source_pages, description, description_eot, created_at, updated_at FROM spells ORDER BY name ASC', []);
 }
 
 export async function findSpellById(id: number) {
   const rows = await query<any[]>(
-    'SELECT id, name, name_en, level, school, theme, casting_time, range_text, components, duration, classes, subclasses, source, source_pages, description, description_eot, created_at, updated_at FROM spells WHERE id = ? LIMIT 1',
+    'SELECT id, name, name_en, level, school, school_extra, theme, casting_time, range_text, components, duration, classes, subclasses, source, source_pages, description, description_eot, created_at, updated_at FROM spells WHERE id = ? LIMIT 1',
     [id]
   );
   return rows && rows[0];
@@ -18,12 +18,13 @@ export async function findSpellById(id: number) {
 
 export async function insertSpell(payload: any) {
   return query<any>(
-    'INSERT INTO spells (name, name_en, level, school, theme, casting_time, range_text, components, duration, classes, subclasses, source, source_pages, description, description_eot) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    'INSERT INTO spells (name, name_en, level, school, school_extra, theme, casting_time, range_text, components, duration, classes, subclasses, source, source_pages, description, description_eot) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
     [
       payload.name,
       payload.name_en,
       payload.level,
       payload.school,
+      payload.school_extra,
       payload.theme,
       payload.casting_time,
       payload.range_text,
@@ -41,12 +42,13 @@ export async function insertSpell(payload: any) {
 
 export async function updateSpell(id: number, payload: any) {
   return query<any>(
-    'UPDATE spells SET name = ?, name_en = ?, level = ?, school = ?, theme = ?, casting_time = ?, range_text = ?, components = ?, duration = ?, classes = ?, subclasses = ?, source = ?, source_pages = ?, description = ?, description_eot = ? WHERE id = ?',
+    'UPDATE spells SET name = ?, name_en = ?, level = ?, school = ?, school_extra = ?, theme = ?, casting_time = ?, range_text = ?, components = ?, duration = ?, classes = ?, subclasses = ?, source = ?, source_pages = ?, description = ?, description_eot = ? WHERE id = ?',
     [
       payload.name,
       payload.name_en,
       payload.level,
       payload.school,
+      payload.school_extra,
       payload.theme,
       payload.casting_time,
       payload.range_text,

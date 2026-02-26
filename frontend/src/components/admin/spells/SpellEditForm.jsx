@@ -12,6 +12,8 @@ export default function SpellEditForm({
   onEditLevelChange,
   editSchool,
   onEditSchoolChange,
+  editSchoolExtra,
+  onEditSchoolExtraChange,
   schoolOptions,
   editTheme,
   onEditThemeChange,
@@ -75,12 +77,21 @@ export default function SpellEditForm({
           />
         </div>
 
-        <input
-          value={editSchool}
-          onChange={(e) => onEditSchoolChange(e.target.value)}
-          placeholder="Школа (опционально)"
-          className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-        />
+        <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-3">
+          <input
+            value={editSchool}
+            onChange={(e) => onEditSchoolChange(e.target.value)}
+            placeholder="Школа (опционально)"
+            className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+          />
+
+          <input
+            value={editSchoolExtra}
+            onChange={(e) => onEditSchoolExtraChange(e.target.value)}
+            placeholder="Доп. инфо школы (например: ритуал)"
+            className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+          />
+        </div>
 
         <div className="md:col-span-2">
           <TokenHint value={editSchool} options={schoolOptions} />

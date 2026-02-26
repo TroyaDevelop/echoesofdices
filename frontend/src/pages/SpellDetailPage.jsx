@@ -11,11 +11,21 @@ import FavoriteButton from '../components/spells/FavoriteButton.jsx';
 import CommentsSection from '../components/spells/CommentsSection.jsx';
 import ConfirmModal from '../components/spells/ConfirmModal.jsx';
 
-const levelLine = (level, school) => {
+const normalizeSchoolExtra = (value) => String(value || '').trim().replace(/^\((.*)\)$/u, '$1').trim();
+const formatSchoolWithExtra = (school, schoolExtra) => {
+  const base = String(school || '').trim();
+  const extra = normalizeSchoolExtra(schoolExtra);
+  if (!base) return '';
+  if (!extra) return base;
+  return `${base} (${extra})`;
+};
+
+const levelLine = (level, school, schoolExtra) => {
   const lvl = Number(level);
   const parts = [];
   if (Number.isFinite(lvl)) parts.push(lvl === 0 ? 'Заговор' : `${lvl} уровень`);
-  if (school) parts.push(String(school));
+  const schoolLabel = formatSchoolWithExtra(school, schoolExtra);
+  if (schoolLabel) parts.push(schoolLabel);
   return parts.join(', ');
 };
 
@@ -291,7 +301,7 @@ export default function SpellDetailPage() {
           <div className="parchment-card rounded-lg border border-black/20 text-slate-900 shadow-2xl overflow-hidden">
             <SpellHeader
               title={title}
-              subtitle={levelLine(spell.level, spell.school)}
+              subtitle={levelLine(spell.level, spell.school, spell.school_extra)}
               sourceText={sourceText}
               sourcePages={sourcePages}
               hasEotDescription={hasEotDescription}

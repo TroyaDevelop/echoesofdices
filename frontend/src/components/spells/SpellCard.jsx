@@ -7,6 +7,15 @@ const levelBadge = (level) => {
   return `Ур. ${lvl}`;
 };
 
+const normalizeSchoolExtra = (value) => String(value || '').trim().replace(/^\((.*)\)$/u, '$1').trim();
+const formatSchoolWithExtra = (school, schoolExtra) => {
+  const base = String(school || '').trim();
+  const extra = normalizeSchoolExtra(schoolExtra);
+  if (!base) return '';
+  if (!extra) return base;
+  return `${base} (${extra})`;
+};
+
 export default function SpellCard({ spell }) {
   return (
     <Link
@@ -15,9 +24,9 @@ export default function SpellCard({ spell }) {
     >
       <div className="min-w-0">
         <div className="font-medium text-slate-100 truncate">{spell.name}</div>
-        {(spell.school || spell.components) && (
+        {(spell.school || spell.components || spell.school_extra) && (
           <div className="mt-0.5 text-xs text-slate-400 truncate">
-            {[spell.school, spell.components].filter(Boolean).join(' • ')}
+            {[formatSchoolWithExtra(spell.school, spell.school_extra), spell.components].filter(Boolean).join(' • ')}
           </div>
         )}
       </div>

@@ -1,5 +1,14 @@
 import SpellEditForm from './SpellEditForm.jsx';
 
+const normalizeSchoolExtra = (value) => String(value || '').trim().replace(/^\((.*)\)$/u, '$1').trim();
+const formatSchoolWithExtra = (school, schoolExtra) => {
+  const base = String(school || '').trim();
+  const extra = normalizeSchoolExtra(schoolExtra);
+  if (!base) return '';
+  if (!extra) return base;
+  return `${base} (${extra})`;
+};
+
 const levelBadge = (level) => {
   if (!Number.isFinite(Number(level))) return 'Ур. ?';
   return Number(level) === 0 ? 'Заговор' : `Ур. ${level}`;
@@ -28,8 +37,8 @@ export default function SpellRow({
             {levelBadge(spell.level)}
           </span>
         </div>
-        {(spell.school || spell.components) && (
-          <div className="text-sm text-gray-600 mt-1">{[spell.school, spell.components].filter(Boolean).join(' • ')}</div>
+        {(spell.school || spell.components || spell.school_extra) && (
+          <div className="text-sm text-gray-600 mt-1">{[formatSchoolWithExtra(spell.school, spell.school_extra), spell.components].filter(Boolean).join(' • ')}</div>
         )}
 
         {isEditing ? (
@@ -43,6 +52,8 @@ export default function SpellRow({
             onEditLevelChange={editState.setEditLevel}
             editSchool={editState.editSchool}
             onEditSchoolChange={editState.setEditSchool}
+            editSchoolExtra={editState.editSchoolExtra}
+            onEditSchoolExtraChange={editState.setEditSchoolExtra}
             schoolOptions={schoolOptions}
             editTheme={editState.editTheme}
             onEditThemeChange={editState.setEditTheme}

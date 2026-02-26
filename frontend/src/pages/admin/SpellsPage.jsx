@@ -53,6 +53,7 @@ export default function AdminSpellsPage() {
   const [nameEn, setNameEn] = useState('');
   const [level, setLevel] = useState(0);
   const [school, setSchool] = useState('');
+  const [schoolExtra, setSchoolExtra] = useState('');
   const [theme, setTheme] = useState('none');
   const [castingTime, setCastingTime] = useState('');
   const [rangeText, setRangeText] = useState('');
@@ -71,6 +72,7 @@ export default function AdminSpellsPage() {
   const [editNameEn, setEditNameEn] = useState('');
   const [editLevel, setEditLevel] = useState(0);
   const [editSchool, setEditSchool] = useState('');
+  const [editSchoolExtra, setEditSchoolExtra] = useState('');
   const [editTheme, setEditTheme] = useState('none');
   const [editCastingTime, setEditCastingTime] = useState('');
   const [editRangeText, setEditRangeText] = useState('');
@@ -177,6 +179,7 @@ export default function AdminSpellsPage() {
       name_en: normalize(nameEn) || null,
       level: Number(level),
       school: normalize(school) || null,
+      school_extra: normalize(schoolExtra) || null,
       theme: normalizeTheme(theme),
       casting_time: normalize(castingTime) || null,
       range_text: normalize(rangeText) || null,
@@ -206,6 +209,7 @@ export default function AdminSpellsPage() {
       setNameEn('');
       setLevel(0);
       setSchool('');
+      setSchoolExtra('');
       setTheme('none');
       setCastingTime('');
       setRangeText('');
@@ -243,6 +247,7 @@ export default function AdminSpellsPage() {
     setEditNameEn(String(s.name_en || ''));
     setEditLevel(Number.isFinite(Number(s.level)) ? Number(s.level) : 0);
     setEditSchool(String(s.school || ''));
+    setEditSchoolExtra(String(s.school_extra || ''));
     setEditTheme(normalizeTheme(s.theme || 'none'));
     setEditCastingTime(String(s.casting_time || ''));
     setEditRangeText(String(s.range_text || ''));
@@ -264,6 +269,7 @@ export default function AdminSpellsPage() {
     setEditNameEn('');
     setEditLevel(0);
     setEditSchool('');
+    setEditSchoolExtra('');
     setEditTheme('none');
     setEditCastingTime('');
     setEditRangeText('');
@@ -303,6 +309,7 @@ export default function AdminSpellsPage() {
       name_en: normalize(editNameEn) || null,
       level: Number(editLevel),
       school: normalize(editSchool) || null,
+      school_extra: normalize(editSchoolExtra) || null,
       theme: normalizeTheme(editTheme),
       casting_time: normalize(editCastingTime) || null,
       range_text: normalize(editRangeText) || null,
@@ -353,6 +360,8 @@ export default function AdminSpellsPage() {
           onLevelChange={setLevel}
           school={school}
           onSchoolChange={setSchool}
+          schoolExtra={schoolExtra}
+          onSchoolExtraChange={setSchoolExtra}
           schoolOptions={schoolOptions}
           theme={theme}
           onThemeChange={setTheme}
@@ -415,6 +424,8 @@ export default function AdminSpellsPage() {
                     setEditLevel,
                     editSchool,
                     setEditSchool,
+                    editSchoolExtra,
+                    setEditSchoolExtra,
                     editTheme,
                     setEditTheme,
                     editCastingTime,

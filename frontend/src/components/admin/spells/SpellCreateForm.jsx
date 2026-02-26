@@ -11,6 +11,8 @@ export default function SpellCreateForm({
   onLevelChange,
   school,
   onSchoolChange,
+  schoolExtra,
+  onSchoolExtraChange,
   schoolOptions,
   theme,
   onThemeChange,
@@ -73,12 +75,21 @@ export default function SpellCreateForm({
           />
         </div>
 
-        <input
-          value={school}
-          onChange={(e) => onSchoolChange(e.target.value)}
-          placeholder="Школа (опционально)"
-          className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-        />
+        <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-3">
+          <input
+            value={school}
+            onChange={(e) => onSchoolChange(e.target.value)}
+            placeholder="Школа (опционально)"
+            className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+          />
+
+          <input
+            value={schoolExtra}
+            onChange={(e) => onSchoolExtraChange(e.target.value)}
+            placeholder="Доп. инфо школы (например: ритуал)"
+            className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+          />
+        </div>
 
         <div className="md:col-span-2">
           <TokenHint value={school} options={schoolOptions} />
