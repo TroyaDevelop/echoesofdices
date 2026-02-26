@@ -11,6 +11,7 @@ import {
   grantAwardToUser,
   removeUser,
   revokeAwardFromUser,
+  unlockUser,
   updateAwardRecord,
 } from './admin.service';
 
@@ -136,5 +137,16 @@ export async function revokeAwardHandler(req: Request, res: Response) {
   } catch (error) {
     const err = error as HttpError;
     res.status(err.status || 500).json({ error: err.message || 'Ошибка отзыва награды' });
+  }
+}
+
+export async function unlockUserHandler(req: Request, res: Response) {
+  try {
+    const id = Number(req.params.id);
+    const data = await unlockUser(id);
+    res.json(data);
+  } catch (error) {
+    const err = error as HttpError;
+    res.status(err.status || 500).json({ error: err.message || 'Ошибка разблокировки пользователя' });
   }
 }

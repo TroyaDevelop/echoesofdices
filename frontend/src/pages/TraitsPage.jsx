@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import PublicLayout from '../components/PublicLayout.jsx';
-import { traitsAPI } from '../lib/api.js';
+import { sourcesAPI, traitsAPI } from '../lib/api.js';
 import TraitsListHeader from '../components/traits/TraitsListHeader.jsx';
 import TraitGroupSection from '../components/traits/TraitGroupSection.jsx';
 
 const normalize = (v) => String(v || '').trim();
+const normalizeSource = (v) => normalize(v).toLowerCase();
 
 const firstGroupLetter = (name) => {
   const n = normalize(name);
@@ -17,13 +18,30 @@ export default function TraitsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [query, setQuery] = useState('');
+  const [sourceOptions, setSourceOptions] = useState([]);
+  const [sourceFilters, setSourceFilters] = useState([]);
 
   const load = async () => {
     setError('');
     setLoading(true);
     try {
-      const data = await traitsAPI.list();
+      const [data, sourceData] = await Promise.all([traitsAPI.list(), sourcesAPI.list()]);
       setTraits(Array.isArray(data) ? data : []);
+      const fromApi = (Array.isArray(sourceData) ? sourceData : [])
+        .map((item) => ({ value: normalizeSource(item?.name ?? item), label: normalize(item?.name ?? item) }))
+        .filter((item) => item.value && item.label);
+      const fromTraits = (Array.isArray(data) ? data : [])
+        .map((t) => ({ value: normalizeSource(t?.source), label: normalize(t?.source) }))
+        .filter((item) => item.value && item.label);
+      const merged = new Map();
+      [...fromApi, ...fromTraits].forEach((item) => {
+        if (!merged.has(item.value)) merged.set(item.value, item.label);
+      });
+      setSourceOptions(
+        Array.from(merged.entries())
+          .map(([value, label]) => ({ value, label }))
+          .sort((a, b) => a.label.localeCompare(b.label, 'ru', { sensitivity: 'base' }))
+      );
     } catch (e) {
       console.error(e);
       setError(e.message || 'Ошибка загрузки черт');
@@ -38,13 +56,28 @@ export default function TraitsPage() {
 
   const filteredSorted = useMemo(() => {
     const q = normalize(query).toLowerCase();
+    const sf = new Set((sourceFilters || []).map(normalizeSource).filter(Boolean));
     const filtered = (traits || []).filter((t) => {
-      if (!q) return true;
-      return normalize(t.name).toLowerCase().includes(q);
+      if (q && !normalize(t.name).toLowerCase().includes(q)) return false;
+      if (sf.size > 0) {
+        const src = normalizeSource(t?.source);
+        if (!sf.has(src)) return false;
+      }
+      return true;
     });
 
     return filtered.sort((a, b) => normalize(a.name).localeCompare(normalize(b.name), 'ru', { sensitivity: 'base' }));
-  }, [traits, query]);
+  }, [traits, query, sourceFilters]);
+
+  const toggleSourceFilter = (value) => {
+    const key = normalizeSource(value);
+    if (!key) return;
+    setSourceFilters((prev) => {
+      const exists = prev.includes(key);
+      if (exists) return prev.filter((x) => x !== key);
+      return [...prev, key];
+    });
+  };
 
   const grouped = useMemo(() => {
     const byLetter = new Map();
@@ -70,7 +103,14 @@ export default function TraitsPage() {
   return (
     <PublicLayout>
       <div className="space-y-8">
-        <TraitsListHeader query={query} onQueryChange={setQuery} />
+        <TraitsListHeader
+          query={query}
+          onQueryChange={setQuery}
+          sourceOptions={sourceOptions}
+          selectedSources={sourceFilters}
+          onToggleSource={toggleSourceFilter}
+          onClearSources={() => setSourceFilters([])}
+        />
 
         {error && <div className="text-red-200 bg-red-500/10 border border-red-500/30 rounded-xl p-4">{error}</div>}
 

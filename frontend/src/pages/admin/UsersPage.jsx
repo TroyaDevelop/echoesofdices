@@ -34,6 +34,10 @@ export default function AdminUsersPage() {
   const [creatingKey, setCreatingKey] = useState(false);
   const [deleteModal, setDeleteModal] = useState({ open: false, user: null, busy: false });
   const [awardsUser, setAwardsUser] = useState(null);
+  const [blockedFilter, setBlockedFilter] = useState('all');
+  const [roleFilter, setRoleFilter] = useState('all');
+  const [registeredFrom, setRegisteredFrom] = useState('');
+  const [registeredTo, setRegisteredTo] = useState('');
 
   const loadAll = async () => {
     setError('');
@@ -94,6 +98,19 @@ export default function AdminUsersPage() {
     }
   };
 
+  const unlockUser = async (u) => {
+    setError('');
+    try {
+      await adminAPI.unlockUser(u.id);
+      setUsers((prev) => prev.map((x) => (x.id === u.id
+        ? { ...x, is_blocked: 0, failed_login_attempts: 0, blocked_at: null }
+        : x)));
+    } catch (e) {
+      console.error(e);
+      setError(e.message || 'Ошибка разблокировки пользователя');
+    }
+  };
+
   const activeKeys = useMemo(() => keys.filter((k) => Number(k.is_active) === 1 && !k.used_at), [keys]);
   const shouldScrollKeys = useMemo(() => keys.length > 5, [keys.length]);
   const visibleUsers = useMemo(() => {
@@ -106,7 +123,38 @@ export default function AdminUsersPage() {
       return true;
     });
   }, [users, currentUserId]);
-  const shouldScrollUsers = useMemo(() => visibleUsers.length > 5, [visibleUsers.length]);
+
+  const filteredUsers = useMemo(() => {
+    const toBool = (value) => value === true || value === 1 || String(value || '').toLowerCase() === 'true';
+    const fromTs = registeredFrom ? new Date(`${registeredFrom}T00:00:00`).getTime() : null;
+    const toTs = registeredTo ? new Date(`${registeredTo}T23:59:59.999`).getTime() : null;
+
+    return visibleUsers.filter((u) => {
+      const isBlocked = toBool(u?.is_blocked);
+      const isAdmin = toBool(u?.flag_admin ?? u?.flags?.admin);
+      const isEditor = toBool(u?.flag_editor ?? u?.flags?.editor);
+      const isMaster = toBool(u?.flag_master ?? u?.flags?.master);
+
+      if (blockedFilter === 'blocked' && !isBlocked) return false;
+      if (blockedFilter === 'active' && isBlocked) return false;
+
+      if (roleFilter === 'admin' && !isAdmin) return false;
+      if (roleFilter === 'editor' && !isEditor) return false;
+      if (roleFilter === 'master' && !isMaster) return false;
+      if (roleFilter === 'user' && (isAdmin || isEditor || isMaster)) return false;
+
+      if (fromTs !== null || toTs !== null) {
+        const createdTs = new Date(u?.created_at).getTime();
+        if (!Number.isFinite(createdTs)) return false;
+        if (fromTs !== null && createdTs < fromTs) return false;
+        if (toTs !== null && createdTs > toTs) return false;
+      }
+
+      return true;
+    });
+  }, [visibleUsers, blockedFilter, roleFilter, registeredFrom, registeredTo]);
+
+  const shouldScrollUsers = useMemo(() => filteredUsers.length > 5, [filteredUsers.length]);
 
   const askDelete = (u) => {
     setError('');
@@ -153,13 +201,69 @@ export default function AdminUsersPage() {
         ) : null}
 
         {canManage ? (
+          <section className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+            <div className="text-sm font-medium text-gray-800 mb-3">Фильтры пользователей</div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+              <label className="text-sm text-gray-700">
+                <span className="block mb-1">По блокировке</span>
+                <select
+                  value={blockedFilter}
+                  onChange={(e) => setBlockedFilter(e.target.value)}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2"
+                >
+                  <option value="all">Все</option>
+                  <option value="active">Только активные</option>
+                  <option value="blocked">Только заблокированные</option>
+                </select>
+              </label>
+
+              <label className="text-sm text-gray-700">
+                <span className="block mb-1">По роли</span>
+                <select
+                  value={roleFilter}
+                  onChange={(e) => setRoleFilter(e.target.value)}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2"
+                >
+                  <option value="all">Все</option>
+                  <option value="user">Обычные</option>
+                  <option value="admin">Админы</option>
+                  <option value="editor">Редакторы</option>
+                  <option value="master">Мастера</option>
+                </select>
+              </label>
+
+              <label className="text-sm text-gray-700">
+                <span className="block mb-1">Регистрация от</span>
+                <input
+                  type="date"
+                  value={registeredFrom}
+                  onChange={(e) => setRegisteredFrom(e.target.value)}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2"
+                />
+              </label>
+
+              <label className="text-sm text-gray-700">
+                <span className="block mb-1">Регистрация до</span>
+                <input
+                  type="date"
+                  value={registeredTo}
+                  onChange={(e) => setRegisteredTo(e.target.value)}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2"
+                />
+              </label>
+            </div>
+          </section>
+        ) : null}
+
+        {canManage ? (
           <UsersSection
             loading={loading}
-            users={visibleUsers}
+            users={filteredUsers}
             shouldScroll={shouldScrollUsers}
             formatDate={formatDate}
             onChangeFlags={updateUserFlags}
             onAskDelete={askDelete}
+            onUnlockUser={unlockUser}
             onManageAwards={setAwardsUser}
           />
         ) : null}

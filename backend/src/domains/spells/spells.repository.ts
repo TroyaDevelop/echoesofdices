@@ -1,7 +1,7 @@
 import { query } from '../../db/pool';
 
 export async function listSpells() {
-  return query<any[]>('SELECT id, name, level, school, components, classes, description, description_eot, created_at, updated_at FROM spells ORDER BY name ASC', []);
+  return query<any[]>('SELECT id, name, name_en, level, school, theme, casting_time, range_text, components, duration, classes, subclasses, source, source_pages, description, description_eot, created_at, updated_at FROM spells ORDER BY name ASC', []);
 }
 
 export async function listSpellsAdmin() {

@@ -5,6 +5,8 @@ import SpellsPage from './pages/SpellsPage.jsx';
 import SpellDetailPage from './pages/SpellDetailPage.jsx';
 import TraitsPage from './pages/TraitsPage.jsx';
 import TraitDetailPage from './pages/TraitDetailPage.jsx';
+import BackgroundsPage from './pages/BackgroundsPage.jsx';
+import BackgroundDetailPage from './pages/BackgroundDetailPage.jsx';
 import WondrousItemsPage from './pages/WondrousItemsPage.jsx';
 import WondrousItemDetailPage from './pages/WondrousItemDetailPage.jsx';
 import BestiaryPage from './pages/BestiaryPage.jsx';
@@ -22,6 +24,7 @@ import AdminDashboardPage from './pages/admin/DashboardPage.jsx';
 import AdminNewsPage from './pages/admin/NewsPage.jsx';
 import AdminSpellsPage from './pages/admin/SpellsPage.jsx';
 import AdminTraitsPage from './pages/admin/TraitsPage.jsx';
+import AdminBackgroundsPage from './pages/admin/BackgroundsPage.jsx';
 import AdminWondrousItemsPage from './pages/admin/WondrousItemsPage.jsx';
 import AdminBestiaryPage from './pages/admin/BestiaryPage.jsx';
 import AdminArticlesPage from './pages/admin/ArticlesPage.jsx';
@@ -42,6 +45,8 @@ export default function App() {
       <Route path="/spells/:id" element={<SpellDetailPage />} />
       <Route path="/traits" element={<TraitsPage />} />
       <Route path="/traits/:id" element={<TraitDetailPage />} />
+      <Route path="/backgrounds" element={<BackgroundsPage />} />
+      <Route path="/backgrounds/:id" element={<BackgroundDetailPage />} />
       <Route path="/wondrous-items" element={<WondrousItemsPage />} />
       <Route path="/wondrous-items/:id" element={<WondrousItemDetailPage />} />
       <Route path="/bestiary" element={<BestiaryPage />} />
@@ -63,6 +68,7 @@ export default function App() {
       <Route path="/admin/news" element={<AdminNewsPage />} />
       <Route path="/admin/spells" element={<AdminSpellsPage />} />
       <Route path="/admin/traits" element={<AdminTraitsPage />} />
+      <Route path="/admin/backgrounds" element={<AdminBackgroundsPage />} />
       <Route path="/admin/wondrous-items" element={<AdminWondrousItemsPage />} />
       <Route path="/admin/bestiary" element={<AdminBestiaryPage />} />
       <Route path="/admin/articles" element={<AdminArticlesPage />} />

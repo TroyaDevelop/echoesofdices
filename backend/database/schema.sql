@@ -32,6 +32,9 @@ CREATE TABLE IF NOT EXISTS users (
     skill_sleight_of_hand TINYINT,
     skill_stealth TINYINT,
     skill_survival TINYINT,
+    failed_login_attempts INT NOT NULL DEFAULT 0,
+    is_blocked TINYINT(1) NOT NULL DEFAULT 0,
+    blocked_at TIMESTAMP NULL DEFAULT NULL,
     profile_status VARCHAR(160),
     hide_character_sheets TINYINT(1) NOT NULL DEFAULT 0,
     hide_favorite_spells TINYINT(1) NOT NULL DEFAULT 0,
@@ -141,6 +144,26 @@ CREATE TABLE IF NOT EXISTS traits (
     INDEX idx_traits_name (name)
 );
 
+CREATE TABLE IF NOT EXISTS backgrounds (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    name VARCHAR(255) NOT NULL,
+    name_en VARCHAR(255),
+    skill_proficiencies VARCHAR(255),
+    tool_proficiencies VARCHAR(255),
+    equipment TEXT,
+    source VARCHAR(100),
+    description LONGTEXT,
+    specialty_title VARCHAR(255),
+    specialty_dice VARCHAR(20),
+    specialty_table LONGTEXT,
+    feature_title VARCHAR(255),
+    feature_description LONGTEXT,
+    personalization LONGTEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_backgrounds_name (name)
+);
+
 CREATE TABLE IF NOT EXISTS wondrous_items (
     id INT PRIMARY KEY AUTO_INCREMENT,
     name VARCHAR(255) NOT NULL,
@@ -216,6 +239,28 @@ CREATE TABLE IF NOT EXISTS trait_comments (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     INDEX idx_trait_comments_trait_created (trait_id, created_at),
     FOREIGN KEY (trait_id) REFERENCES traits(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS background_likes (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    background_id INT NOT NULL,
+    user_id INT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uniq_background_user (background_id, user_id),
+    INDEX idx_background_likes_background (background_id),
+    FOREIGN KEY (background_id) REFERENCES backgrounds(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS background_comments (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    background_id INT NOT NULL,
+    user_id INT NOT NULL,
+    content TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_background_comments_background_created (background_id, created_at),
+    FOREIGN KEY (background_id) REFERENCES backgrounds(id) ON DELETE CASCADE,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 

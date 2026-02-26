@@ -2,7 +2,7 @@ import { query } from '../../db/pool';
 
 export async function findUserByLogin(login: string) {
   const rows = await query<any[]>(
-    'SELECT id, login, password, role, nickname, flag_admin, flag_editor, flag_master FROM users WHERE login = ? LIMIT 1',
+    'SELECT id, login, password, role, nickname, flag_admin, flag_editor, flag_master, failed_login_attempts, is_blocked FROM users WHERE login = ? LIMIT 1',
     [login]
   );
   return rows && rows[0];
@@ -15,6 +15,18 @@ export async function findUserAuthById(id: number) {
 
 export async function touchUserLastSeenById(id: number) {
   return query<any>('UPDATE users SET last_seen_at = NOW() WHERE id = ?', [id]);
+}
+
+export async function increaseFailedLoginAttempts(userId: number) {
+  return query<any>('UPDATE users SET failed_login_attempts = failed_login_attempts + 1 WHERE id = ?', [userId]);
+}
+
+export async function blockUserById(userId: number) {
+  return query<any>('UPDATE users SET is_blocked = 1, blocked_at = NOW() WHERE id = ?', [userId]);
+}
+
+export async function resetFailedLoginAttempts(userId: number) {
+  return query<any>('UPDATE users SET failed_login_attempts = 0 WHERE id = ?', [userId]);
 }
 
 export async function insertUser(login: string, password: string, role: string, nickname: string, inviteCode: string) {

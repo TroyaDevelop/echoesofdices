@@ -1,11 +1,17 @@
 import { useEffect, useMemo, useState } from 'react';
 import PublicLayout from '../components/PublicLayout.jsx';
-import { spellClassesAPI, spellsAPI } from '../lib/api.js';
+import { sourcesAPI, spellClassesAPI, spellsAPI } from '../lib/api.js';
 import SpellListHeader from '../components/spells/SpellListHeader.jsx';
 import SpellGroupSection from '../components/spells/SpellGroupSection.jsx';
 
 const normalize = (v) => String(v || '').trim();
 const normalizeKey = (v) => normalize(v).toLowerCase();
+const normalizeSource = (v) => normalize(v).toLowerCase();
+const splitSources = (value) =>
+  String(value || '')
+    .split(/[,;/]+/)
+    .map((item) => normalizeSource(item))
+    .filter(Boolean);
 
 const splitClasses = (value) => {
   if (!value) return [];
@@ -26,9 +32,11 @@ export default function SpellsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [classOptions, setClassOptions] = useState([]);
+  const [sourceOptions, setSourceOptions] = useState([]);
 
   const [query, setQuery] = useState('');
   const [classFilter, setClassFilter] = useState('');
+  const [sourceFilters, setSourceFilters] = useState([]);
 
   const [groupMode, setGroupMode] = useState('alpha');
 
@@ -36,7 +44,7 @@ export default function SpellsPage() {
     setError('');
     setLoading(true);
     try {
-      const [data, classData] = await Promise.all([spellsAPI.list(), spellClassesAPI.list()]);
+      const [data, classData, sourceData] = await Promise.all([spellsAPI.list(), spellClassesAPI.list(), sourcesAPI.list()]);
       setSpells(Array.isArray(data) ? data : []);
       const normalized = Array.isArray(classData) ? classData : [];
       setClassOptions(
@@ -46,6 +54,21 @@ export default function SpellsPage() {
             label: String((item?.name ?? item) || '').trim(),
           }))
           .filter((item) => item.value && item.label)
+          .sort((a, b) => a.label.localeCompare(b.label, 'ru', { sensitivity: 'base' }))
+      );
+      const fromApi = (Array.isArray(sourceData) ? sourceData : [])
+        .map((item) => ({ value: normalizeSource(item?.name ?? item), label: normalize(item?.name ?? item) }))
+        .filter((item) => item.value && item.label);
+      const fromSpells = (Array.isArray(data) ? data : [])
+        .flatMap((s) => splitSources(s?.source).map((src) => ({ value: src, label: String(src || '').toUpperCase() })))
+        .filter((item) => item.value && item.label);
+      const merged = new Map();
+      [...fromApi, ...fromSpells].forEach((item) => {
+        if (!merged.has(item.value)) merged.set(item.value, item.label);
+      });
+      setSourceOptions(
+        Array.from(merged.entries())
+          .map(([value, label]) => ({ value, label }))
           .sort((a, b) => a.label.localeCompare(b.label, 'ru', { sensitivity: 'base' }))
       );
     } catch (e) {
@@ -63,18 +86,34 @@ export default function SpellsPage() {
   const filteredSorted = useMemo(() => {
     const q = normalize(query).toLowerCase();
     const cf = normalizeKey(classFilter);
+    const sf = new Set((sourceFilters || []).map(normalizeSource).filter(Boolean));
 
     const filtered = (spells || []).filter((s) => {
       if (q && !normalize(s.name).toLowerCase().includes(q)) return false;
       if (cf) {
         const classes = splitClasses(s?.classes).map(normalizeKey);
-        return classes.includes(cf);
+        if (!classes.includes(cf)) return false;
+      }
+      if (sf.size > 0) {
+        const sourceTokens = splitSources(s?.source);
+        const hasAnySelectedSource = sourceTokens.some((src) => sf.has(src));
+        if (!hasAnySelectedSource) return false;
       }
       return true;
     });
 
     return filtered.sort((a, b) => normalize(a.name).localeCompare(normalize(b.name), 'ru', { sensitivity: 'base' }));
-  }, [spells, query, classFilter]);
+  }, [spells, query, classFilter, sourceFilters]);
+
+  const toggleSourceFilter = (value) => {
+    const key = normalizeSource(value);
+    if (!key) return;
+    setSourceFilters((prev) => {
+      const exists = prev.includes(key);
+      if (exists) return prev.filter((x) => x !== key);
+      return [...prev, key];
+    });
+  };
 
   const grouped = useMemo(() => {
     if (groupMode === 'level') {
@@ -132,6 +171,10 @@ export default function SpellsPage() {
           classFilter={classFilter}
           onClassFilterChange={setClassFilter}
           classOptions={classOptions}
+          sourceOptions={sourceOptions}
+          selectedSources={sourceFilters}
+          onToggleSource={toggleSourceFilter}
+          onClearSources={() => setSourceFilters([])}
         />
 
         {error && <div className="text-red-200 bg-red-500/10 border border-red-500/30 rounded-xl p-4">{error}</div>}

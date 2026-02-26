@@ -1,9 +1,9 @@
-export default function BestiaryListHeader({ query, onQueryChange, sourceOptions, selectedSources, onToggleSource, onClearSources }) {
+export default function BackgroundsListHeader({ query, onQueryChange, sourceOptions, selectedSources, onToggleSource }) {
   return (
     <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
       <div>
-        <h1 className="text-3xl sm:text-4xl font-bold">Бестиарий</h1>
-        <p className="mt-2 text-slate-300">Монстры и существа.</p>
+        <h1 className="text-3xl sm:text-4xl font-bold">Предыстории</h1>
+        <p className="mt-2 text-slate-300">Группировка по алфавиту.</p>
       </div>
 
       {sourceOptions?.length ? (
@@ -39,7 +39,7 @@ export default function BestiaryListHeader({ query, onQueryChange, sourceOptions
         <input
           value={query}
           onChange={(e) => onQueryChange(e.target.value)}
-          placeholder="Поиск существа…"
+          placeholder="Поиск…"
           className="w-full bg-slate-900/60 border border-white/10 rounded-xl px-4 py-3"
         />
       </div>

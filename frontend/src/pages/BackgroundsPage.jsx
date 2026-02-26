@@ -1,19 +1,19 @@
 import { useEffect, useMemo, useState } from 'react';
 import PublicLayout from '../components/PublicLayout.jsx';
-import { sourcesAPI, wondrousItemsAPI } from '../lib/api.js';
-import WondrousItemsListHeader from '../components/wondrous-items/WondrousItemsListHeader.jsx';
-import WondrousItemGroupSection from '../components/wondrous-items/WondrousItemGroupSection.jsx';
+import { backgroundsAPI, sourcesAPI } from '../lib/api.js';
+import BackgroundsListHeader from '../components/backgrounds/BackgroundsListHeader.jsx';
+import BackgroundGroupSection from '../components/backgrounds/BackgroundGroupSection.jsx';
 
 const normalize = (v) => String(v || '').trim();
 const normalizeSource = (v) => normalize(v).toLowerCase();
 
 const firstGroupLetter = (name) => {
-  const n = normalize(name);
-  if (!n) return '#';
-  return n[0].toLocaleUpperCase('ru-RU');
+  const normalized = normalize(name);
+  if (!normalized) return '#';
+  return normalized[0].toLocaleUpperCase('ru-RU');
 };
 
-export default function WondrousItemsPage() {
+export default function BackgroundsPage() {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -25,8 +25,9 @@ export default function WondrousItemsPage() {
     setError('');
     setLoading(true);
     try {
-      const [data, sourceData] = await Promise.all([wondrousItemsAPI.list(), sourcesAPI.list()]);
+      const [data, sourceData] = await Promise.all([backgroundsAPI.list(), sourcesAPI.list()]);
       setItems(Array.isArray(data) ? data : []);
+
       const fromApi = (Array.isArray(sourceData) ? sourceData : [])
         .map((item) => ({ value: normalizeSource(item?.name ?? item), label: normalize(item?.name ?? item) }))
         .filter((item) => item.value && item.label);
@@ -44,7 +45,7 @@ export default function WondrousItemsPage() {
       );
     } catch (e) {
       console.error(e);
-      setError(e.message || 'Ошибка загрузки предметов');
+      setError(e.message || 'Ошибка загрузки предысторий');
     } finally {
       setLoading(false);
     }
@@ -55,13 +56,14 @@ export default function WondrousItemsPage() {
   }, []);
 
   const filteredSorted = useMemo(() => {
-    const q = normalize(query).toLowerCase();
-    const sf = new Set((sourceFilters || []).map(normalizeSource).filter(Boolean));
+    const normalizedQuery = normalize(query).toLowerCase();
+    const sourceSet = new Set((sourceFilters || []).map(normalizeSource).filter(Boolean));
+
     const filtered = (items || []).filter((item) => {
-      if (q && !normalize(item.name).toLowerCase().includes(q)) return false;
-      if (sf.size > 0) {
-        const src = normalizeSource(item?.source);
-        if (!sf.has(src)) return false;
+      if (normalizedQuery && !normalize(item.name).toLowerCase().includes(normalizedQuery)) return false;
+      if (sourceSet.size > 0) {
+        const source = normalizeSource(item?.source);
+        if (!sourceSet.has(source)) return false;
       }
       return true;
     });
@@ -74,7 +76,7 @@ export default function WondrousItemsPage() {
     if (!key) return;
     setSourceFilters((prev) => {
       const exists = prev.includes(key);
-      if (exists) return prev.filter((x) => x !== key);
+      if (exists) return prev.filter((item) => item !== key);
       return [...prev, key];
     });
   };
@@ -94,22 +96,24 @@ export default function WondrousItemsPage() {
       return a.localeCompare(b, 'ru', { sensitivity: 'base' });
     });
 
-    return sortedKeys.map((key) => {
-      const list = (byLetter.get(key) || []).slice().sort((a, b) => normalize(a.name).localeCompare(normalize(b.name), 'ru', { sensitivity: 'base' }));
-      return { id: `ltr:${key}`, title: key, items: list };
-    });
+    return sortedKeys.map((key) => ({
+      id: `ltr:${key}`,
+      title: key,
+      items: (byLetter.get(key) || [])
+        .slice()
+        .sort((a, b) => normalize(a.name).localeCompare(normalize(b.name), 'ru', { sensitivity: 'base' })),
+    }));
   }, [filteredSorted]);
 
   return (
     <PublicLayout>
       <div className="space-y-8">
-        <WondrousItemsListHeader
+        <BackgroundsListHeader
           query={query}
           onQueryChange={setQuery}
           sourceOptions={sourceOptions}
           selectedSources={sourceFilters}
           onToggleSource={toggleSourceFilter}
-          onClearSources={() => setSourceFilters([])}
         />
 
         {error && <div className="text-red-200 bg-red-500/10 border border-red-500/30 rounded-xl p-4">{error}</div>}
@@ -121,7 +125,7 @@ export default function WondrousItemsPage() {
         ) : (
           <div className="space-y-8">
             {grouped.map((group) => (
-              <WondrousItemGroupSection key={group.id} title={group.title} items={group.items} />
+              <BackgroundGroupSection key={group.id} title={group.title} items={group.items} />
             ))}
           </div>
         )}

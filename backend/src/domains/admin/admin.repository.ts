@@ -2,13 +2,13 @@ import { query } from '../../db/pool';
 
 export async function listUsers() {
   return query<any[]>(
-    'SELECT id, login, nickname, role, flag_admin, flag_editor, flag_master, created_at, updated_at FROM users ORDER BY created_at DESC',
+    'SELECT id, login, nickname, role, flag_admin, flag_editor, flag_master, failed_login_attempts, is_blocked, blocked_at, created_at, updated_at FROM users ORDER BY created_at DESC',
     []
   );
 }
 
 export async function findUserById(id: number) {
-  const rows = await query<any[]>('SELECT id, role, flag_admin, flag_editor, flag_master FROM users WHERE id = ? LIMIT 1', [id]);
+  const rows = await query<any[]>('SELECT id, role, flag_admin, flag_editor, flag_master, failed_login_attempts, is_blocked, blocked_at FROM users WHERE id = ? LIMIT 1', [id]);
   return rows && rows[0];
 }
 
@@ -64,4 +64,8 @@ export async function grantAward(userId: number, awardId: number, grantedBy: num
 
 export async function revokeAward(userId: number, awardId: number) {
   return query<any>('DELETE FROM user_awards WHERE user_id = ? AND award_id = ?', [userId, awardId]);
+}
+
+export async function unlockUserById(id: number) {
+  return query<any>('UPDATE users SET is_blocked = 0, failed_login_attempts = 0, blocked_at = NULL WHERE id = ?', [id]);
 }

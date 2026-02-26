@@ -11,6 +11,7 @@ import {
   listKeysHandler,
   listUsersHandler,
   revokeAwardHandler,
+  unlockUserHandler,
   updateAwardHandler,
   updateFlagsHandler,
 } from './admin.controller';
@@ -20,6 +21,7 @@ export const adminRouter = Router();
 adminRouter.get('/users', authenticateToken, requireAdminOnly, listUsersHandler);
 adminRouter.delete('/users/:id(\\d+)', authenticateToken, requireAdminOnly, deleteUserHandler);
 adminRouter.patch('/users/:id(\\d+)/flags', authenticateToken, requireAdminOnly, updateFlagsHandler);
+adminRouter.post('/users/:id(\d+)/unlock', authenticateToken, requireAdminOnly, unlockUserHandler);
 
 adminRouter.post('/registration-keys', authenticateToken, requireAdminOnly, createKeyHandler);
 adminRouter.get('/registration-keys', authenticateToken, requireAdminOnly, listKeysHandler);

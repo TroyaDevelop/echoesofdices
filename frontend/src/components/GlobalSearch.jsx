@@ -66,6 +66,7 @@ export default function GlobalSearch() {
     switch (type) {
       case 'spell': return 'Заклинание';
       case 'trait': return 'Черта';
+      case 'background': return 'Предыстория';
       case 'wondrous': return 'Предмет';
       case 'bestiary': return 'Бестиарий';
       case 'article': return 'Статья';

@@ -103,6 +103,7 @@ export const adminAPI = {
       body: JSON.stringify(flags || {}),
     }),
   deleteUser: (id) => apiClient(`/admin/users/${id}`, { method: 'DELETE' }),
+  unlockUser: (id) => apiClient(`/admin/users/${id}/unlock`, { method: 'POST' }),
   createRegistrationKey: () => apiClient('/admin/registration-keys', { method: 'POST' }),
   listRegistrationKeys: () => apiClient('/admin/registration-keys', { method: 'GET' }),
   
@@ -186,6 +187,25 @@ export const traitsAPI = {
   create: (data) => apiClient('/traits', { method: 'POST', body: JSON.stringify(data) }),
   update: (id, data) => apiClient(`/traits/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   remove: (id) => apiClient(`/traits/${id}`, { method: 'DELETE' }),
+};
+
+export const backgroundsAPI = {
+  list: () => apiClient('/backgrounds', { method: 'GET' }),
+  getById: (id) => apiClient(`/backgrounds/${id}`, { method: 'GET' }),
+  getLikes: (id) => apiClient(`/backgrounds/${id}/likes`, { method: 'GET' }),
+  like: (id) => apiClient(`/backgrounds/${id}/like`, { method: 'POST' }),
+  unlike: (id) => apiClient(`/backgrounds/${id}/like`, { method: 'DELETE' }),
+  listComments: (id) => apiClient(`/backgrounds/${id}/comments`, { method: 'GET' }),
+  addComment: (id, content) =>
+    apiClient(`/backgrounds/${id}/comments`, {
+      method: 'POST',
+      body: JSON.stringify({ content }),
+    }),
+  deleteComment: (backgroundId, commentId) => apiClient(`/backgrounds/${backgroundId}/comments/${commentId}`, { method: 'DELETE' }),
+  listAdmin: () => apiClient('/backgrounds/admin', { method: 'GET' }),
+  create: (data) => apiClient('/backgrounds', { method: 'POST', body: JSON.stringify(data) }),
+  update: (id, data) => apiClient(`/backgrounds/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  remove: (id) => apiClient(`/backgrounds/${id}`, { method: 'DELETE' }),
 };
 
 export const wondrousItemsAPI = {

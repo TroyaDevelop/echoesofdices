@@ -4,7 +4,16 @@ import crypto from 'crypto';
 import { JWT_SECRET } from '../../config/env';
 import { HttpError } from '../../utils/httpError';
 import { extractUserFlags } from '../../utils/permissions';
-import { claimRegistrationKey, findUserByLogin, findUserLoginExists, insertUser, markRegistrationKeyUsed } from './auth.repository';
+import {
+  blockUserById,
+  claimRegistrationKey,
+  findUserByLogin,
+  findUserLoginExists,
+  increaseFailedLoginAttempts,
+  insertUser,
+  markRegistrationKeyUsed,
+  resetFailedLoginAttempts,
+} from './auth.repository';
 
 export async function loginUser(login: string, password: string) {
   const loginValue = String(login || '').trim();
@@ -14,8 +23,24 @@ export async function loginUser(login: string, password: string) {
   const user = await findUserByLogin(loginValue);
   if (!user) throw new HttpError(401, 'Неверные учетные данные');
 
+  if (Number(user.is_blocked) === 1) {
+    throw new HttpError(403, 'Вы заблокированы');
+  }
+
   const validPassword = await bcrypt.compare(passwordValue, String(user.password));
-  if (!validPassword) throw new HttpError(401, 'Неверные учетные данные');
+  if (!validPassword) {
+    await increaseFailedLoginAttempts(Number(user.id));
+    const nextAttempts = Number(user.failed_login_attempts || 0) + 1;
+    if (nextAttempts >= 3) {
+      await blockUserById(Number(user.id));
+      throw new HttpError(403, 'Вы заблокированы');
+    }
+    throw new HttpError(401, 'Неверные учетные данные');
+  }
+
+  if (Number(user.failed_login_attempts || 0) > 0) {
+    await resetFailedLoginAttempts(Number(user.id));
+  }
 
   const flags = extractUserFlags(user);
   const token = jwt.sign({ userId: user.id, login: user.login, flags }, JWT_SECRET, { expiresIn: '24h' });

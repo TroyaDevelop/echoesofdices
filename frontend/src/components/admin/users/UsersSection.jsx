@@ -5,6 +5,7 @@ export default function UsersSection({
   formatDate,
   onChangeFlags,
   onAskDelete,
+  onUnlockUser,
   onManageAwards,
 }) {
   return (
@@ -26,6 +27,7 @@ export default function UsersSection({
                 <th className="py-2 pr-4">Логин</th>
                 <th className="py-2 pr-4">Ник</th>
                 <th className="py-2 pr-4">Флаги</th>
+                <th className="py-2 pr-4">Статус</th>
                 <th className="py-2 pr-4">Создан</th>
                 <th className="py-2 pr-4"></th>
               </tr>
@@ -38,6 +40,7 @@ export default function UsersSection({
                   editor: toBool(user?.flag_editor ?? user?.flags?.editor),
                   master: toBool(user?.flag_master ?? user?.flags?.master),
                 };
+                const isBlocked = toBool(user?.is_blocked);
 
                 const toggleFlag = (name) => {
                   onChangeFlags(user, { ...flags, [name]: !flags[name] });
@@ -63,9 +66,25 @@ export default function UsersSection({
                         </label>
                       </div>
                     </td>
+                    <td className="py-2 pr-4">
+                      {isBlocked ? (
+                        <span className="inline-flex items-center rounded-full bg-red-100 text-red-700 px-2 py-0.5 text-xs">Заблокирован</span>
+                      ) : (
+                        <span className="inline-flex items-center rounded-full bg-emerald-100 text-emerald-700 px-2 py-0.5 text-xs">Активен</span>
+                      )}
+                    </td>
                     <td className="py-2 pr-4">{formatDate(user.created_at)}</td>
                     <td className="py-2 pr-4">
                       <div className="flex items-center justify-end gap-2">
+                        {isBlocked ? (
+                          <button
+                            type="button"
+                            onClick={() => onUnlockUser(user)}
+                            className="px-3 py-1.5 rounded-lg border border-emerald-200 text-sm text-emerald-700 hover:bg-emerald-50"
+                          >
+                            Разблокировать
+                          </button>
+                        ) : null}
                         <button
                           type="button"
                           onClick={() => onManageAwards(user)}

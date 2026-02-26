@@ -12,6 +12,7 @@ import {
   listRegistrationKeys,
   listUsers,
   revokeAward,
+  unlockUserById,
   updateAward,
   updateUserFlags,
 } from './admin.repository';
@@ -96,5 +97,13 @@ export async function grantAwardToUser(userId: number, awardId: number, grantedB
 export async function revokeAwardFromUser(userId: number, awardId: number) {
   if (!Number.isFinite(userId) || !Number.isFinite(awardId)) throw new HttpError(400, 'Некорректные параметры');
   await revokeAward(userId, awardId);
+  return { ok: true };
+}
+
+export async function unlockUser(id: number) {
+  if (!Number.isFinite(id)) throw new HttpError(400, 'Некорректный id');
+  const user = await findUserById(id);
+  if (!user) throw new HttpError(404, 'Пользователь не найден');
+  await unlockUserById(id);
   return { ok: true };
 }

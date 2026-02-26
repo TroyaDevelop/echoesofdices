@@ -2,7 +2,7 @@ import { query as dbQuery } from '../../db/pool';
 
 export interface SearchResult {
   id: string | number;
-  type: 'spell' | 'trait' | 'wondrous' | 'bestiary' | 'article' | 'lore';
+  type: 'spell' | 'trait' | 'background' | 'wondrous' | 'bestiary' | 'article' | 'lore';
   title: string;
   subtitle?: string;
   url: string;
@@ -37,6 +37,19 @@ export const searchRepository = {
       title: t.name,
       subtitle: t.name_en,
       url: `/traits/${t.id}`
+    }));
+
+    // Backgrounds
+    const backgrounds = await dbQuery<any[]>(
+      `SELECT id, name, name_en FROM backgrounds WHERE name LIKE ? OR name_en LIKE ? LIMIT 5`,
+      [likeQuery, likeQuery]
+    );
+    backgrounds.forEach(b => results.push({
+      id: b.id,
+      type: 'background',
+      title: b.name,
+      subtitle: b.name_en,
+      url: `/backgrounds/${b.id}`
     }));
 
     // Wondrous Items
