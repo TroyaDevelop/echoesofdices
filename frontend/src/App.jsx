@@ -35,6 +35,7 @@ import AdminMarketPage from './pages/admin/MarketPage.jsx';
 import AdminScreenEncountersPage from './pages/admin/ScreenEncountersPage.jsx';
 import AdminBattleSessionPage from './pages/admin/BattleSessionPage.jsx';
 import WordCountPage from './pages/WordCountPage.jsx';
+import RequireAuth from './components/auth/RequireAuth.jsx';
 
 export default function App() {
   return (
@@ -56,7 +57,14 @@ export default function App() {
       <Route path="/lore" element={<LorePage />} />
       <Route path="/lore/:slug" element={<LoreDetailPage />} />
       <Route path="/market" element={<MarketPage />} />
-      <Route path="/profile" element={<ProfilePage />} />
+      <Route
+        path="/profile"
+        element={(
+          <RequireAuth>
+            <ProfilePage />
+          </RequireAuth>
+        )}
+      />
       <Route path="/profile/:id" element={<FriendProfilePage />} />
       <Route path="/tools/word-count" element={<WordCountPage />} />
 
