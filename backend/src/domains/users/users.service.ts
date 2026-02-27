@@ -244,85 +244,8 @@ const characterSaveFields = [
 
 const characterDeathSaveFields = ['death_save_success', 'death_save_failure'];
 
-const legacyCharacterFields = [
-  'character_name',
-  'race',
-  'class_name',
-  'subclass_name',
-  'background',
-  'alignment',
-  'character_image_url',
-  'character_images_json',
-  'hit_dice_type',
-  'hit_dice_count',
-  'hit_dice_json',
-  'character_level',
-  'xp_current',
-  'xp_max',
-  'strength',
-  'dexterity',
-  'constitution',
-  'intelligence',
-  'wisdom',
-  'charisma',
-  'skill_acrobatics',
-  'skill_animal_handling',
-  'skill_arcana',
-  'skill_athletics',
-  'skill_deception',
-  'skill_history',
-  'skill_insight',
-  'skill_intimidation',
-  'skill_investigation',
-  'skill_medicine',
-  'skill_nature',
-  'skill_perception',
-  'skill_performance',
-  'skill_persuasion',
-  'skill_religion',
-  'skill_sleight_of_hand',
-  'skill_stealth',
-  'skill_survival',
-  'hp_max',
-  'hp_current',
-  'temp_hp',
-  'armor_class',
-  'speed',
-  'initiative_bonus',
-  'inspiration',
-  'gold_cp',
-  'gold_sp',
-  'gold_gp',
-  'gold_pp',
-  'save_strength',
-  'save_dexterity',
-  'save_constitution',
-  'save_intelligence',
-  'save_wisdom',
-  'save_charisma',
-  'attacks_json',
-  'spells_json',
-  'spell_slots_json',
-  'features_traits',
-  'other_proficiencies',
-  'personality',
-  'ideals',
-  'bonds',
-  'flaws',
-  'conditions',
-  'notes',
-  'equipment',
-  'spellcasting_ability',
-  'death_save_success',
-  'death_save_failure',
-];
-
 function stripUndefined(fields: Record<string, any>) {
   return Object.fromEntries(Object.entries(fields).filter(([, v]) => v !== undefined));
-}
-
-function hasLegacyCharacterData(user: any) {
-  return legacyCharacterFields.some((key) => user?.[key] !== null && user?.[key] !== undefined && user?.[key] !== '');
 }
 
 function buildCharacterMerged(existing: any, body: any) {
@@ -454,19 +377,6 @@ function buildCharacterMerged(existing: any, body: any) {
 }
 
 export async function listMyCharacters(userId: number) {
-  const existing = await listCharacterSheets(userId);
-  if (existing.length > 0) return existing;
-
-  const user = await findUserById(userId);
-  if (!user || !hasLegacyCharacterData(user)) return [];
-
-  const legacyFields = stripUndefined(
-    legacyCharacterFields.reduce((acc, key) => {
-      acc[key] = user[key];
-      return acc;
-    }, {} as Record<string, any>)
-  );
-  await createCharacterSheet(userId, legacyFields);
   return listCharacterSheets(userId);
 }
 

@@ -34,18 +34,18 @@ const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
 const percentForSell = (result, isCritical) => {
   if (isCritical) return 1;
   const numeric = Math.trunc(Number(result || 0));
-  const capped = clamp(numeric, 1, 60);
-  const t = (capped - 1) / 59;
-  const eased = Math.pow(t, 1.35);
+  const capped = clamp(numeric, 1, 100);
+  const t = (capped - 1) / 99;
+  const eased = Math.pow(t, 2.2);
   return 0.10 + 0.85 * eased;
 };
 
 const percentForBuy = (result, roll) => {
   if (roll === 20) return 1 / 3;
   const numeric = Math.trunc(Number(result || 0));
-  const capped = clamp(numeric, 1, 60);
-  const t = (capped - 1) / 59;
-  const eased = Math.pow(t, 1.35);
+  const capped = clamp(numeric, 1, 100);
+  const t = (capped - 1) / 99;
+  const eased = Math.pow(t, 2.2);
   return 1.9 - 0.95 * eased;
 };
 

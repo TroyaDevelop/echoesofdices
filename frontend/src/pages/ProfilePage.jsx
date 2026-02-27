@@ -63,6 +63,21 @@ export default function ProfilePage() {
   );
 
   useEffect(() => {
+    const onAuthLogout = () => {
+      setProfile(null);
+      setCharacters([]);
+      setFavorites([]);
+      setAwards([]);
+      navigate('/login', { replace: true });
+    };
+
+    window.addEventListener('auth:logout', onAuthLogout);
+    return () => {
+      window.removeEventListener('auth:logout', onAuthLogout);
+    };
+  }, [navigate]);
+
+  useEffect(() => {
     let isActive = true;
 
     const load = async () => {
