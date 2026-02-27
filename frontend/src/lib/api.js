@@ -43,7 +43,7 @@ const apiClient = async (path, options = {}) => {
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
 
-    if (res.status === 401) {
+    if (res.status === 401 || (res.status === 403 && body?.error === 'Недействительный токен')) {
       clearAuthState();
     }
 

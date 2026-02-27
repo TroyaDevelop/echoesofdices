@@ -32,14 +32,14 @@ export async function authenticateToken(req: Request, res: Response, next: NextF
   try {
     const authUser = await resolveAuthUserFromToken(token);
     if (!authUser) {
-      res.status(403).json({ error: 'Недействительный токен' });
+      res.status(401).json({ error: 'Недействительный токен' });
       return;
     }
     req.user = authUser;
     touchUserLastSeenById(authUser.userId).catch(() => {});
     next();
   } catch {
-    res.status(403).json({ error: 'Недействительный токен' });
+    res.status(401).json({ error: 'Недействительный токен' });
   }
 }
 

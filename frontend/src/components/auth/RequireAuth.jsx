@@ -3,7 +3,16 @@ import { Navigate } from 'react-router-dom';
 
 const hasToken = () => {
   try {
-    return Boolean(localStorage.getItem('token'));
+    const token = localStorage.getItem('token');
+    if (!token) return false;
+    
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    if (payload.exp && payload.exp * 1000 < Date.now()) {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      return false;
+    }
+    return true;
   } catch {
     return false;
   }
