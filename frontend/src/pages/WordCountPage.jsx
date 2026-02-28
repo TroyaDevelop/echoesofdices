@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import PublicLayout from '../components/PublicLayout.jsx';
 import { toolsAPI } from '../lib/api.js';
 
@@ -33,6 +33,61 @@ export default function WordCountPage() {
     return () => clearTimeout(timer);
   }, [text]);
 
+  const waveRanges = useMemo(() => {
+    const ranges = (Array.isArray(spellErrors) ? spellErrors : [])
+      .map((err) => {
+        const start = Number(err?.pos);
+        const length = Number(err?.len);
+        if (!Number.isFinite(start) || !Number.isFinite(length) || length <= 0) return null;
+        return { start: Math.max(0, Math.trunc(start)), end: Math.max(0, Math.trunc(start + length)) };
+      })
+      .filter(Boolean)
+      .sort((a, b) => a.start - b.start);
+
+    if (!ranges.length) return [];
+
+    const merged = [ranges[0]];
+    for (let i = 1; i < ranges.length; i += 1) {
+      const current = ranges[i];
+      const last = merged[merged.length - 1];
+      if (current.start <= last.end) {
+        last.end = Math.max(last.end, current.end);
+      } else {
+        merged.push(current);
+      }
+    }
+    return merged;
+  }, [spellErrors]);
+
+  const highlightedPreview = useMemo(() => {
+    if (!text || !waveRanges.length) return null;
+
+    const parts = [];
+    let cursor = 0;
+
+    waveRanges.forEach((range, index) => {
+      if (range.start > cursor) {
+        parts.push(<span key={`plain_${index}`}>{text.slice(cursor, range.start)}</span>);
+      }
+      const slice = text.slice(range.start, range.end);
+      parts.push(
+        <span
+          key={`err_${index}`}
+          style={{ textDecorationLine: 'underline', textDecorationStyle: 'wavy', textDecorationColor: '#ef4444', textUnderlineOffset: '2px' }}
+        >
+          {slice}
+        </span>,
+      );
+      cursor = range.end;
+    });
+
+    if (cursor < text.length) {
+      parts.push(<span key="plain_tail">{text.slice(cursor)}</span>);
+    }
+
+    return parts;
+  }, [text, waveRanges]);
+
   return (
     <PublicLayout>
       <div className="max-w-4xl mx-auto">
@@ -63,6 +118,12 @@ export default function WordCountPage() {
               </span>
             </div>
           </div>
+
+          {highlightedPreview ? (
+            <div className="mt-4 bg-black/30 border border-white/10 rounded-lg p-4 text-slate-200 whitespace-pre-wrap leading-relaxed">
+              {highlightedPreview}
+            </div>
+          ) : null}
         </div>
 
         {spellErrors.length > 0 && (

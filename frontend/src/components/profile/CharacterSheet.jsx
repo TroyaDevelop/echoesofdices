@@ -68,6 +68,44 @@ const SPELL_SLOT_LEVELS = [1, 2, 3, 4, 5, 6, 7, 8, 9];
 const EMPTY_SPELL_SLOTS = Object.fromEntries(SPELL_SLOT_LEVELS.map((slotLevel) => [String(slotLevel), '']));
 const EMPTY_SPELL_SLOT_USAGE = Object.fromEntries(SPELL_SLOT_LEVELS.map((slotLevel) => [String(slotLevel), []]));
 
+const isNotesHtml = (value) => /<\s*\/?\s*(p|br|h1|h2|h3|h4|h5|h6|strong|em|i|b|u|code|blockquote|ul|ol|li|div)\b/i.test(String(value || ''));
+
+const escapeHtml = (value) => String(value || '')
+  .replaceAll('&', '&amp;')
+  .replaceAll('<', '&lt;')
+  .replaceAll('>', '&gt;')
+  .replaceAll('"', '&quot;')
+  .replaceAll("'", '&#39;');
+
+const markdownInlineToHtml = (line) => {
+  let html = escapeHtml(line);
+  html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
+  html = html.replace(/`(.+?)`/g, '<code>$1</code>');
+  return html;
+};
+
+const markdownNotesToHtml = (value) => {
+  const normalized = String(value || '').replaceAll('\r\n', '\n').trim();
+  if (!normalized) return '';
+  const lines = normalized.split('\n');
+  return lines
+    .map((line) => {
+      const heading = line.match(/^\s*##\s+(.+)$/);
+      if (heading) return `<h4>${markdownInlineToHtml(heading[1])}</h4>`;
+      if (!line.trim()) return '<p><br></p>';
+      return `<p>${markdownInlineToHtml(line)}</p>`;
+    })
+    .join('');
+};
+
+const normalizeNotesContent = (value) => {
+  const source = String(value || '').trim();
+  if (!source) return '';
+  if (isNotesHtml(source)) return source;
+  return markdownNotesToHtml(source);
+};
+
 const normalizeSpellSlotsState = (rawValue) => {
   const totals = { ...EMPTY_SPELL_SLOTS };
   const usage = { ...EMPTY_SPELL_SLOT_USAGE };
@@ -235,6 +273,7 @@ export default function CharacterSheet({ character, owner, onSaved, readOnly = f
   const [features, setFeatures] = useState('');
   const [notes, setNotes] = useState('');
   const [equipment, setEquipment] = useState('');
+  const [notesMenu, setNotesMenu] = useState({ open: false, x: 0, y: 0 });
 
   
   const [attacks, setAttacks] = useState([]);
@@ -253,7 +292,7 @@ export default function CharacterSheet({ character, owner, onSaved, readOnly = f
   const imageInputRef = useRef(null);
   const lssImportInputRef = useRef(null);
   const formRef = useRef(null);
-  const notesTextareaRef = useRef(null);
+  const notesEditorRef = useRef(null);
 
   const textareaHeightsStorageKey = useMemo(() => {
     const id = character?.id;
@@ -437,7 +476,7 @@ export default function CharacterSheet({ character, owner, onSaved, readOnly = f
     setFlaws(init('flaws'));
     setOtherProf(init('other_proficiencies'));
     setFeatures(init('features_traits'));
-    setNotes(init('notes'));
+    setNotes(normalizeNotesContent(init('notes')));
     setEquipment(init('equipment'));
     setDeathSaveSuccess(initInt('death_save_success', 0));
     setDeathSaveFailure(initInt('death_save_failure', 0));
@@ -839,7 +878,7 @@ export default function CharacterSheet({ character, owner, onSaved, readOnly = f
           if (imported.bonds != null) setBonds(imported.bonds || '');
           if (imported.flaws != null) setFlaws(imported.flaws || '');
           if (imported.other_proficiencies != null) setOtherProf(imported.other_proficiencies || '');
-          if (imported.notes != null) setNotes(imported.notes || '');
+          if (imported.notes != null) setNotes(normalizeNotesContent(imported.notes || ''));
           if (imported.death_save_success != null) setDeathSaveSuccess(imported.death_save_success);
           if (imported.death_save_failure != null) setDeathSaveFailure(imported.death_save_failure);
           if (imported.attacks_json) {
@@ -987,38 +1026,79 @@ export default function CharacterSheet({ character, owner, onSaved, readOnly = f
     });
   }, []);
 
+  const closeNotesMenu = useCallback(() => {
+    setNotesMenu((prev) => (prev.open ? { ...prev, open: false } : prev));
+  }, []);
+
+  const syncNotesFromEditor = useCallback(() => {
+    const editor = notesEditorRef.current;
+    if (!editor) return;
+    const next = String(editor.innerHTML || '').trim();
+    setNotes(next);
+  }, []);
+
+  const applyNotesFormat = useCallback((command, value = null) => {
+    const editor = notesEditorRef.current;
+    if (!editor || readOnly) return;
+    editor.focus();
+    document.execCommand(command, false, value);
+    syncNotesFromEditor();
+    closeNotesMenu();
+  }, [closeNotesMenu, readOnly, syncNotesFromEditor]);
+
   const formatNotes = useCallback((type) => {
-    const textarea = notesTextareaRef.current;
-    if (!textarea) return;
+    if (type === 'bold') {
+      applyNotesFormat('bold');
+      return;
+    }
+    if (type === 'italic') {
+      applyNotesFormat('italic');
+      return;
+    }
+  }, [applyNotesFormat]);
 
-    const start = textarea.selectionStart ?? 0;
-    const end = textarea.selectionEnd ?? start;
-    const before = notes.slice(0, start);
-    const selected = notes.slice(start, end);
-    const after = notes.slice(end);
-
-    let next = notes;
-    let nextStart = start;
-    let nextEnd = end;
-
-    if (type === 'bold' || type === 'italic' || type === 'code') {
-      const token = type === 'bold' ? '**' : type === 'italic' ? '*' : '`';
-      next = `${before}${token}${selected}${token}${after}`;
-      nextStart = start + token.length;
-      nextEnd = nextStart + selected.length;
-    } else if (type === 'title') {
-      const prefix = '## ';
-      next = `${before}${prefix}${selected}${after}`;
-      nextStart = start + prefix.length;
-      nextEnd = nextStart + selected.length;
+  const onNotesContextMenu = useCallback((event) => {
+    if (readOnly) return;
+    const editor = notesEditorRef.current;
+    if (!editor) return;
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0 || selection.isCollapsed) {
+      closeNotesMenu();
+      return;
+    }
+    const range = selection.getRangeAt(0);
+    if (!editor.contains(range.commonAncestorContainer)) {
+      closeNotesMenu();
+      return;
     }
 
-    setNotes(next);
-    requestAnimationFrame(() => {
-      textarea.focus();
-      textarea.setSelectionRange(nextStart, nextEnd);
-    });
-  }, [notes]);
+    event.preventDefault();
+    setNotesMenu({ open: true, x: event.clientX, y: event.clientY });
+  }, [closeNotesMenu, readOnly]);
+
+  useEffect(() => {
+    const onPointerDown = () => closeNotesMenu();
+    const onEscape = (event) => {
+      if (event.key === 'Escape') closeNotesMenu();
+    };
+
+    window.addEventListener('pointerdown', onPointerDown);
+    window.addEventListener('keydown', onEscape);
+    return () => {
+      window.removeEventListener('pointerdown', onPointerDown);
+      window.removeEventListener('keydown', onEscape);
+    };
+  }, [closeNotesMenu]);
+
+  useEffect(() => {
+    const editor = notesEditorRef.current;
+    if (!editor) return;
+    const current = String(editor.innerHTML || '');
+    const target = String(notes || '');
+    if (current !== target) {
+      editor.innerHTML = target;
+    }
+  }, [notes, panel]);
 
   
   const autoSaveKey = useMemo(() => JSON.stringify(buildPayload()), [buildPayload]);
@@ -1436,23 +1516,27 @@ export default function CharacterSheet({ character, owner, onSaved, readOnly = f
             )}
             {panel === 'notes' && (
               <div className="cs-stack">
-                {!readOnly ? (
-                  <div className="cs-notes-toolbar">
-                    <button type="button" className="cs-notes-btn" onClick={() => formatNotes('title')}>Заголовок</button>
-                    <button type="button" className="cs-notes-btn" onClick={() => formatNotes('bold')}>Жирный</button>
-                    <button type="button" className="cs-notes-btn" onClick={() => formatNotes('italic')}>Курсив</button>
+                <div
+                  ref={notesEditorRef}
+                  className="cs-ta cs-ta--notes cs-notes-editor"
+                  contentEditable={!readOnly}
+                  suppressContentEditableWarning
+                  onInput={syncNotesFromEditor}
+                  onBlur={syncNotesFromEditor}
+                  onContextMenu={onNotesContextMenu}
+                  data-placeholder="Заметки"
+                />
+
+                {!readOnly && notesMenu.open ? (
+                  <div
+                    className="cs-notes-context"
+                    style={{ top: `${notesMenu.y}px`, left: `${notesMenu.x}px` }}
+                    onPointerDown={(e) => e.stopPropagation()}
+                  >
+                    <button type="button" className="cs-notes-context-btn" onClick={() => formatNotes('bold')}>Жирный</button>
+                    <button type="button" className="cs-notes-context-btn" onClick={() => formatNotes('italic')}>Курсив</button>
                   </div>
                 ) : null}
-
-                <textarea
-                  ref={notesTextareaRef}
-                  {...bindTextareaSize('notes')}
-                  rows={12}
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  className="cs-ta cs-ta--notes"
-                  placeholder="Заметки"
-                />
               </div>
             )}
             {panel === 'spells' && (

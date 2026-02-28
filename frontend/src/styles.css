@@ -696,7 +696,63 @@ body {
 .cs-ta:focus { border-color: rgba(139,92,246,.4); }
 
 .cs-ta--notes {
-  max-height: 2080px;
+  min-height: 220px;
+  height: 260px;
+  max-height: 260px;
+  overflow-y: auto;
+  resize: none;
+}
+
+.cs-notes-editor {
+  line-height: 1.55;
+}
+
+.cs-notes-editor:empty:before {
+  content: attr(data-placeholder);
+  color: #6b7280;
+}
+
+.cs-notes-editor p { margin: 0 0 8px; }
+.cs-notes-editor p:last-child { margin-bottom: 0; }
+.cs-notes-editor h4 {
+  margin: 0 0 8px;
+  color: #f1f1f8;
+  letter-spacing: .03em;
+  font-weight: 700;
+}
+.cs-notes-editor code {
+  background: rgba(0,0,0,.45);
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 6px;
+  padding: 1px 4px;
+  font-size: 11px;
+}
+
+.cs-notes-context {
+  position: fixed;
+  z-index: 120;
+  display: flex;
+  gap: 4px;
+  padding: 6px;
+  border-radius: 10px;
+  border: 1px solid rgba(139,92,246,.45);
+  background: rgba(8,7,22,.96);
+  box-shadow: 0 12px 24px rgba(0,0,0,.45);
+}
+
+.cs-notes-context-btn {
+  border: 1px solid rgba(255,255,255,.12);
+  background: rgba(255,255,255,.04);
+  color: #e2e4f0;
+  border-radius: 8px;
+  padding: 5px 8px;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.cs-notes-context-btn:hover {
+  border-color: rgba(139,92,246,.55);
+  background: rgba(139,92,246,.16);
 }
 
 .cs-notes-toolbar {
@@ -722,6 +778,8 @@ body {
   border-radius: 10px;
   background: rgba(0,0,0,.18);
   padding: 8px 10px;
+  max-height: 200px;
+  overflow-y: auto;
 }
 
 .cs-notes-preview {
@@ -871,7 +929,42 @@ body {
 }
 .cs-spell-result:hover { border-color: rgba(139,92,246,.35); background: rgba(139,92,246,.08); }
 .cs-spell-add { font-weight: 700; color: #a78bfa; }
-.cs-spell-list { display: flex; flex-direction: column; gap: 6px; }
+.cs-spell-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 480px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+.cs-spell-list,
+.cs-ta--notes {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(139,92,246,.55) rgba(255,255,255,.05);
+}
+
+.cs-spell-list::-webkit-scrollbar,
+.cs-ta--notes::-webkit-scrollbar {
+  width: 8px;
+}
+
+.cs-spell-list::-webkit-scrollbar-track,
+.cs-ta--notes::-webkit-scrollbar-track {
+  background: rgba(255,255,255,.05);
+  border-radius: 999px;
+}
+
+.cs-spell-list::-webkit-scrollbar-thumb,
+.cs-ta--notes::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(167,139,250,.85), rgba(124,58,237,.85));
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,.18);
+}
+
+.cs-spell-list::-webkit-scrollbar-thumb:hover,
+.cs-ta--notes::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, rgba(196,181,253,.95), rgba(139,92,246,.95));
+}
 .cs-spell-empty { font-size: 12px; color: #8b90b2; }
 .cs-spell-groups { display: flex; flex-direction: column; gap: 10px; }
 .cs-spell-group-title {
