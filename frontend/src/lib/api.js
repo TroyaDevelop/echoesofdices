@@ -53,7 +53,13 @@ const apiClient = async (path, options = {}) => {
     throw error;
   }
 
-  return res.json();
+  const raw = await res.text();
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
 };
 
 export const searchAPI = {

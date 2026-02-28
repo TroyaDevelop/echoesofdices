@@ -58,8 +58,13 @@ export async function createCharacterSheet(userId: number, fields: Record<string
   const cols = ['user_id', ...Object.keys(fields)];
   const vals = [userId, ...Object.values(fields)];
   const placeholders = cols.map(() => '?').join(', ');
-  await query(`INSERT INTO user_character_sheets (${cols.map((c) => `\`${c}\``).join(', ')}) VALUES (${placeholders})`, vals);
-  const rows = await query<any[]>('SELECT * FROM user_character_sheets WHERE id = LAST_INSERT_ID() LIMIT 1', []);
+  const result = await query<any>(`INSERT INTO user_character_sheets (${cols.map((c) => `\`${c}\``).join(', ')}) VALUES (${placeholders})`, vals);
+  const insertedIdRaw = result?.insertId;
+  const insertedId = typeof insertedIdRaw === 'bigint' ? Number(insertedIdRaw) : Number(insertedIdRaw);
+  if (!Number.isFinite(insertedId) || insertedId <= 0) {
+    return null;
+  }
+  const rows = await query<any[]>('SELECT * FROM user_character_sheets WHERE id = ? AND user_id = ? LIMIT 1', [insertedId, userId]);
   return rows && rows[0];
 }
 
