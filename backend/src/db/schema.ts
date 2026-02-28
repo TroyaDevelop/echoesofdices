@@ -120,6 +120,21 @@ export async function ensureRuntimeSchema(): Promise<void> {
   );
 
   await query(
+    'CREATE TABLE IF NOT EXISTS user_daily_likes (id BIGINT PRIMARY KEY AUTO_INCREMENT, from_user_id INT NOT NULL, to_user_id INT NOT NULL, like_day DATE NOT NULL DEFAULT (CURDATE()), created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, UNIQUE KEY uniq_user_daily_like_sender_day (from_user_id, like_day), INDEX idx_user_daily_likes_to_user (to_user_id), INDEX idx_user_daily_likes_day (like_day), FOREIGN KEY (from_user_id) REFERENCES users(id) ON DELETE CASCADE, FOREIGN KEY (to_user_id) REFERENCES users(id) ON DELETE CASCADE)',
+    []
+  );
+
+  await query(
+    'CREATE TABLE IF NOT EXISTS user_master_honors (id BIGINT PRIMARY KEY AUTO_INCREMENT, user_id INT NOT NULL, master_user_id INT NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, UNIQUE KEY uniq_user_master_honor (user_id, master_user_id), INDEX idx_master_honors_master (master_user_id), INDEX idx_master_honors_user (user_id), FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE, FOREIGN KEY (master_user_id) REFERENCES users(id) ON DELETE CASCADE)',
+    []
+  );
+
+  await query(
+    'CREATE TABLE IF NOT EXISTS master_reviews (id BIGINT PRIMARY KEY AUTO_INCREMENT, master_user_id INT NOT NULL, reviewer_user_id INT NOT NULL, content TEXT NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, INDEX idx_master_reviews_master_created (master_user_id, created_at), INDEX idx_master_reviews_reviewer (reviewer_user_id), FOREIGN KEY (master_user_id) REFERENCES users(id) ON DELETE CASCADE, FOREIGN KEY (reviewer_user_id) REFERENCES users(id) ON DELETE CASCADE)',
+    []
+  );
+
+  await query(
     'CREATE TABLE IF NOT EXISTS user_character_sheets (id INT PRIMARY KEY AUTO_INCREMENT, user_id INT NOT NULL, character_name VARCHAR(100), race VARCHAR(100), class_name VARCHAR(100), subclass_name VARCHAR(100), background VARCHAR(100), alignment VARCHAR(60), character_image_url VARCHAR(500), character_images_json TEXT, hit_dice_type VARCHAR(5), hit_dice_count TINYINT, hit_dice_json TEXT, character_level TINYINT, strength SMALLINT, dexterity SMALLINT, constitution SMALLINT, intelligence SMALLINT, wisdom SMALLINT, charisma SMALLINT, skill_acrobatics TINYINT, skill_animal_handling TINYINT, skill_arcana TINYINT, skill_athletics TINYINT, skill_deception TINYINT, skill_history TINYINT, skill_insight TINYINT, skill_intimidation TINYINT, skill_investigation TINYINT, skill_medicine TINYINT, skill_nature TINYINT, skill_perception TINYINT, skill_performance TINYINT, skill_persuasion TINYINT, skill_religion TINYINT, skill_sleight_of_hand TINYINT, skill_stealth TINYINT, skill_survival TINYINT, xp_current INT DEFAULT 0, xp_max INT DEFAULT 0, hp_max SMALLINT, hp_current SMALLINT, temp_hp SMALLINT DEFAULT 0, armor_class SMALLINT, speed SMALLINT DEFAULT 30, initiative_bonus SMALLINT DEFAULT 0, inspiration TINYINT(1) DEFAULT 0, gold_cp INT DEFAULT 0, gold_sp INT DEFAULT 0, gold_gp INT DEFAULT 0, gold_pp INT DEFAULT 0, save_strength TINYINT DEFAULT 0, save_dexterity TINYINT DEFAULT 0, save_constitution TINYINT DEFAULT 0, save_intelligence TINYINT DEFAULT 0, save_wisdom TINYINT DEFAULT 0, save_charisma TINYINT DEFAULT 0, death_save_success TINYINT DEFAULT 0, death_save_failure TINYINT DEFAULT 0, attacks_json TEXT, spells_json TEXT, spell_slots_json TEXT, features_traits TEXT, other_proficiencies TEXT, personality TEXT, ideals TEXT, bonds TEXT, flaws TEXT, conditions VARCHAR(500), notes TEXT, equipment TEXT, spellcasting_ability VARCHAR(20), created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, INDEX idx_character_sheets_user (user_id), FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE)',
     []
   );

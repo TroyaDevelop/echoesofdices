@@ -16,6 +16,7 @@ import ArticleDetailPage from './pages/ArticleDetailPage.jsx';
 import LorePage from './pages/LorePage.jsx';
 import LoreDetailPage from './pages/LoreDetailPage.jsx';
 import MarketPage from './pages/MarketPage.jsx';
+import CommunityPage from './pages/CommunityPage.jsx';
 import ProfilePage from './pages/ProfilePage.jsx';
 import FriendProfilePage from './pages/FriendProfilePage.jsx';
 import LoginPage from './pages/admin/LoginPage.jsx';
@@ -58,6 +59,14 @@ export default function App() {
       <Route path="/lore/:slug" element={<LoreDetailPage />} />
       <Route path="/market" element={<MarketPage />} />
       <Route
+        path="/community"
+        element={(
+          <RequireAuth>
+            <CommunityPage />
+          </RequireAuth>
+        )}
+      />
+      <Route
         path="/profile"
         element={(
           <RequireAuth>
@@ -65,7 +74,14 @@ export default function App() {
           </RequireAuth>
         )}
       />
-      <Route path="/profile/:id" element={<FriendProfilePage />} />
+      <Route
+        path="/profile/:id"
+        element={(
+          <RequireAuth>
+            <FriendProfilePage />
+          </RequireAuth>
+        )}
+      />
       <Route path="/tools/word-count" element={<WordCountPage />} />
 
       <Route path="/login" element={<LoginPage />} />

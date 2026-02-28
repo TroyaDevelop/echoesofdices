@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import { HttpError } from '../../utils/httpError';
 import {
+  clearHonorForMaster,
   createRegistrationKey,
   deleteAward,
   deleteUserById,
@@ -43,6 +44,9 @@ export async function changeFlags(id: number, input: any) {
   };
 
   await updateUserFlags(id, flags);
+  if (Number(user.flag_master || 0) === 1 && !flags.master) {
+    await clearHonorForMaster(id);
+  }
   return { id, role: 'user', flags };
 }
 

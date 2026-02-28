@@ -331,12 +331,19 @@ export const screenAPI = {
 
 export const socialAPI = {
   sendRequest: (inviteCode) => apiClient('/social/friends/request', { method: 'POST', body: JSON.stringify({ inviteCode }) }),
+  sendRequestByUserId: (targetUserId) => apiClient('/social/friends/request-by-id', { method: 'POST', body: JSON.stringify({ targetUserId }) }),
   respondRequest: (friendshipId, action) => apiClient('/social/friends/respond', { method: 'POST', body: JSON.stringify({ friendshipId, action }) }),
   getFriends: () => apiClient('/social/friends'),
   removeFriend: (friendshipId) => apiClient(`/social/friends/${friendshipId}`, { method: 'DELETE' }),
   getNotifications: () => apiClient('/social/notifications'),
   readNotification: (notificationId) => apiClient(`/social/notifications/${notificationId}/read`, { method: 'POST' }),
+  getCommunityAdventurers: (search = '') => apiClient(`/social/community/adventurers?search=${encodeURIComponent(search)}`, { method: 'GET' }),
   getFriendProfile: (friendId) => apiClient(`/social/profile/${friendId}`),
+  getMasterReviews: (friendId) => apiClient(`/social/profile/${friendId}/reviews`, { method: 'GET' }),
+  addMasterReview: (friendId, content) => apiClient(`/social/profile/${friendId}/reviews`, { method: 'POST', body: JSON.stringify({ content }) }),
+  likeFriendProfile: (friendId) => apiClient(`/social/profile/${friendId}/like`, { method: 'POST' }),
+  grantHonorToMaster: (friendId) => apiClient(`/social/profile/${friendId}/honor`, { method: 'POST' }),
+  revokeHonorFromMaster: (friendId) => apiClient(`/social/profile/${friendId}/honor`, { method: 'DELETE' }),
   getFriendCharacters: (friendId) => apiClient(`/social/profile/${friendId}/characters`),
   getFriendFavorites: (friendId) => apiClient(`/social/profile/${friendId}/favorites`),
 };

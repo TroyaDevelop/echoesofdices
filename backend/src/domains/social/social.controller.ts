@@ -8,6 +8,13 @@ export async function sendFriendRequest(req: Request, res: Response) {
   res.json(result);
 }
 
+export async function sendFriendRequestByUserId(req: Request, res: Response) {
+  const userId = req.user!.userId;
+  const targetUserId = Number(req.body?.targetUserId);
+  const result = await service.sendFriendRequestByUserId(userId, targetUserId);
+  res.json(result);
+}
+
 export async function respondToFriendRequest(req: Request, res: Response) {
   const userId = req.user!.userId;
   const { friendshipId, action } = req.body;
@@ -48,6 +55,27 @@ export async function getFriendProfile(req: Request, res: Response) {
   res.json(result);
 }
 
+export async function getCommunityAdventurers(req: Request, res: Response) {
+  const userId = req.user!.userId;
+  const search = String(req.query?.search || '');
+  const result = await service.getCommunityAdventurers(userId, search);
+  res.json(result);
+}
+
+export async function getMasterReviews(req: Request, res: Response) {
+  const { friendId } = req.params;
+  const result = await service.getMasterReviews(Number(friendId));
+  res.json(result);
+}
+
+export async function addMasterReview(req: Request, res: Response) {
+  const userId = req.user!.userId;
+  const { friendId } = req.params;
+  const content = String(req.body?.content || '');
+  const result = await service.addMasterReview(userId, Number(friendId), content);
+  res.status(201).json(result);
+}
+
 export async function getFriendCharacters(req: Request, res: Response) {
   const userId = req.user!.userId;
   const { friendId } = req.params;
@@ -59,5 +87,26 @@ export async function getFriendFavoriteSpells(req: Request, res: Response) {
   const userId = req.user!.userId;
   const { friendId } = req.params;
   const result = await service.getFriendFavoriteSpells(userId, Number(friendId));
+  res.json(result);
+}
+
+export async function likeFriendProfile(req: Request, res: Response) {
+  const userId = req.user!.userId;
+  const { friendId } = req.params;
+  const result = await service.likeFriendProfile(userId, Number(friendId));
+  res.json(result);
+}
+
+export async function grantHonorToMaster(req: Request, res: Response) {
+  const userId = req.user!.userId;
+  const { friendId } = req.params;
+  const result = await service.grantHonorToMaster(userId, Number(friendId));
+  res.json(result);
+}
+
+export async function revokeHonorFromMaster(req: Request, res: Response) {
+  const userId = req.user!.userId;
+  const { friendId } = req.params;
+  const result = await service.revokeHonorFromMaster(userId, Number(friendId));
   res.json(result);
 }

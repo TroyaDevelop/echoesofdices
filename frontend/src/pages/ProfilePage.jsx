@@ -270,8 +270,15 @@ export default function ProfilePage() {
               <div className="space-y-4">
                 <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
                   <div className="text-2xl font-semibold text-slate-100">{displayName}</div>
+                  {Number(profile?.flag_master || 0) === 1 ? (
+                    <div className="mt-1 text-sm font-semibold master-badge">Мастер</div>
+                  ) : null}
                   {joinedDate ? (
                     <div className="mt-1 text-xs text-slate-400">Участник с {joinedDate}</div>
+                  ) : null}
+                  <div className="mt-2 text-sm text-purple-300">Мораль: {Number(profile?.rating || 0)} ❤</div>
+                  {Number(profile?.flag_master || 0) === 1 ? (
+                    <div className="mt-1 text-sm text-purple-200">Честь мастера: {Number(profile?.master_honor || 0)}</div>
                   ) : null}
                   {profile?.profile_status ? (
                     <div className="mt-2 text-sm text-slate-300">Статус: {profile.profile_status}</div>

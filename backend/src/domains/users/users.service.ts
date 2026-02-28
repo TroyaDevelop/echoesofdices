@@ -1,6 +1,8 @@
 import { HttpError } from '../../utils/httpError';
 import { normalizeAbilityScore, normalizeLevel, normalizeSkillValue } from '../../utils/normalizers';
 import {
+  countMasterHonorReceived,
+  countUserLikesReceived,
   countCharacterSheets,
   createCharacterSheet,
   deleteCharacterSheet,
@@ -16,8 +18,10 @@ import {
 export async function getProfile(userId: number) {
   const user = await findUserById(userId);
   if (!user) throw new HttpError(404, 'Пользователь не найден');
+  const rating = await countUserLikesReceived(userId);
+  const masterHonor = Number(user.flag_master || 0) === 1 ? await countMasterHonorReceived(userId) : 0;
   delete user.password;
-  return user;
+  return { ...user, rating, master_honor: masterHonor };
 }
 
 export async function updateProfile(userId: number, body: any) {
@@ -179,8 +183,10 @@ export async function updateProfile(userId: number, body: any) {
   await updateUserById(userId, merged);
 
   const updated = await findUserById(userId);
+  const rating = await countUserLikesReceived(userId);
+  const masterHonor = Number((updated || existing)?.flag_master || 0) === 1 ? await countMasterHonorReceived(userId) : 0;
   if (updated) delete updated.password;
-  return updated || { ...existing, ...merged };
+  return updated ? { ...updated, rating, master_honor: masterHonor } : { ...existing, ...merged, rating, master_honor: masterHonor };
 }
 
 export async function getUserAwards(userId: number) {

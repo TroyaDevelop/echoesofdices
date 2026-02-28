@@ -26,6 +26,10 @@ export async function updateUserFlags(id: number, flags: { admin: boolean; edito
   ]);
 }
 
+export async function clearHonorForMaster(masterUserId: number) {
+  return query<any>('DELETE FROM user_master_honors WHERE master_user_id = ?', [masterUserId]);
+}
+
 export async function createRegistrationKey(key: string, createdBy: number) {
   return query<any>('INSERT INTO registration_keys (reg_key, is_active, created_by) VALUES (?, 1, ?)', [key, createdBy]);
 }

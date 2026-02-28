@@ -25,6 +25,16 @@ export async function listMyAwards(userId: number) {
   );
 }
 
+export async function countUserLikesReceived(userId: number) {
+  const rows = await query<any[]>('SELECT COUNT(*) AS c FROM user_daily_likes WHERE to_user_id = ?', [userId]);
+  return Number(rows?.[0]?.c || 0);
+}
+
+export async function countMasterHonorReceived(masterUserId: number) {
+  const rows = await query<any[]>('SELECT COUNT(*) AS c FROM user_master_honors WHERE master_user_id = ?', [masterUserId]);
+  return Number(rows?.[0]?.c || 0);
+}
+
 export async function listCharacterSheets(userId: number) {
   return query<any[]>('SELECT * FROM user_character_sheets WHERE user_id = ? ORDER BY id ASC', [userId]);
 }

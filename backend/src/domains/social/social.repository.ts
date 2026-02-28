@@ -5,11 +5,16 @@ export async function findUserByInviteCode(inviteCode: string) {
   return rows && rows[0];
 }
 
+export async function findBasicUserById(id: number) {
+  const rows = await query<any[]>('SELECT id, login, nickname, invite_code FROM users WHERE id = ? LIMIT 1', [id]);
+  return rows && rows[0];
+}
+
 export async function findUserById(id: number) {
   const rows = await query<any[]>(
     `SELECT id, login, nickname, invite_code, created_at, updated_at,
             character_name, race, class_name, character_level,
-            last_seen_at, profile_status, hide_character_sheets, hide_favorite_spells
+            last_seen_at, profile_status, hide_character_sheets, hide_favorite_spells, flag_master
      FROM users
      WHERE id = ?
      LIMIT 1`,
@@ -86,5 +91,93 @@ export async function getFriendFavoriteSpells(friendId: number) {
      WHERE sf.user_id = ?
      ORDER BY sf.created_at DESC`,
     [friendId]
+  );
+}
+
+export async function countUserRating(userId: number) {
+  const rows = await query<any[]>('SELECT COUNT(*) AS c FROM user_daily_likes WHERE to_user_id = ?', [userId]);
+  return Number(rows?.[0]?.c || 0);
+}
+
+export async function getTodayLikeByUser(fromUserId: number) {
+  const rows = await query<any[]>(
+    'SELECT to_user_id FROM user_daily_likes WHERE from_user_id = ? AND like_day = CURDATE() LIMIT 1',
+    [fromUserId]
+  );
+  return rows?.[0] || null;
+}
+
+export async function insertDailyLike(fromUserId: number, toUserId: number) {
+  return query<any>(
+    'INSERT INTO user_daily_likes (from_user_id, to_user_id, like_day) VALUES (?, ?, CURDATE())',
+    [fromUserId, toUserId]
+  );
+}
+
+export async function countMasterHonorReceived(masterUserId: number) {
+  const rows = await query<any[]>('SELECT COUNT(*) AS c FROM user_master_honors WHERE master_user_id = ?', [masterUserId]);
+  return Number(rows?.[0]?.c || 0);
+}
+
+export async function countUserHonorSlotsUsed(userId: number) {
+  const rows = await query<any[]>('SELECT COUNT(*) AS c FROM user_master_honors WHERE user_id = ?', [userId]);
+  return Number(rows?.[0]?.c || 0);
+}
+
+export async function hasHonorForMaster(userId: number, masterUserId: number) {
+  const rows = await query<any[]>('SELECT id FROM user_master_honors WHERE user_id = ? AND master_user_id = ? LIMIT 1', [userId, masterUserId]);
+  return Boolean(rows?.[0]);
+}
+
+export async function grantHonorToMaster(userId: number, masterUserId: number) {
+  return query<any>('INSERT INTO user_master_honors (user_id, master_user_id) VALUES (?, ?)', [userId, masterUserId]);
+}
+
+export async function revokeHonorFromMaster(userId: number, masterUserId: number) {
+  return query<any>('DELETE FROM user_master_honors WHERE user_id = ? AND master_user_id = ?', [userId, masterUserId]);
+}
+
+export async function listCommunityUsers(userId: number, searchTerm: string) {
+  const like = `%${String(searchTerm || '').trim()}%`;
+  return query<any[]>(
+    `SELECT u.id, u.login, u.nickname, u.profile_status, u.last_seen_at, u.flag_master,
+            COALESCE(r.rating, 0) AS rating,
+            COALESCE(h.master_honor_count, 0) AS master_honor_count
+     FROM users u
+     LEFT JOIN (
+       SELECT to_user_id, COUNT(*) AS rating
+       FROM user_daily_likes
+       GROUP BY to_user_id
+     ) r ON r.to_user_id = u.id
+     LEFT JOIN (
+       SELECT master_user_id, COUNT(*) AS master_honor_count
+       FROM user_master_honors
+       GROUP BY master_user_id
+     ) h ON h.master_user_id = u.id
+     WHERE u.id <> ?
+       AND (? = '%%' OR u.login LIKE ? OR IFNULL(u.nickname, '') LIKE ?)
+     ORDER BY COALESCE(r.rating, 0) DESC, COALESCE(u.nickname, u.login) ASC
+     LIMIT 500`,
+    [userId, like, like, like]
+  );
+}
+
+export async function listMasterReviews(masterUserId: number) {
+  return query<any[]>(
+    `SELECT CAST(mr.id AS UNSIGNED) AS id,
+            mr.master_user_id, mr.reviewer_user_id, mr.content, mr.created_at,
+            u.login AS reviewer_login, u.nickname AS reviewer_nickname
+     FROM master_reviews mr
+     JOIN users u ON u.id = mr.reviewer_user_id
+     WHERE mr.master_user_id = ?
+     ORDER BY mr.created_at DESC`,
+    [masterUserId]
+  );
+}
+
+export async function insertMasterReview(masterUserId: number, reviewerUserId: number, content: string) {
+  return query<any>(
+    'INSERT INTO master_reviews (master_user_id, reviewer_user_id, content) VALUES (?, ?, ?)',
+    [masterUserId, reviewerUserId, content]
   );
 }

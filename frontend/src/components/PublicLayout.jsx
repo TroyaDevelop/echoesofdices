@@ -104,6 +104,10 @@ export default function PublicLayout({ children }) {
       <NavLink to="/lore" className={navLinkClass} onClick={onNavigate}>
         Lore
       </NavLink>
+      <div className="px-3 pt-4 pb-1 text-[11px] uppercase tracking-wider text-slate-400/80">Сообщество</div>
+      <NavLink to="/community" className={navLinkClass} onClick={onNavigate}>
+        Приключенцы
+      </NavLink>
       <div className="px-3 pt-4 pb-1 text-[11px] uppercase tracking-wider text-slate-400/80">Инструментарий</div>
       <NavLink to="/tools/word-count" className={navLinkClass} onClick={onNavigate}>
         Орфограф
