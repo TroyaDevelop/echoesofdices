@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import PublicLayout from '../components/PublicLayout.jsx';
 import { toolsAPI } from '../lib/api.js';
 
@@ -7,6 +7,8 @@ export default function WordCountPage() {
   const [stats, setStats] = useState({ words: 0, chars: 0 });
   const [spellErrors, setSpellErrors] = useState([]);
   const [isChecking, setIsChecking] = useState(false);
+  const textareaRef = useRef(null);
+  const highlightRef = useRef(null);
 
   useEffect(() => {
     const words = text.trim() ? text.trim().split(/\s+/).length : 0;
@@ -59,8 +61,8 @@ export default function WordCountPage() {
     return merged;
   }, [spellErrors]);
 
-  const highlightedPreview = useMemo(() => {
-    if (!text || !waveRanges.length) return null;
+  const highlightedInEditor = useMemo(() => {
+    if (!text) return null;
 
     const parts = [];
     let cursor = 0;
@@ -85,8 +87,16 @@ export default function WordCountPage() {
       parts.push(<span key="plain_tail">{text.slice(cursor)}</span>);
     }
 
-    return parts;
+    return <>{parts}</>;
   }, [text, waveRanges]);
+
+  const syncHighlightScroll = () => {
+    const textarea = textareaRef.current;
+    const highlight = highlightRef.current;
+    if (!textarea || !highlight) return;
+    highlight.scrollTop = textarea.scrollTop;
+    highlight.scrollLeft = textarea.scrollLeft;
+  };
 
   return (
     <PublicLayout>
@@ -94,13 +104,25 @@ export default function WordCountPage() {
         <h1 className="text-3xl font-bold text-white mb-6">Орфограф</h1>
         
         <div className="bg-slate-900/80 border border-white/10 rounded-xl p-4 mb-6 shadow-xl">
-          <textarea
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            placeholder="Введите текст здесь..."
-            className="w-full h-96 bg-black/50 border border-white/10 rounded-lg p-4 text-slate-200 placeholder-slate-500 focus:outline-none focus:border-purple-500/50 resize-y"
-            spellCheck="false"
-          />
+          <div className="relative h-96 rounded-lg border border-white/10 bg-black/50 overflow-hidden">
+            <div
+              ref={highlightRef}
+              aria-hidden="true"
+              className="absolute inset-0 p-4 text-slate-200 whitespace-pre-wrap break-words leading-6 pointer-events-none select-none overflow-hidden"
+            >
+              {highlightedInEditor ? highlightedInEditor : <span className="text-transparent">.</span>}
+            </div>
+
+            <textarea
+              ref={textareaRef}
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              onScroll={syncHighlightScroll}
+              placeholder="Введите текст здесь..."
+              className="absolute inset-0 w-full h-full bg-transparent p-4 text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-500/40 resize-none leading-6 overflow-auto"
+              spellCheck="false"
+            />
+          </div>
           
           <div className="mt-4 flex flex-wrap items-center gap-6 text-sm text-slate-300 bg-black/30 p-3 rounded-lg border border-white/5">
             <div className="flex items-center gap-2">
@@ -119,11 +141,6 @@ export default function WordCountPage() {
             </div>
           </div>
 
-          {highlightedPreview ? (
-            <div className="mt-4 bg-black/30 border border-white/10 rounded-lg p-4 text-slate-200 whitespace-pre-wrap leading-relaxed">
-              {highlightedPreview}
-            </div>
-          ) : null}
         </div>
 
         {spellErrors.length > 0 && (
