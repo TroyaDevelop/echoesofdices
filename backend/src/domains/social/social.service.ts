@@ -143,13 +143,13 @@ export async function getFriendProfile(userId: number, friendId: number) {
     has_honor_from_me: hasHonorFromMe,
     honor_slots_used: honorSlotsUsed,
     honor_slots_max: 3,
-    can_grant_honor: !isSelf && isFriend && isMaster && (hasHonorFromMe || honorSlotsUsed < 3),
+    can_grant_honor: !isSelf && isMaster && (hasHonorFromMe || honorSlotsUsed < 3),
     character_name: friend.character_name,
     race: friend.race,
     class_name: friend.class_name,
     character_level: friend.character_level,
     rating,
-    can_like_today: !isSelf && isFriend && todayLikeTargetId === null,
+    can_like_today: !isSelf && todayLikeTargetId === null,
     today_like_target_id: todayLikeTargetId,
     can_view_characters: isFriend && !Boolean(friend.hide_character_sheets),
     can_view_favorites: isFriend && !Boolean(friend.hide_favorite_spells),
@@ -223,10 +223,6 @@ export async function grantHonorToMaster(userId: number, friendId: number) {
   if (!Number.isFinite(friendId)) throw new HttpError(400, 'Некорректный id пользователя');
   if (userId === friendId) throw new HttpError(400, 'Нельзя отдать честь самому себе');
 
-  const friends = await repo.getFriends(userId);
-  const isFriend = friends.some(f => f.id === friendId && f.status === 'accepted');
-  if (!isFriend) throw new HttpError(403, 'Честь можно отдать только соратнику-мастеру');
-
   const friend = await repo.findUserById(friendId);
   if (!friend) throw new HttpError(404, 'Пользователь не найден');
   if (Number(friend.flag_master || 0) !== 1) throw new HttpError(400, 'Отдать честь можно только мастеру');
@@ -265,10 +261,6 @@ export async function revokeHonorFromMaster(userId: number, friendId: number) {
   if (!Number.isFinite(friendId)) throw new HttpError(400, 'Некорректный id пользователя');
   if (userId === friendId) throw new HttpError(400, 'Нельзя управлять честью самого себя');
 
-  const friends = await repo.getFriends(userId);
-  const isFriend = friends.some(f => f.id === friendId && f.status === 'accepted');
-  if (!isFriend) throw new HttpError(403, 'Честь можно забрать только у соратника-мастера');
-
   const friend = await repo.findUserById(friendId);
   if (!friend) throw new HttpError(404, 'Пользователь не найден');
   if (Number(friend.flag_master || 0) !== 1) throw new HttpError(400, 'Этот пользователь не мастер');
@@ -290,10 +282,6 @@ export async function revokeHonorFromMaster(userId: number, friendId: number) {
 export async function likeFriendProfile(userId: number, friendId: number) {
   if (!Number.isFinite(friendId)) throw new HttpError(400, 'Некорректный id пользователя');
   if (userId === friendId) throw new HttpError(400, 'Нельзя похвалить самого себя');
-
-  const friends = await repo.getFriends(userId);
-  const isFriend = friends.some(f => f.id === friendId && f.status === 'accepted');
-  if (!isFriend) throw new HttpError(403, 'Похвалу можно отправить только профилю соратника');
 
   const friend = await repo.findUserById(friendId);
   if (!friend) throw new HttpError(404, 'Пользователь не найден');

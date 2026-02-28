@@ -361,7 +361,7 @@ export default function FriendProfilePage() {
                 </div>
               ) : null}
 
-              {isFriend ? (
+              {!isSelfProfile ? (
               <div className="flex flex-wrap items-center gap-3 md:justify-end">
                 <button
                   type="button"
@@ -387,7 +387,7 @@ export default function FriendProfilePage() {
               {likeError ? <div className="text-xs text-red-300 md:text-right">{likeError}</div> : null}
               {likeSuccess ? <div className="text-xs text-emerald-300 md:text-right">{likeSuccess}</div> : null}
 
-              {isMasterProfile && isFriend ? (
+              {isMasterProfile && !isSelfProfile ? (
                 <div className="space-y-2">
                   <div className="flex flex-wrap items-center gap-3 md:justify-end">
                     <button
