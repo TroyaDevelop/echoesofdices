@@ -31,22 +31,32 @@ const applyMarkupPercent = (baseCp, percent) => {
 
 const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
 
-const percentForSell = (result, isCritical) => {
-  if (isCritical) return 1;
+const percentForSell = (result, roll) => {
+  if (roll === 20) return 1;
+  if (roll === 1) return 0.10;
+  
   const numeric = Math.trunc(Number(result || 0));
-  const capped = clamp(numeric, 1, 100);
-  const t = (capped - 1) / 99;
-  const eased = Math.pow(t, 2.2);
-  return 0.10 + 0.85 * eased;
+  if (numeric <= 10) {
+    const capped = clamp(numeric, 1, 10);
+    return 0.333 - ((10 - capped) * 0.233) / 9; // От 0.10 (при 1) до 0.333 (при 10)
+  } else {
+    const capped = clamp(numeric, 10, 40);
+    return 0.333 + ((capped - 10) * 0.617) / 30; // От 0.333 (при 10) до 0.95 (при 40)
+  }
 };
 
 const percentForBuy = (result, roll) => {
   if (roll === 20) return 1 / 3;
+  if (roll === 1) return 1.9;
+  
   const numeric = Math.trunc(Number(result || 0));
-  const capped = clamp(numeric, 1, 100);
-  const t = (capped - 1) / 99;
-  const eased = Math.pow(t, 2.2);
-  return 1.9 - 0.95 * eased;
+  if (numeric <= 10) {
+    const capped = clamp(numeric, 1, 10);
+    return 1 + ((10 - capped) * 0.9) / 9; // От 1.9 (при 1) до 1.0 (при 10)
+  } else {
+    const capped = clamp(numeric, 10, 40);
+    return 1 - ((capped - 10) * 0.6) / 30; // От 1.0 (при 10) до 0.4 (при 40)
+  }
 };
 
 const rollDie = (sides) => Math.floor(Math.random() * sides) + 1;
@@ -153,7 +163,7 @@ export default function MarketAutoTradeModal({
     });
     const extraBonus = extraResults.reduce((sum, die) => sum + Number(die.value || 0), 0);
     const result = Math.trunc(roll + bonus + extraBonus);
-    const percentValue = tradeType === 'buy' ? percentForBuy(result, roll) : percentForSell(result, roll === 20);
+    const percentValue = tradeType === 'buy' ? percentForBuy(result, roll) : percentForSell(result, roll);
     const finalCp = Math.max(1, Math.round(buyCp * percentValue));
     const finalPrice = fromCopper(finalCp);
 
