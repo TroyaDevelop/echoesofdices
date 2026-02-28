@@ -291,6 +291,7 @@ export default function FriendProfilePage() {
           <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
             <div className="min-w-0">
               <div className="text-2xl font-semibold text-slate-100">{profile.nickname || profile.login}</div>
+              {profile?.profile_status ? <div className="mt-1 text-sm text-slate-300 italic">{profile.profile_status}</div> : null}
               {Boolean(profile?.is_master) ? (
                 <div className="mt-1 text-sm font-semibold master-badge">Мастер</div>
               ) : null}
@@ -305,7 +306,6 @@ export default function FriendProfilePage() {
               {isMasterProfile ? (
                 <div className="mt-1 text-sm text-purple-200">Честь мастера: {Number(profile?.master_honor_count || 0)}</div>
               ) : null}
-              {profile?.profile_status ? <div className="mt-2 text-sm text-slate-300">Статус: {profile.profile_status}</div> : null}
               {(profile.character_name || profile.race || profile.class_name || profile.character_level) ? (
                 <div className="mt-3 text-sm text-slate-300">
                   {profile.character_name ? (

@@ -1163,17 +1163,45 @@ export default function CharacterSheet({ character, owner, onSaved, readOnly = f
   const spellAtk = spellAbility ? profBonus + abilityMod(abilityState[spellAbility]) : null;
 
   const filteredSpells = useMemo(() => {
-    const q = spellsQuery.trim().toLowerCase();
+    const q = spellsQuery.trim();
     if (!q) return [];
+    const qLower = q.toLowerCase();
+    const qNorm = normalizeSpellName(q);
     const used = new Set(knownSpells.map((s) => s.id));
-    return (spellsCatalog || [])
+    const ranked = (spellsCatalog || [])
       .filter((s) => !used.has(Number(s.id)))
-      .filter((s) => {
-        const name = String(s.name || '').toLowerCase();
-        const nameEn = String(s.name_en || '').toLowerCase();
-        return name.includes(q) || nameEn.includes(q);
+      .map((s) => {
+        const name = String(s.name || '');
+        const nameEn = String(s.name_en || '');
+        const nameLower = name.toLowerCase();
+        const nameEnLower = nameEn.toLowerCase();
+        const nameNorm = normalizeSpellName(name);
+        const nameEnNorm = normalizeSpellName(nameEn);
+
+        const includesMatch = nameLower.includes(qLower) || nameEnLower.includes(qLower);
+        const includesNormMatch = qNorm ? (nameNorm.includes(qNorm) || nameEnNorm.includes(qNorm)) : false;
+        const isMatch = includesMatch || includesNormMatch;
+        if (!isMatch) return null;
+
+        let rank = 100;
+        if (qNorm && (nameNorm === qNorm || nameEnNorm === qNorm)) {
+          rank = 0;
+        } else if (nameLower.startsWith(qLower) || nameEnLower.startsWith(qLower) || (qNorm && (nameNorm.startsWith(qNorm) || nameEnNorm.startsWith(qNorm)))) {
+          rank = 1;
+        } else if ((` ${nameNorm}`).includes(` ${qNorm}`) || (` ${nameEnNorm}`).includes(` ${qNorm}`)) {
+          rank = 2;
+        } else {
+          rank = 3;
+        }
+
+        return { spell: s, rank, sortName: name || nameEn || '' };
       })
-      .slice(0, 8);
+      .filter(Boolean)
+      .sort((a, b) => (a.rank - b.rank) || a.sortName.localeCompare(b.sortName, 'ru', { sensitivity: 'base' }))
+      .slice(0, 12)
+      .map((entry) => entry.spell);
+
+    return ranked;
   }, [spellsQuery, spellsCatalog, knownSpells]);
 
   const knownSpellDetails = useMemo(() => {
