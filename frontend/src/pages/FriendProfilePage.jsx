@@ -15,7 +15,7 @@ const formatLastSeen = (value) => {
   if (!value) return 'Не в сети';
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return 'Не в сети';
-  return `Был в сети ${date.toLocaleString('ru-RU', {
+  return `Был(а) в сети ${date.toLocaleString('ru-RU', {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
@@ -295,16 +295,16 @@ export default function FriendProfilePage() {
                 <div className="mt-1 text-sm font-semibold master-badge">Мастер</div>
               ) : null}
               {joinedDate ? <div className="mt-1 text-xs text-slate-400">Участник с {joinedDate}</div> : null}
-              <div className="mt-2 text-sm text-purple-300">Мораль: {Number(profile?.rating || 0)} ❤</div>
-              {isMasterProfile ? (
-                <div className="mt-1 text-sm text-purple-200">Честь мастера: {Number(profile?.master_honor_count || 0)}</div>
-              ) : null}
               <div className="mt-2 flex items-center gap-2 text-xs">
                 <span className={`inline-block w-2 h-2 rounded-full ${profile?.is_online ? 'bg-emerald-400' : 'bg-slate-500'}`} />
                 <span className={profile?.is_online ? 'text-emerald-300' : 'text-slate-400'}>
                   {profile?.is_online ? 'Сейчас в сети' : formatLastSeen(profile?.last_seen_at)}
                 </span>
               </div>
+              <div className="mt-2 text-sm text-purple-300">Мораль: {Number(profile?.rating || 0)} ❤</div>
+              {isMasterProfile ? (
+                <div className="mt-1 text-sm text-purple-200">Честь мастера: {Number(profile?.master_honor_count || 0)}</div>
+              ) : null}
               {profile?.profile_status ? <div className="mt-2 text-sm text-slate-300">Статус: {profile.profile_status}</div> : null}
               {(profile.character_name || profile.race || profile.class_name || profile.character_level) ? (
                 <div className="mt-3 text-sm text-slate-300">
