@@ -8,10 +8,12 @@ import type { RequestHandler } from 'express';
 
 const rootUploadsDir = path.join(__dirname, '..', '..', 'uploads');
 const awardsUploadsDir = path.join(rootUploadsDir, 'awards');
+const giftsUploadsDir = path.join(rootUploadsDir, 'gifts');
 const charactersUploadsDir = path.join(rootUploadsDir, 'characters');
 const tacticalMapsUploadsDir = path.join(rootUploadsDir, 'tactical-maps');
 const tacticalTokensUploadsDir = path.join(rootUploadsDir, 'tactical-tokens');
 if (!fs.existsSync(awardsUploadsDir)) fs.mkdirSync(awardsUploadsDir, { recursive: true });
+if (!fs.existsSync(giftsUploadsDir)) fs.mkdirSync(giftsUploadsDir, { recursive: true });
 if (!fs.existsSync(charactersUploadsDir)) fs.mkdirSync(charactersUploadsDir, { recursive: true });
 if (!fs.existsSync(tacticalMapsUploadsDir)) fs.mkdirSync(tacticalMapsUploadsDir, { recursive: true });
 if (!fs.existsSync(tacticalTokensUploadsDir)) fs.mkdirSync(tacticalTokensUploadsDir, { recursive: true });
@@ -53,6 +55,9 @@ const createImageOptimizer = ({ folder, prefix, quality = 75 }: { folder: string
 
 export const uploadAwardImage = createUpload(4);
 export const optimizeAwardImage = createImageOptimizer({ folder: awardsUploadsDir, prefix: 'award', quality: 72 });
+
+export const uploadGiftImage = createUpload(4);
+export const optimizeGiftImage = createImageOptimizer({ folder: giftsUploadsDir, prefix: 'gift', quality: 74 });
 
 export const uploadCharacterImage = createUpload(15);
 export const optimizeCharacterImage = createImageOptimizer({ folder: charactersUploadsDir, prefix: 'character', quality: 70 });

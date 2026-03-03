@@ -119,7 +119,7 @@ export default function WordCountPage() {
               onChange={(e) => setText(e.target.value)}
               onScroll={syncHighlightScroll}
               placeholder="Введите текст здесь..."
-              className="absolute inset-0 w-full h-full bg-transparent p-4 text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-500/40 resize-none leading-6 overflow-auto"
+              className="absolute inset-0 w-full h-full bg-transparent p-4 text-transparent caret-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-purple-500/40 resize-none leading-6 overflow-auto"
               spellCheck="false"
             />
           </div>

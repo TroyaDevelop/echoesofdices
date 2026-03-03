@@ -90,6 +90,7 @@ export async function updateProfile(userId: number, body: any) {
     profile_status: existing.profile_status ?? null,
     hide_character_sheets: Number(existing.hide_character_sheets || 0),
     hide_favorite_spells: Number(existing.hide_favorite_spells || 0),
+    hide_friends: Number(existing.hide_friends || 0),
     strength: nextStrength === undefined ? existing.strength : nextStrength,
     dexterity: nextDexterity === undefined ? existing.dexterity : nextDexterity,
     constitution: nextConstitution === undefined ? existing.constitution : nextConstitution,
@@ -154,6 +155,9 @@ export async function updateProfile(userId: number, body: any) {
   }
   if (Object.prototype.hasOwnProperty.call(body || {}, 'hide_favorite_spells')) {
     merged.hide_favorite_spells = body.hide_favorite_spells ? 1 : 0;
+  }
+  if (Object.prototype.hasOwnProperty.call(body || {}, 'hide_friends')) {
+    merged.hide_friends = body.hide_friends ? 1 : 0;
   }
 
   const intF = ['xp_current', 'xp_max', 'hp_max', 'hp_current', 'temp_hp', 'hit_dice_count', 'armor_class', 'speed', 'initiative_bonus', 'gold_cp', 'gold_sp', 'gold_gp', 'gold_pp'];

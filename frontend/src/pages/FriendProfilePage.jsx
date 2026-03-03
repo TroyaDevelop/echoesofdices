@@ -3,6 +3,38 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import PublicLayout from '../components/PublicLayout.jsx';
 import CharacterSheet from '../components/profile/CharacterSheet.jsx';
 import { socialAPI } from '../lib/api.js';
+import { API_URL } from '../lib/config.js';
+
+const GIFT_PLACEHOLDER_SRC = '/echoesroses8march.png';
+
+const resolveGiftImageUrl = (imageUrl, backendBaseUrl) => {
+  const raw = String(imageUrl || '').trim();
+  if (!raw) return null;
+  if (raw.startsWith('http://') || raw.startsWith('https://')) return raw;
+  if (raw.startsWith('/uploads/')) return `${backendBaseUrl}${raw}`;
+  return raw;
+};
+
+function GiftThumb({ src, name, className }) {
+  const [failed, setFailed] = useState(false);
+
+  if (!src || failed) {
+    return (
+      <div className={`${className} rounded-lg border border-white/20 bg-white/5 flex items-center justify-center text-xl`}>
+        🎁
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={src}
+      alt={name || ''}
+      className={className}
+      onError={() => setFailed(true)}
+    />
+  );
+}
 
 const formatJoinDate = (value) => {
   if (!value) return '';
@@ -26,6 +58,7 @@ const formatLastSeen = (value) => {
 
 const TABS = [
   { key: 'profile', label: 'Профиль' },
+  { key: 'friends', label: 'Соратники' },
   { key: 'sheet', label: 'Лист персонажа' },
   { key: 'favorites', label: 'Избранные заклинания' },
 ];
@@ -51,10 +84,23 @@ export default function FriendProfilePage() {
   const [friendRequestSuccess, setFriendRequestSuccess] = useState('');
   const [reviews, setReviews] = useState([]);
   const [reviewsLoading, setReviewsLoading] = useState(false);
+  const [friends, setFriends] = useState([]);
+  const [friendsLoading, setFriendsLoading] = useState(false);
+  const [friendsError, setFriendsError] = useState('');
   const [reviewInput, setReviewInput] = useState('');
   const [reviewBusy, setReviewBusy] = useState(false);
   const [reviewError, setReviewError] = useState('');
   const [reviewSuccess, setReviewSuccess] = useState('');
+  const [showcaseSlots, setShowcaseSlots] = useState([]);
+  const [showcaseLoading, setShowcaseLoading] = useState(false);
+  const [shopOpen, setShopOpen] = useState(false);
+  const [shopLoading, setShopLoading] = useState(false);
+  const [shopError, setShopError] = useState('');
+  const [shopData, setShopData] = useState({ gifts: [], balance: null });
+  const [giftBusyId, setGiftBusyId] = useState(null);
+  const [giftSuccess, setGiftSuccess] = useState('');
+
+  const baseUrl = API_URL.replace('/api', '');
 
   useEffect(() => {
     const load = async () => {
@@ -99,6 +145,63 @@ export default function FriendProfilePage() {
     };
 
     loadReviews();
+    return () => {
+      isActive = false;
+    };
+  }, [profile?.id]);
+
+  useEffect(() => {
+    let isActive = true;
+
+    const loadFriends = async () => {
+      if (tab !== 'friends') return;
+      if (!profile?.id) return;
+
+      if (!profile?.can_view_friends) {
+        setFriends([]);
+        setFriendsError('');
+        return;
+      }
+
+      setFriendsLoading(true);
+      setFriendsError('');
+      try {
+        const rows = await socialAPI.getFriendFriends(profile.id);
+        if (!isActive) return;
+        setFriends(Array.isArray(rows) ? rows : []);
+      } catch (err) {
+        if (!isActive) return;
+        setFriends([]);
+        setFriendsError(err.message || 'Не удалось загрузить соратников');
+      } finally {
+        if (isActive) setFriendsLoading(false);
+      }
+    };
+
+    loadFriends();
+    return () => {
+      isActive = false;
+    };
+  }, [tab, profile?.id, profile?.can_view_friends]);
+
+  useEffect(() => {
+    let isActive = true;
+    const loadShowcase = async () => {
+      if (!profile?.id) return;
+      setShowcaseLoading(true);
+      try {
+        const data = await socialAPI.getFriendShowcase(profile.id);
+        if (!isActive) return;
+        setShowcaseSlots(Array.isArray(data?.slots) ? data.slots : []);
+      } catch {
+        if (!isActive) return;
+        setShowcaseSlots([]);
+      } finally {
+        if (isActive) setShowcaseLoading(false);
+      }
+    };
+
+    loadShowcase();
     return () => {
       isActive = false;
     };
@@ -261,6 +364,41 @@ export default function FriendProfilePage() {
     }
   };
 
+  const openGiftShop = async () => {
+    if (!profile?.id) return;
+    setShopOpen(true);
+    setShopLoading(true);
+    setShopError('');
+    setGiftSuccess('');
+    try {
+      const data = await socialAPI.getGiftShop();
+      setShopData({
+        gifts: Array.isArray(data?.gifts) ? data.gifts : [],
+        balance: data?.balance || null,
+      });
+    } catch (err) {
+      setShopError(err.message || 'Не удалось открыть магазин подарков');
+    } finally {
+      setShopLoading(false);
+    }
+  };
+
+  const handleGift = async (giftId) => {
+    if (!profile?.id || !giftId || giftBusyId) return;
+    setGiftBusyId(giftId);
+    setShopError('');
+    setGiftSuccess('');
+    try {
+      const data = await socialAPI.giftToUser(profile.id, giftId);
+      setGiftSuccess('Подарок отправлен. Он появится в витрине, когда владелец выставит его в слот.');
+      setShopData((prev) => ({ ...prev, balance: data?.balance || prev.balance }));
+    } catch (err) {
+      setShopError(err.message || 'Не удалось подарить подарок');
+    } finally {
+      setGiftBusyId(null);
+    }
+  };
+
   return (
     <PublicLayout>
       <div className="max-w-5xl mx-auto p-4 space-y-6">
@@ -412,9 +550,82 @@ export default function FriendProfilePage() {
                   {honorSuccess ? <div className="text-xs text-emerald-300 md:text-right">{honorSuccess}</div> : null}
                 </div>
               ) : null}
+
+              {!isSelfProfile ? (
+                <div className="flex flex-wrap items-center gap-3 md:justify-end">
+                  <button
+                    type="button"
+                    onClick={openGiftShop}
+                    className="px-3 py-1.5 rounded-lg text-sm font-medium bg-violet-600 hover:bg-violet-500 text-white transition-colors"
+                  >
+                    Подарить подарок
+                  </button>
+                </div>
+              ) : null}
             </div>
           </div>
 
+        </div>
+        ) : null}
+
+        {tab === 'profile' ? (
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-5 space-y-4">
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-lg font-semibold text-slate-100">Мои подарки</h2>
+            </div>
+
+            {showcaseLoading ? <div className="text-sm text-slate-400">Загрузка витрины…</div> : null}
+
+            <div className="flex flex-wrap sm:flex-nowrap gap-3">
+              {[1, 2, 3, 4].map((slotIndex) => {
+                const slot = (Array.isArray(showcaseSlots) ? showcaseSlots : []).find((item) => Number(item.slot_index) === slotIndex);
+                const gift = slot?.gift;
+                const imageUrl = resolveGiftImageUrl(gift?.image_url, baseUrl);
+
+                return (
+                  <div key={slotIndex} className="w-24 h-24 sm:w-28 sm:h-28 rounded-xl border border-white/15 bg-black/30 flex flex-col items-center justify-center p-2" title={gift?.name || `Слот ${slotIndex}`}>
+                    {gift ? (
+                      <GiftThumb src={imageUrl || GIFT_PLACEHOLDER_SRC} name={gift?.name || 'Подарок'} className="w-14 h-14 object-cover border border-white/10" />
+                    ) : (
+                      <div className="w-14 h-14 rounded-lg border border-dashed border-white/30 flex items-center justify-center text-slate-500 text-2xl">+</div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ) : null}
+
+        {tab === 'friends' ? (
+        <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
+          <h2 className="text-lg font-semibold text-slate-100 mb-3">Соратники</h2>
+
+          {!profile?.can_view_friends ? (
+            <p className="text-slate-400">Пользователь скрыл список соратников.</p>
+          ) : friendsLoading ? (
+            <p className="text-slate-400">Загрузка соратников…</p>
+          ) : friendsError ? (
+            <p className="text-red-300">{friendsError}</p>
+          ) : friends.length === 0 ? (
+            <p className="text-slate-400">У пользователя пока нет соратников.</p>
+          ) : (
+            <ul className="space-y-2">
+              {friends.map((friend) => (
+                <li key={friend.id} className="flex items-center justify-between gap-3 px-3 py-2 rounded-lg bg-black/20 border border-white/5">
+                  <div className="min-w-0">
+                    <Link to={`/profile/${friend.id}`} className="text-purple-300 hover:text-purple-200 font-medium block truncate">
+                      {friend.nickname || friend.login}
+                    </Link>
+                    {friend.profileStatus ? <div className="text-xs text-slate-400 truncate">{friend.profileStatus}</div> : null}
+                  </div>
+                  <div className="flex items-center gap-2 text-xs text-slate-400 whitespace-nowrap">
+                    <span className={`inline-block w-2 h-2 rounded-full ${friend.isOnline ? 'bg-emerald-400' : 'bg-slate-500'}`} />
+                    <span>{friend.isOnline ? 'в сети' : formatLastSeen(friend.lastSeenAt)}</span>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
         ) : null}
 
@@ -533,6 +744,67 @@ export default function FriendProfilePage() {
         </div>
         ) : null}
       </div>
+
+      {shopOpen ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/70" onClick={() => setShopOpen(false)} />
+          <div className="relative w-full max-w-2xl rounded-2xl border border-white/10 bg-slate-950/95 backdrop-blur p-5 max-h-[85vh] overflow-y-auto">
+            <div className="flex items-center justify-between gap-3 mb-4">
+              <h2 className="text-xl font-semibold text-slate-100">Магазин подарков</h2>
+              <button
+                type="button"
+                onClick={() => setShopOpen(false)}
+                className="w-9 h-9 rounded-lg border border-white/10 bg-white/5 text-slate-200 hover:bg-white/10"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="mb-4 rounded-lg border border-purple-500/30 bg-purple-950/30 px-3 py-2 text-sm text-purple-100">
+              Свободная мораль: <span className="font-semibold">{Number(shopData?.balance?.free_morale || 0)}</span>
+            </div>
+
+            {shopLoading ? <div className="text-sm text-slate-400">Загрузка магазина…</div> : null}
+            {shopError ? <div className="mb-3 text-sm text-red-200 bg-red-500/10 border border-red-500/30 rounded-lg p-3">{shopError}</div> : null}
+            {giftSuccess ? <div className="mb-3 text-sm text-emerald-200 bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-3">{giftSuccess}</div> : null}
+
+            {!shopLoading ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {(Array.isArray(shopData.gifts) ? shopData.gifts : []).map((gift) => {
+                  const imageUrl = resolveGiftImageUrl(gift?.image_url, baseUrl);
+                  const price = Number(gift?.price_free_morale || 0);
+                  const freeMorale = Number(shopData?.balance?.free_morale || 0);
+                  const disabled = giftBusyId !== null || freeMorale < price;
+
+                  return (
+                    <div key={gift.id} className="rounded-xl border border-white/10 bg-black/20 p-3 space-y-3">
+                      <div className="flex items-center gap-3">
+                        <GiftThumb src={imageUrl || GIFT_PLACEHOLDER_SRC} name={gift?.name || 'Подарок'} className="w-12 h-12 object-cover border border-white/10" />
+                        <div className="min-w-0">
+                          <div className="text-sm text-slate-100 truncate">{gift.name}</div>
+                          {gift.description ? <div className="text-xs text-slate-400 line-clamp-2">{gift.description}</div> : null}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-xs text-amber-300">Цена: {price} СМ</span>
+                        <button
+                          type="button"
+                          onClick={() => handleGift(gift.id)}
+                          disabled={disabled}
+                          className="px-3 py-1.5 rounded-lg text-sm font-medium bg-amber-600 hover:bg-amber-500 text-white disabled:opacity-50"
+                        >
+                          {giftBusyId === gift.id ? 'Покупка…' : 'Подарить'}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
     </PublicLayout>
   );
 }

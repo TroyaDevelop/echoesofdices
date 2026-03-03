@@ -3,9 +3,12 @@ import { HttpError } from '../../utils/httpError';
 import {
   changeFlags,
   createAwardRecord,
+  createGiftRecord,
   createKey,
   deleteAwardRecord,
+  deleteGiftRecord,
   getAwards,
+  getGiftsCatalogAdmin,
   getRegistrationKeys,
   getUsers,
   grantAwardToUser,
@@ -148,5 +151,40 @@ export async function unlockUserHandler(req: Request, res: Response) {
   } catch (error) {
     const err = error as HttpError;
     res.status(err.status || 500).json({ error: err.message || 'Ошибка разблокировки пользователя' });
+  }
+}
+
+export async function listGiftsHandler(_req: Request, res: Response) {
+  try {
+    const rows = await getGiftsCatalogAdmin();
+    res.json(Array.isArray(rows) ? rows : []);
+  } catch (error) {
+    const err = error as HttpError;
+    res.status(err.status || 503).json({ error: err.message || 'База данных недоступна' });
+  }
+}
+
+export async function createGiftHandler(req: Request, res: Response) {
+  try {
+    const name = String(req.body?.name || '').trim();
+    const description = req.body?.description ? String(req.body.description).trim() || null : null;
+    const price = Number(req.body?.price_free_morale);
+    const imageUrl = req.file ? `/uploads/gifts/${req.file.filename}` : null;
+    const data = await createGiftRecord(name, price, imageUrl, description);
+    res.status(201).json(data);
+  } catch (error) {
+    const err = error as HttpError;
+    res.status(err.status || 500).json({ error: err.message || 'Ошибка создания подарка' });
+  }
+}
+
+export async function deleteGiftHandler(req: Request, res: Response) {
+  try {
+    const id = Number(req.params.id);
+    const data = await deleteGiftRecord(id);
+    res.json(data);
+  } catch (error) {
+    const err = error as HttpError;
+    res.status(err.status || 500).json({ error: err.message || 'Ошибка удаления подарка' });
   }
 }

@@ -10,6 +10,50 @@ function isOnlineByLastSeen(lastSeenAt?: string | Date | null) {
   return Date.now() - ts <= ONLINE_WINDOW_MS;
 }
 
+async function getMoraleBalances(userId: number) {
+  const totalMorale = await repo.countUserRating(userId);
+  const spentFreeMorale = await repo.countSpentFreeMorale(userId);
+  const freeMorale = Math.max(0, totalMorale - spentFreeMorale);
+  return {
+    ordinary_morale: totalMorale,
+    free_morale: freeMorale,
+    spent_free_morale: spentFreeMorale,
+    total_morale: totalMorale,
+  };
+}
+
+function normalizeShowcaseSlots(rawRows: any[]) {
+  const bySlot = new Map<number, any>();
+  (Array.isArray(rawRows) ? rawRows : []).forEach((row) => {
+    const slotIndex = Number(row?.slot_index || 0);
+    if (slotIndex >= 1 && slotIndex <= 4) {
+      bySlot.set(slotIndex, row);
+    }
+  });
+
+  const result = [] as any[];
+  for (let slot = 1; slot <= 4; slot += 1) {
+    const row = bySlot.get(slot);
+    result.push({
+      slot_index: slot,
+      user_gift_id: row?.user_gift_id ? Number(row.user_gift_id) : null,
+      gift: row?.gift_id
+        ? {
+            id: Number(row.gift_id),
+            name: row.name,
+            description: row.description,
+            image_url: row.image_url,
+            price_free_morale: Number(row.price_free_morale || 0),
+            from_user_id: row?.from_user_id ? Number(row.from_user_id) : null,
+            gifted_at: row?.gifted_at || null,
+          }
+        : null,
+    });
+  }
+
+  return result;
+}
+
 export async function sendFriendRequest(requesterId: number, inviteCode: string) {
   const addressee = await repo.findUserByInviteCode(inviteCode);
   if (!addressee) throw new HttpError(404, 'Пользователь с таким кодом не найден');
@@ -86,6 +130,38 @@ export async function getFriendsList(userId: number) {
   }));
 }
 
+export async function getFriendFriends(userId: number, friendId: number) {
+  if (!Number.isFinite(friendId)) throw new HttpError(400, 'Некорректный id пользователя');
+
+  const target = await repo.findUserById(friendId);
+  if (!target) throw new HttpError(404, 'Пользователь не найден');
+
+  if (userId !== friendId) {
+    const friendship = await repo.getFriendship(userId, friendId);
+    if (!friendship || String(friendship.status) !== 'accepted') {
+      throw new HttpError(403, 'Соратники доступны только соратникам');
+    }
+  }
+
+  if (Boolean(target.hide_friends)) return [];
+
+  const friends = await repo.getFriends(friendId);
+  return friends
+    .filter((f) => String(f.status) === 'accepted')
+    .map((f) => ({
+      id: f.id,
+      login: f.login,
+      nickname: f.nickname,
+      inviteCode: f.invite_code,
+      lastSeenAt: f.last_seen_at,
+      isOnline: isOnlineByLastSeen(f.last_seen_at),
+      profileStatus: f.profile_status,
+      status: f.status,
+      friendshipId: f.friendship_id,
+      isRequester: f.requester_id === friendId,
+    }));
+}
+
 export async function removeFriend(userId: number, friendshipId: number) {
   const friends = await repo.getFriends(userId);
   const friendship = friends.find(f => f.friendship_id === friendshipId);
@@ -153,6 +229,7 @@ export async function getFriendProfile(userId: number, friendId: number) {
     today_like_target_id: todayLikeTargetId,
     can_view_characters: isFriend && !Boolean(friend.hide_character_sheets),
     can_view_favorites: isFriend && !Boolean(friend.hide_favorite_spells),
+    can_view_friends: isFriend && !Boolean(friend.hide_friends),
   };
 }
 
@@ -333,4 +410,134 @@ export async function getFriendFavoriteSpells(userId: number, friendId: number) 
   if (Boolean(friend.hide_favorite_spells)) return [];
 
   return repo.getFriendFavoriteSpells(friendId);
+}
+
+export async function getGiftShop(userId: number) {
+  const [gifts, balance] = await Promise.all([
+    repo.listGiftCatalog(),
+    getMoraleBalances(userId),
+  ]);
+
+  return {
+    gifts: (Array.isArray(gifts) ? gifts : []).map((gift) => ({
+      id: Number(gift.id),
+      name: gift.name,
+      description: gift.description,
+      image_url: gift.image_url,
+      price_free_morale: Number(gift.price_free_morale || 0),
+    })),
+    balance,
+  };
+}
+
+export async function giftToUser(userId: number, friendId: number, giftId: number) {
+  if (!Number.isFinite(friendId)) throw new HttpError(400, 'Некорректный id пользователя');
+  if (!Number.isFinite(giftId)) throw new HttpError(400, 'Некорректный id подарка');
+  if (userId === friendId) throw new HttpError(400, 'Нельзя дарить подарок самому себе');
+
+  const [friend, gift] = await Promise.all([
+    repo.findUserById(friendId),
+    repo.findGiftById(giftId),
+  ]);
+
+  if (!friend) throw new HttpError(404, 'Пользователь не найден');
+  if (!gift || !Number(gift.is_active)) throw new HttpError(404, 'Подарок не найден');
+
+  const price = Math.max(0, Number(gift.price_free_morale || 0));
+  const balance = await getMoraleBalances(userId);
+  if (balance.free_morale < price) {
+    throw new HttpError(409, 'Недостаточно свободной морали для покупки подарка');
+  }
+
+  const granted = await repo.insertUserGift(friendId, giftId, userId, price);
+
+  return {
+    ok: true,
+    gifted: granted
+      ? {
+          user_gift_id: Number(granted.id),
+          owner_user_id: Number(granted.owner_user_id),
+          from_user_id: granted.from_user_id ? Number(granted.from_user_id) : null,
+          cost_free_morale: Number(granted.cost_free_morale || 0),
+          created_at: granted.created_at,
+          gift: {
+            id: Number(granted.gift_id),
+            name: granted.name,
+            description: granted.description,
+            image_url: granted.image_url,
+            price_free_morale: Number(granted.price_free_morale || 0),
+          },
+        }
+      : null,
+    balance: await getMoraleBalances(userId),
+  };
+}
+
+export async function getMyShowcase(userId: number) {
+  await repo.ensureShowcaseSlots(userId);
+  const [slotsRows, inventoryRows] = await Promise.all([
+    repo.listUserShowcaseSlots(userId),
+    repo.listUserGiftInventory(userId),
+  ]);
+
+  return {
+    slots: normalizeShowcaseSlots(slotsRows),
+    inventory: (Array.isArray(inventoryRows) ? inventoryRows : []).map((item) => ({
+      user_gift_id: Number(item.user_gift_id),
+      created_at: item.created_at,
+      from_user_id: item.from_user_id ? Number(item.from_user_id) : null,
+      cost_free_morale: Number(item.cost_free_morale || 0),
+      gift: {
+        id: Number(item.gift_id),
+        name: item.name,
+        description: item.description,
+        image_url: item.image_url,
+        price_free_morale: Number(item.price_free_morale || 0),
+      },
+    })),
+  };
+}
+
+export async function updateMyShowcase(userId: number, slotsPayload: any) {
+  if (!Array.isArray(slotsPayload) || slotsPayload.length !== 4) {
+    throw new HttpError(400, 'Витрина должна содержать ровно 4 слота');
+  }
+
+  const normalized = slotsPayload.map((value) => {
+    if (value === null || value === undefined || value === '') return null;
+    const id = Number(value);
+    if (!Number.isFinite(id) || id <= 0) {
+      throw new HttpError(400, 'Некорректный id подарка в витрине');
+    }
+    return Math.trunc(id);
+  });
+
+  const used = normalized.filter((id) => id !== null) as number[];
+  if (new Set(used).size !== used.length) {
+    throw new HttpError(400, 'Один и тот же подарок нельзя поставить в несколько слотов');
+  }
+
+  for (const userGiftId of used) {
+    const owned = await repo.findUserGiftOwned(userId, userGiftId);
+    if (!owned) throw new HttpError(403, 'Можно выставлять только свои подарки');
+  }
+
+  await repo.ensureShowcaseSlots(userId);
+  for (let slotIndex = 1; slotIndex <= 4; slotIndex += 1) {
+    await repo.upsertShowcaseSlot(userId, slotIndex, normalized[slotIndex - 1]);
+  }
+
+  return getMyShowcase(userId);
+}
+
+export async function getFriendShowcase(friendId: number) {
+  if (!Number.isFinite(friendId)) throw new HttpError(400, 'Некорректный id пользователя');
+  const friend = await repo.findUserById(friendId);
+  if (!friend) throw new HttpError(404, 'Пользователь не найден');
+
+  await repo.ensureShowcaseSlots(friendId);
+  const slotsRows = await repo.listUserShowcaseSlots(friendId);
+  return {
+    slots: normalizeShowcaseSlots(slotsRows),
+  };
 }

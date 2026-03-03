@@ -4,12 +4,16 @@ import {
   clearHonorForMaster,
   createRegistrationKey,
   deleteAward,
+  deleteGift,
   deleteUserById,
   findAwardById,
+  findGiftById,
   findUserById,
   grantAward,
   insertAward,
+  insertGift,
   listAwards,
+  listGifts,
   listRegistrationKeys,
   listUsers,
   revokeAward,
@@ -109,5 +113,37 @@ export async function unlockUser(id: number) {
   const user = await findUserById(id);
   if (!user) throw new HttpError(404, 'Пользователь не найден');
   await unlockUserById(id);
+  return { ok: true };
+}
+
+export async function getGiftsCatalogAdmin() {
+  return listGifts();
+}
+
+export async function createGiftRecord(name: string, priceFreeMorale: number, imageUrl: string | null, description: string | null) {
+  const nameValue = String(name || '').trim();
+  if (!nameValue) throw new HttpError(400, 'Название подарка обязательно');
+  if (nameValue.length > 200) throw new HttpError(400, 'Название слишком длинное');
+
+  const price = Number(priceFreeMorale);
+  if (!Number.isFinite(price) || price < 0) throw new HttpError(400, 'Цена должна быть неотрицательным числом');
+
+  const result = await insertGift(nameValue, description, imageUrl, Math.trunc(price));
+  const insertedId = typeof result.insertId === 'bigint' ? Number(result.insertId) : result.insertId;
+  return {
+    id: insertedId,
+    name: nameValue,
+    description,
+    image_url: imageUrl,
+    price_free_morale: Math.trunc(price),
+    is_active: 1,
+  };
+}
+
+export async function deleteGiftRecord(id: number) {
+  if (!Number.isFinite(id)) throw new HttpError(400, 'Некорректный id');
+  const existing = await findGiftById(id);
+  if (!existing) throw new HttpError(404, 'Подарок не найден');
+  await deleteGift(id);
   return { ok: true };
 }

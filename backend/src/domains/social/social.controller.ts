@@ -55,6 +55,13 @@ export async function getFriendProfile(req: Request, res: Response) {
   res.json(result);
 }
 
+export async function getFriendFriends(req: Request, res: Response) {
+  const userId = req.user!.userId;
+  const { friendId } = req.params;
+  const result = await service.getFriendFriends(userId, Number(friendId));
+  res.json(result);
+}
+
 export async function getCommunityAdventurers(req: Request, res: Response) {
   const userId = req.user!.userId;
   const search = String(req.query?.search || '');
@@ -108,5 +115,38 @@ export async function revokeHonorFromMaster(req: Request, res: Response) {
   const userId = req.user!.userId;
   const { friendId } = req.params;
   const result = await service.revokeHonorFromMaster(userId, Number(friendId));
+  res.json(result);
+}
+
+export async function getGiftShop(req: Request, res: Response) {
+  const userId = req.user!.userId;
+  const result = await service.getGiftShop(userId);
+  res.json(result);
+}
+
+export async function giftToUser(req: Request, res: Response) {
+  const userId = req.user!.userId;
+  const { friendId } = req.params;
+  const giftId = Number(req.body?.gift_id);
+  const result = await service.giftToUser(userId, Number(friendId), giftId);
+  res.status(201).json(result);
+}
+
+export async function getMyShowcase(req: Request, res: Response) {
+  const userId = req.user!.userId;
+  const result = await service.getMyShowcase(userId);
+  res.json(result);
+}
+
+export async function updateMyShowcase(req: Request, res: Response) {
+  const userId = req.user!.userId;
+  const slots = req.body?.slots;
+  const result = await service.updateMyShowcase(userId, slots);
+  res.json(result);
+}
+
+export async function getFriendShowcase(req: Request, res: Response) {
+  const { friendId } = req.params;
+  const result = await service.getFriendShowcase(Number(friendId));
   res.json(result);
 }

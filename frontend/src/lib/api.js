@@ -117,6 +117,9 @@ export const adminAPI = {
   createAward: (formData) => apiClient('/admin/awards', { method: 'POST', body: formData }),
   updateAward: (id, formData) => apiClient(`/admin/awards/${id}`, { method: 'PUT', body: formData }),
   deleteAward: (id) => apiClient(`/admin/awards/${id}`, { method: 'DELETE' }),
+  listGifts: () => apiClient('/admin/gifts', { method: 'GET' }),
+  createGift: (formData) => apiClient('/admin/gifts', { method: 'POST', body: formData }),
+  deleteGift: (id) => apiClient(`/admin/gifts/${id}`, { method: 'DELETE' }),
   grantAward: (userId, awardId) =>
     apiClient(`/admin/users/${userId}/awards`, { method: 'POST', body: JSON.stringify({ award_id: awardId }) }),
   revokeAward: (userId, awardId) =>
@@ -352,4 +355,10 @@ export const socialAPI = {
   revokeHonorFromMaster: (friendId) => apiClient(`/social/profile/${friendId}/honor`, { method: 'DELETE' }),
   getFriendCharacters: (friendId) => apiClient(`/social/profile/${friendId}/characters`),
   getFriendFavorites: (friendId) => apiClient(`/social/profile/${friendId}/favorites`),
+  getFriendFriends: (friendId) => apiClient(`/social/profile/${friendId}/friends`),
+  getGiftShop: () => apiClient('/social/gifts/shop', { method: 'GET' }),
+  giftToUser: (friendId, giftId) => apiClient(`/social/profile/${friendId}/gifts`, { method: 'POST', body: JSON.stringify({ gift_id: giftId }) }),
+  getMyShowcase: () => apiClient('/social/me/showcase', { method: 'GET' }),
+  updateMyShowcase: (slots) => apiClient('/social/me/showcase', { method: 'PUT', body: JSON.stringify({ slots }) }),
+  getFriendShowcase: (friendId) => apiClient(`/social/profile/${friendId}/showcase`, { method: 'GET' }),
 };

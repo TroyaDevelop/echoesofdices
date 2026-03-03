@@ -107,6 +107,7 @@ export async function ensureRuntimeSchema(): Promise<void> {
   await safeQuery('ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_status VARCHAR(160)', []);
   await safeQuery('ALTER TABLE users ADD COLUMN IF NOT EXISTS hide_character_sheets TINYINT(1) NOT NULL DEFAULT 0', []);
   await safeQuery('ALTER TABLE users ADD COLUMN IF NOT EXISTS hide_favorite_spells TINYINT(1) NOT NULL DEFAULT 0', []);
+  await safeQuery('ALTER TABLE users ADD COLUMN IF NOT EXISTS hide_friends TINYINT(1) NOT NULL DEFAULT 0', []);
   await safeQuery('ALTER TABLE users ADD COLUMN IF NOT EXISTS last_seen_at TIMESTAMP NULL DEFAULT NULL', []);
 
   await query(
@@ -158,6 +159,26 @@ export async function ensureRuntimeSchema(): Promise<void> {
   await query(
     'CREATE TABLE IF NOT EXISTS user_awards (id INT PRIMARY KEY AUTO_INCREMENT, user_id INT NOT NULL, award_id INT NOT NULL, granted_by INT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, UNIQUE KEY uniq_user_award (user_id, award_id), INDEX idx_user_awards_user (user_id), FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE, FOREIGN KEY (award_id) REFERENCES awards(id) ON DELETE CASCADE, FOREIGN KEY (granted_by) REFERENCES users(id) ON DELETE SET NULL)',
     []
+  );
+
+  await query(
+    'CREATE TABLE IF NOT EXISTS gifts_catalog (id INT PRIMARY KEY AUTO_INCREMENT, name VARCHAR(200) NOT NULL, description TEXT, image_url VARCHAR(500), price_free_morale INT NOT NULL DEFAULT 0, is_active TINYINT(1) NOT NULL DEFAULT 1, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP)',
+    []
+  );
+
+  await query(
+    'CREATE TABLE IF NOT EXISTS user_gifts (id BIGINT PRIMARY KEY AUTO_INCREMENT, owner_user_id INT NOT NULL, gift_id INT NOT NULL, from_user_id INT NULL, cost_free_morale INT NOT NULL DEFAULT 0, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, INDEX idx_user_gifts_owner (owner_user_id), INDEX idx_user_gifts_from_user (from_user_id), FOREIGN KEY (owner_user_id) REFERENCES users(id) ON DELETE CASCADE, FOREIGN KEY (gift_id) REFERENCES gifts_catalog(id) ON DELETE CASCADE, FOREIGN KEY (from_user_id) REFERENCES users(id) ON DELETE SET NULL)',
+    []
+  );
+
+  await query(
+    'CREATE TABLE IF NOT EXISTS user_gift_showcase_slots (user_id INT NOT NULL, slot_index TINYINT NOT NULL, user_gift_id BIGINT NULL, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, PRIMARY KEY (user_id, slot_index), UNIQUE KEY uniq_showcase_user_gift (user_id, user_gift_id), FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE, FOREIGN KEY (user_gift_id) REFERENCES user_gifts(id) ON DELETE SET NULL)',
+    []
+  );
+
+  await safeQuery(
+    'DELETE FROM gifts_catalog WHERE name IN (?, ?)',
+    ['echoesroses8march', 'Букет Echoes of Times']
   );
 
   await query(

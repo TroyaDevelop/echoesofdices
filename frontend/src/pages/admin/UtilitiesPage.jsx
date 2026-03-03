@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import AdminLayout from '../../components/admin/AdminLayout.jsx';
 import AwardsPanel from '../../components/admin/awards/AwardsPanel.jsx';
+import GiftsPanel from '../../components/admin/gifts/GiftsPanel.jsx';
 import SpellClassesPanel from '../../components/admin/spells/SpellClassesPanel.jsx';
 import SpellSchoolsPanel from '../../components/admin/spells/SpellSchoolsPanel.jsx';
 import { loreAPI, sourcesAPI, spellClassesAPI, spellSchoolsAPI } from '../../lib/api.js';
@@ -297,6 +298,8 @@ export default function AdminUtilitiesPage() {
           />
 
           <AwardsPanel />
+
+          <GiftsPanel />
         </div>
       </div>
     </AdminLayout>

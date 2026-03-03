@@ -70,6 +70,26 @@ export async function revokeAward(userId: number, awardId: number) {
   return query<any>('DELETE FROM user_awards WHERE user_id = ? AND award_id = ?', [userId, awardId]);
 }
 
+export async function listGifts() {
+  return query<any[]>('SELECT * FROM gifts_catalog ORDER BY created_at DESC', []);
+}
+
+export async function insertGift(name: string, description: string | null, imageUrl: string | null, priceFreeMorale: number) {
+  return query<any>(
+    'INSERT INTO gifts_catalog (name, description, image_url, price_free_morale, is_active) VALUES (?, ?, ?, ?, 1)',
+    [name, description, imageUrl, priceFreeMorale]
+  );
+}
+
+export async function findGiftById(id: number) {
+  const rows = await query<any[]>('SELECT * FROM gifts_catalog WHERE id = ? LIMIT 1', [id]);
+  return rows && rows[0];
+}
+
+export async function deleteGift(id: number) {
+  return query<any>('DELETE FROM gifts_catalog WHERE id = ?', [id]);
+}
+
 export async function unlockUserById(id: number) {
   return query<any>('UPDATE users SET is_blocked = 0, failed_login_attempts = 0, blocked_at = NULL WHERE id = ?', [id]);
 }
